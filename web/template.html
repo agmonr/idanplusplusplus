@@ -1,50 +1,94 @@
 <title>מדריך הערוצים — עידן+</title>
 <style>
+  /*
+   * Palette ported from govapiportal (agmonr.github.io/govapiportal) so this
+   * page reads as part of the same site family: forest-green chrome as the
+   * default ("יום"/clouds), an opt-in near-black/gold night look
+   * ("לילה"/fashion), and an opt-in strict black/white look ("זברה"/zebra).
+   * Status colors (--ok/--danger) deliberately stay close to constant across
+   * themes, same as the source - they carry meaning, not mood.
+   */
   :root {
-    --bg: #f2f4f4;
+    --bg: #f2f7ee;
     --surface: #ffffff;
-    --surface-2: #eaeeed;
-    --border: #dde2e1;
-    --text: #10181a;
-    --text-dim: #5b6b69;
-    --accent: #d94a1f;
-    --accent-soft: rgba(217, 74, 31, .10);
-    --ok: #1f9d6b;
-    --ok-soft: rgba(31, 157, 107, .12);
-    --danger: #c93b3b;
-    --danger-soft: rgba(201, 59, 59, .12);
+    --surface-2: #eaf3e6;
+    --border: #dfe9d8;
+    --text: #24331f;
+    --text-dim: #5b6f56;
+    --accent: #2e7d46;
+    --accent-soft: rgba(46, 125, 70, .10);
+    --ok: #4caf50;
+    --ok-soft: rgba(76, 175, 80, .12);
+    --danger: #e05353;
+    --danger-soft: rgba(224, 83, 83, .12);
     --a11y: #6a4fc9;
     --a11y-soft: rgba(106, 79, 201, .12);
-    --shadow: 0 1px 2px rgba(16, 24, 26, .06), 0 8px 24px -12px rgba(16, 24, 26, .18);
+    --header-grad: linear-gradient(135deg, #1b5e34, #2e7d46 60%, #4caf50);
+    --shadow: 0 1px 2px rgba(27, 94, 52, .10), 0 8px 24px -12px rgba(27, 94, 52, .22);
     color-scheme: light;
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg: #0e1113; --surface: #171b1d; --surface-2: #1f2427; --border: #2a3033;
-      --text: #eef1f0; --text-dim: #97a3a1; --accent: #ef5a2c; --accent-soft: rgba(239, 90, 44, .16);
-      --ok: #34c98f; --ok-soft: rgba(52, 201, 143, .14);
-      --danger: #ef4b4b; --danger-soft: rgba(239, 75, 75, .16);
+      /* govapiportal's own "deepened forest" - not the separate opt-in
+         night theme below, just this same palette darkened. */
+      --bg: #0f1c13; --surface: #142018; --surface-2: #17251b; --border: #24382a;
+      --text: #e6f0e1; --text-dim: #9db393; --accent: #5fce8f; --accent-soft: rgba(95, 206, 143, .16);
+      --ok: #3f9a5c; --ok-soft: rgba(63, 154, 92, .16);
+      --danger: #f2766b; --danger-soft: rgba(242, 118, 107, .16);
       --a11y: #a48cf0; --a11y-soft: rgba(164, 140, 240, .18);
+      --header-grad: linear-gradient(135deg, #123a24, #1d5c34 60%, #3f9a5c);
       --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 12px 32px -16px rgba(0, 0, 0, .6);
       color-scheme: dark;
     }
   }
+  /* Compatibility with the Artifact viewer's own light/dark toggle (two
+     values only: "dark"/"light") - honored so the platform contract still
+     holds even though this page's OWN picker below uses three different
+     values (clouds/fashion/zebra) for the same attribute. Last write wins:
+     our picker's explicit choice (persisted in localStorage, re-applied
+     before paint) takes priority over a platform toggle made earlier. */
   :root[data-theme="dark"] {
-    --bg: #0e1113; --surface: #171b1d; --surface-2: #1f2427; --border: #2a3033;
-    --text: #eef1f0; --text-dim: #97a3a1; --accent: #ef5a2c; --accent-soft: rgba(239, 90, 44, .16);
-    --ok: #34c98f; --ok-soft: rgba(52, 201, 143, .14);
-    --danger: #ef4b4b; --danger-soft: rgba(239, 75, 75, .16);
+    --bg: #0f1c13; --surface: #142018; --surface-2: #17251b; --border: #24382a;
+    --text: #e6f0e1; --text-dim: #9db393; --accent: #5fce8f; --accent-soft: rgba(95, 206, 143, .16);
+    --ok: #3f9a5c; --ok-soft: rgba(63, 154, 92, .16);
+    --danger: #f2766b; --danger-soft: rgba(242, 118, 107, .16);
     --a11y: #a48cf0; --a11y-soft: rgba(164, 140, 240, .18);
+    --header-grad: linear-gradient(135deg, #123a24, #1d5c34 60%, #3f9a5c);
     --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 12px 32px -16px rgba(0, 0, 0, .6);
     color-scheme: dark;
   }
-  :root[data-theme="light"] {
-    --bg: #f2f4f4; --surface: #ffffff; --surface-2: #eaeeed; --border: #dde2e1;
-    --text: #10181a; --text-dim: #5b6b69; --accent: #d94a1f; --accent-soft: rgba(217, 74, 31, .10);
-    --ok: #1f9d6b; --ok-soft: rgba(31, 157, 107, .12);
-    --danger: #c93b3b; --danger-soft: rgba(201, 59, 59, .12);
+  :root[data-theme="light"], :root[data-theme="clouds"] {
+    --bg: #f2f7ee; --surface: #ffffff; --surface-2: #eaf3e6; --border: #dfe9d8;
+    --text: #24331f; --text-dim: #5b6f56; --accent: #2e7d46; --accent-soft: rgba(46, 125, 70, .10);
+    --ok: #4caf50; --ok-soft: rgba(76, 175, 80, .12);
+    --danger: #e05353; --danger-soft: rgba(224, 83, 83, .12);
     --a11y: #6a4fc9; --a11y-soft: rgba(106, 79, 201, .12);
-    --shadow: 0 1px 2px rgba(16, 24, 26, .06), 0 8px 24px -12px rgba(16, 24, 26, .18);
+    --header-grad: linear-gradient(135deg, #1b5e34, #2e7d46 60%, #4caf50);
+    --shadow: 0 1px 2px rgba(27, 94, 52, .10), 0 8px 24px -12px rgba(27, 94, 52, .22);
+    color-scheme: light;
+  }
+  /* "לילה" (night) - opt-in near-black/gold, distinct from the plain OS-dark
+     media query above. */
+  :root[data-theme="fashion"] {
+    --bg: #0d0b08; --surface: #221c12; --surface-2: #18140d; --border: #3c3320;
+    --text: #f3ecdc; --text-dim: #b7a67f; --accent: #ddb44f; --accent-soft: rgba(221, 180, 79, .14);
+    --ok: #4caf50; --ok-soft: rgba(76, 175, 80, .14);
+    --danger: #d2685a; --danger-soft: rgba(210, 104, 90, .16);
+    --a11y: #a48cf0; --a11y-soft: rgba(164, 140, 240, .16);
+    --header-grad: #0d0b08;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 12px 32px -16px rgba(0, 0, 0, .7);
+    color-scheme: dark;
+  }
+  /* "זברה" - strict black/white/gray, no hue anywhere (status colors are the
+     one deliberate exception, same reasoning as the source). */
+  :root[data-theme="zebra"] {
+    --bg: #ffffff; --surface: #ffffff; --surface-2: #f0f0f0; --border: #cfcfcf;
+    --text: #111111; --text-dim: #5c5c5c; --accent: #111111; --accent-soft: rgba(17, 17, 17, .08);
+    --ok: #4caf50; --ok-soft: rgba(76, 175, 80, .12);
+    --danger: #a30000; --danger-soft: rgba(163, 0, 0, .12);
+    --a11y: #444444; --a11y-soft: rgba(68, 68, 68, .12);
+    --header-grad: #000000;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .10), 0 8px 24px -12px rgba(0, 0, 0, .22);
     color-scheme: light;
   }
 
@@ -52,12 +96,62 @@
   html, body { margin: 0; padding: 0; }
   body {
     background: var(--bg); color: var(--text);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Arial Hebrew", "Helvetica Neue", Arial, sans-serif;
+    font: 16px/1.55 system-ui, "Segoe UI", "Arial Hebrew", Arial, sans-serif;
     -webkit-font-smoothing: antialiased;
   }
   .mono { font-family: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace; font-variant-numeric: tabular-nums; }
 
   .app { direction: rtl; max-width: 980px; margin: 0 auto; padding: 0 20px 120px; }
+
+  /* ---------- header.site: ported from govapiportal ---------- */
+  header.site {
+    border-radius: 18px; margin: 16px 0 20px;
+    background: var(--header-grad);
+    box-shadow: var(--shadow);
+    color: #fff;
+  }
+  header.site .wrap {
+    padding: 1.1rem 20px;
+    display: flex; align-items: baseline; flex-wrap: wrap; gap: .4rem 1rem;
+  }
+  header.site h1 { font-size: 1.05rem; margin: 0; color: #fff; font-weight: 800; }
+  header.site a { color: #eafbe7; text-decoration: none; font-size: .82rem; }
+  header.site a:hover { color: #fff; }
+  header.site .site-by { display: flex; flex-direction: column; gap: 2px; font-size: .76rem; color: #d7ecd2; }
+  header.site .site-disclaimer { font-size: .68rem; opacity: .85; }
+  header.site .meta { color: #d7ecd2; font-size: 11px; }
+
+  .theme-pick { display: flex; gap: 6px; margin-inline-start: auto; }
+  .theme-pick button {
+    font-size: 11px; padding: 5px 9px; border-radius: 999px; cursor: pointer;
+    background: rgba(255,255,255,.15); color: #eafbe7; border: 1px solid rgba(255,255,255,.35);
+  }
+  .theme-pick button[aria-pressed="true"] { background: #fff; color: #1b5e34; border-color: #fff; font-weight: 700; }
+  @media (max-width: 640px) { .theme-pick .theme-btn-label { display: none; } }
+
+  /* Fashion (night): a flat panel reads better than a bright forest gradient
+     on a near-black page. Zebra: solid black with a striped band along the
+     bottom edge, matching the source's literal zebra-stripe treatment. */
+  :root[data-theme="fashion"] header.site { color: var(--text); }
+  :root[data-theme="fashion"] header.site h1,
+  :root[data-theme="fashion"] header.site a { color: var(--text); }
+  :root[data-theme="fashion"] header.site .site-by,
+  :root[data-theme="fashion"] header.site .meta { color: var(--text-dim); }
+  :root[data-theme="fashion"] header.site .theme-pick button {
+    background: var(--surface-2); color: var(--text); border-color: var(--border);
+  }
+  :root[data-theme="fashion"] header.site .theme-pick button[aria-pressed="true"] {
+    background: var(--accent); color: #1a1408; border-color: var(--accent);
+  }
+  :root[data-theme="zebra"] header.site {
+    position: relative; border-radius: 0; margin-inline: 0; box-shadow: none;
+    padding-block-end: 10px;
+  }
+  :root[data-theme="zebra"] header.site::after {
+    content: ""; position: absolute; inset-inline: 0; inset-block-end: 0; block-size: 8px;
+    background: repeating-linear-gradient(135deg, #fff 0 12px, #000 12px 24px);
+  }
+  :root[data-theme="zebra"] header.site a { text-decoration: underline; }
 
   .topbar {
     position: sticky; top: 0; z-index: 20;
@@ -66,13 +160,6 @@
     border-bottom: 1px solid var(--border);
     padding: 16px 0 14px; margin-bottom: 20px;
   }
-  .titlerow { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
-  .brand { display: flex; align-items: baseline; gap: 10px; }
-  .brand .dot {
-    width: 10px; height: 10px; border-radius: 50%; background: var(--accent);
-    box-shadow: 0 0 0 4px var(--accent-soft); display: inline-block; transform: translateY(-1px);
-  }
-  h1 { font-size: 20px; font-weight: 800; letter-spacing: -.01em; margin: 0; text-wrap: balance; }
   .meta { font-size: 12px; color: var(--text-dim); }
 
   .pagetabs { display: flex; gap: 6px; margin-top: 14px; }
@@ -301,16 +388,32 @@
   }
 </style>
 
-<div class="app" dir="rtl" lang="he">
-  <header class="topbar">
-    <div class="titlerow">
-      <div class="brand">
-        <span class="dot" aria-hidden="true"></span>
-        <h1>מדריך הערוצים — עידן+</h1>
-      </div>
-      <div class="meta">עודכן <span class="mono" id="generated-at" dir="ltr"></span></div>
-    </div>
+<script>
+  // Applies a saved theme choice before the app markup below renders, same
+  // "no flash of the wrong theme on reload" reasoning as govapiportal's own
+  // head script. See initThemePicker() further down for the click-handling
+  // half of this.
+  try {
+    var _t = localStorage.getItem("idanplus.theme.v1");
+    if (_t) document.documentElement.setAttribute("data-theme", _t);
+  } catch (e) {}
+</script>
 
+<div class="app" dir="rtl" lang="he">
+  <header class="site">
+    <div class="wrap">
+      <h1>מדריך הערוצים — עידן+</h1>
+      <span class="site-by">כלי נלווה לתוסף Kodi עידן+<span class="site-disclaimer">קישורי השידור עלולים להשתנות או להיות שגויים</span><a href="https://agmonr.github.io/govapiportal/" target="_blank" rel="noopener">← חזרה לכל האפליקציות</a></span>
+      <div class="theme-pick" id="themePick" role="group" aria-label="ערכת נושא">
+        <button type="button" data-theme="clouds">☀️<span class="theme-btn-label"> יום</span></button>
+        <button type="button" data-theme="fashion">🌙<span class="theme-btn-label"> לילה</span></button>
+        <button type="button" data-theme="zebra">🦓<span class="theme-btn-label"> זברה</span></button>
+      </div>
+      <span class="meta">עודכן <span class="mono" id="generated-at" dir="ltr"></span></span>
+    </div>
+  </header>
+
+  <header class="topbar">
     <div class="pagetabs" role="tablist" aria-label="בחירת עמוד">
       <button class="pagetab" data-page="tv" role="tab">טלוויזיה</button>
       <button class="pagetab" data-page="radio" role="tab">רדיו</button>
@@ -419,6 +522,8 @@
   var LS_A11Y = "idanplus.accessibility.v1";
   var LS_PAGE = "idanplus.lastPage.v1";
   var LS_UI = "idanplus.ui.v1";
+  var LS_THEME = "idanplus.theme.v1";
+  var LS_MANUAL_SOURCE = "idanplus.manualSource.v1";
 
   function lsGet(key, fallback) {
     try { var raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : fallback; }
@@ -428,8 +533,38 @@
     try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {}
   }
 
+  // ---------- theme picker (ported from govapiportal's src/theme.js) ----------
+  // Three looks (יום/לילה/זברה - clouds/fashion/zebra, see the :root[data-theme=...]
+  // blocks in <style> above). An explicit pick always sets data-theme (even
+  // "clouds") so it pins the palette regardless of OS color-scheme - a page
+  // with no saved choice has no attribute and just follows prefers-color-scheme.
+  // The pre-paint half of this (applying a saved choice before first render)
+  // is the small inline <script> right after </style>.
+  function currentTheme() {
+    return document.documentElement.getAttribute("data-theme") || "clouds";
+  }
+  function initThemePicker(root) {
+    if (!root) return;
+    var sync = function () {
+      var active = currentTheme();
+      root.querySelectorAll("button[data-theme]").forEach(function (b) {
+        b.setAttribute("aria-pressed", String(b.getAttribute("data-theme") === active));
+      });
+    };
+    root.querySelectorAll("button[data-theme]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        var choice = b.getAttribute("data-theme");
+        document.documentElement.setAttribute("data-theme", choice);
+        lsSet(LS_THEME, choice);
+        sync();
+      });
+    });
+    sync();
+  }
+
   var saved = lsGet(LS_SAVED, { tv: [], radio: [] });
   var a11yOn = lsGet(LS_A11Y, { tv: [], radio: [] });
+  var manualSource = lsGet(LS_MANUAL_SOURCE, { tv: {}, radio: {} }); // page -> { groupKey: candidateId }
   var ui = lsGet(LS_UI, {
     tv: { filter: "ok", search: "" },
     radio: { filter: "ok", search: "" }
@@ -438,7 +573,8 @@
   var state = {
     page: lsGet(LS_PAGE, "tv"),
     selected: new Set(),
-    smartPicks: {}   // groupKey -> { candidateId, label, testing }
+    // groupKey -> { testing, results: [{id,label,ms}] sorted fastest-first, bestId }
+    smartPicks: {}
   };
   if (state.page !== "tv" && state.page !== "radio") state.page = "tv";
 
@@ -449,6 +585,7 @@
     } catch (e) { return iso; }
   }
   document.getElementById("generated-at").textContent = fmtGeneratedAt(DATA.generatedAt);
+  initThemePicker(document.getElementById("themePick"));
 
   function escapeHtml(s) {
     return String(s == null ? "" : s).replace(/[&<>"']/g, function (m) {
@@ -849,7 +986,7 @@
   // Radio has no curated order defined, so plain arrows there fall back to
   // the full-list mode.
   var CURATED_ORDER = {
-    tv: ["כאן 11", "קשת 12", "רשת 13", "כאן חינוכית 23", "מכאן 33", "כנסת 99", "ערוץ 9", "עכשיו 14", "ערוץ 16"],
+    tv: ["כאן 11", "קשת 12", "רשת 13", "כאן חינוכית 23", "מכאן 33", "כנסת 99", "ערוץ 9", "ערוץ 16"],
   };
 
   function switchChannel(delta, mode) {
