@@ -359,16 +359,12 @@
     display: flex; align-items: center; justify-content: center; font-size: 12px;
     pointer-events: none;
   }
-  /* A per-broadcaster colored monogram badge (own design, not a copy of any
-     real network logo) - shown until the live single-frame preview above
-     loads in, then hidden. Color comes from --badge-color (set inline per
-     card, see moduleBadge() in the script below) so this one rule serves
-     every module. */
+  /* Full-bleed "reconnecting" placeholder card (own design, not a copy of
+     any real network's on-air look) - drawn on this <canvas> per channel by
+     drawChannelPlaceholder() in the script below, shown until the live
+     single-frame preview loads in, then hidden. */
   .row-thumb-placeholder {
-    width: 52px; height: 52px; border-radius: 12px;
-    display: flex; align-items: center; justify-content: center;
-    background: var(--badge-color, var(--text-dim)); color: #fff;
-    font-size: 15px; font-weight: 800; letter-spacing: .01em;
+    position: absolute; inset: 0; width: 100%; height: 100%; display: block;
   }
   .row-thumb-play {
     position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
@@ -772,6 +768,68 @@
   };
   var DEFAULT_BADGE = { color: "#5b6f56", label: "TV" };
   function moduleBadge(module) { return MODULE_BADGE[module] || DEFAULT_BADGE; }
+
+  function shadeColor(hex, percent) {
+    var n = parseInt(hex.slice(1), 16);
+    var r = (n >> 16) & 0xff, g = (n >> 8) & 0xff, b = n & 0xff;
+    var f = percent < 0 ? 0 : 255, p = Math.abs(percent) / 100;
+    r = Math.round((f - r) * p + r); g = Math.round((f - g) * p + g); b = Math.round((f - b) * p + b);
+    return "rgb(" + r + "," + g + "," + b + ")";
+  }
+
+  // Own-design "reconnecting" placeholder, in the vein of a US broadcast
+  // network's on-air standby/loading card - not a copy of any real
+  // channel's look. Drawn once per row onto its <canvas data-role
+  // ="placeholder"> right after insertion, replacing what used to be a
+  // small centered monogram badge with a full-bleed graphic bearing the
+  // channel's own Hebrew name.
+  function drawChannelPlaceholder(canvas, group) {
+    var ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    var w = canvas.width, h = canvas.height;
+    var accent = moduleBadge(group.module).color;
+
+    var grad = ctx.createLinearGradient(0, 0, w, h);
+    grad.addColorStop(0, "#0b0b0d");
+    grad.addColorStop(1, shadeColor(accent, -55));
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, w, h);
+
+    // faint scanlines - a broadcast-y texture, not a literal SMPTE bar copy
+    ctx.globalAlpha = 0.06;
+    ctx.fillStyle = "#ffffff";
+    for (var y = 0; y < h; y += 3) ctx.fillRect(0, y, w, 1);
+    ctx.globalAlpha = 1;
+
+    // lower-third accent bar, channel's own module color
+    var barH = h * 0.07;
+    ctx.fillStyle = accent;
+    ctx.fillRect(0, h - barH, w, barH);
+
+    // "מתחברים" (connecting) label
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = shadeColor(accent, 55);
+    ctx.font = "700 " + Math.round(h * 0.095) + "px 'Segoe UI', Arial, sans-serif";
+    ctx.fillText("מתחברים", w / 2, h * 0.32);
+
+    // channel name, the main focal point - shrink to fit long names
+    var size = h * 0.165;
+    var name = group.name;
+    ctx.fillStyle = "#ffffff";
+    do {
+      ctx.font = "800 " + Math.round(size) + "px 'Segoe UI', Arial, sans-serif";
+      size -= 2;
+    } while (ctx.measureText(name).width > w * 0.88 && size > h * 0.06);
+    ctx.fillText(name, w / 2, h * 0.56);
+
+    // small corner "bug" - module abbreviation, classic broadcast placement
+    // (bottom corner, clear of the accent bar)
+    ctx.textAlign = "right";
+    ctx.font = "700 " + Math.round(h * 0.065) + "px 'Segoe UI', Arial, sans-serif";
+    ctx.fillStyle = "rgba(255,255,255,.55)";
+    ctx.fillText(moduleBadge(group.module).label, w * 0.96, h - barH - h * 0.035);
+  }
 
   var LS_SAVED = "idanplus.saved.v1";
   var LS_A11Y = "idanplus.accessibility.v1";
@@ -1450,7 +1508,7 @@
     return (
       '<div class="row' + (isSel ? " is-selected" : "") + (isBroken ? " is-broken" : "") + '" data-key="' + escapeHtml(group.key) + '">' +
         '<div class="row-thumb" data-role="thumb" tabindex="0" role="button" aria-label="נגן את ' + escapeHtml(group.name) + '">' +
-          '<div class="row-thumb-placeholder" data-role="placeholder" style="--badge-color:' + moduleBadge(group.module).color + '">' + escapeHtml(moduleBadge(group.module).label) + "</div>" +
+          '<canvas class="row-thumb-placeholder" data-role="placeholder" width="480" height="270"></canvas>' +
           '<img data-role="thumb-img" alt=""' + (cached ? ' class="is-loaded" src="' + cached + '"' : "") + " />" +
           '<div class="row-thumb-corner">' +
             '<button type="button" class="starbtn' + (isSaved ? " is-saved" : "") + '" aria-label="שמור" aria-pressed="' + isSaved + '">' + (isSaved ? "★" : "☆") + "</button>" +
@@ -1499,6 +1557,8 @@
     Array.prototype.forEach.call(list.querySelectorAll(".row"), function (row) {
       var key = row.getAttribute("data-key");
       var group = groups().filter(function (g) { return g.key === key; })[0];
+      var placeholder = row.querySelector('[data-role="placeholder"]');
+      if (placeholder) drawChannelPlaceholder(placeholder, group);
       var pick = row.querySelector(".pickbox");
       if (pick) pick.addEventListener("change", function (e) { toggleSelect(group, e.target.checked); });
       var star = row.querySelector(".starbtn");
