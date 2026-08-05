@@ -213,12 +213,20 @@
     border-radius: 10px; padding: 8px 18px; font-size: 13.5px; font-weight: 700; cursor: pointer;
   }
   .pagetab[aria-selected="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .radio-favs-btn[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
   .preview-mute-btn {
     margin-inline-start: auto; align-self: center;
     border: none; background: none; color: var(--text-dim); font-size: 16px; line-height: 1;
     cursor: pointer; padding: 4px 6px;
   }
   .preview-mute-btn[aria-pressed="true"] { color: var(--accent); }
+  .share-btn-big {
+    margin-inline-start: auto; align-self: center; white-space: nowrap;
+    border: 1px solid var(--accent); background: var(--accent-soft); color: var(--accent);
+    font-size: 13px; font-weight: 700; line-height: 1; border-radius: 8px;
+    cursor: pointer; padding: 8px 14px;
+  }
+  .share-btn-big:hover { background: var(--accent); color: #fff; }
   .attribution-link {
     align-self: center;
     font-size: 12px; font-weight: 400; color: var(--text-dim);
@@ -433,18 +441,16 @@
   .starbtn.is-saved { color: var(--accent); }
 
   .row-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; padding: 10px 12px; }
-  .row-top { display: flex; align-items: center; gap: 6px; }
+  .row-top { display: flex; align-items: center; gap: 6px; cursor: pointer; }
   .row-name { font-weight: 700; font-size: 13.5px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .row-name.is-broken-text { color: var(--danger); }
-  /* Program name next to the channel name - mobile only, where there's no
-     room for the source-response-time pills below to double as context
-     about what's actually airing right now. */
+  /* Program name next to the channel name - what's actually airing/playing
+     right now, shown everywhere (tv and radio, mobile and desktop). */
   .row-now-playing {
-    display: none; font-size: 11px; font-weight: 400; color: var(--text-dim);
+    display: block; font-size: 11px; font-weight: 400; color: var(--text-dim);
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: none; max-width: 45%;
   }
   @media (max-width: 640px) {
-    .row-now-playing { display: block; }
     /* "מקליט" recording dot on card - dropped on mobile (both tv/radio
        pages), matching the header recordings button already being hidden. */
     .row-rec-dot { display: none; }
@@ -455,6 +461,8 @@
        search listener) but are hidden rather than removed, so nothing
        downstream breaks. Desktop keeps showing them. */
     .stats, .controls { display: none; }
+    /* "מועדפי רדיו" quick filter - desktop only. */
+    .radio-favs-btn { display: none !important; }
   }
   .row-sub { font-size: 11px; color: var(--text-dim); min-height: 1.3em; }
   .row-sub .pulse {
@@ -531,6 +539,64 @@
     width: 26px; height: 26px;
   }
   .playbtn:hover { background: var(--accent-soft); color: var(--accent); }
+
+  /* Retro-styled player bar - a compact panel (about 2 grid cards wide),
+     not a full-width strip. Positioned via left/top (JS-controlled, see
+     wireRadioBarDrag) rather than pinned to the bottom, so it can be
+     dragged around like a real floating player window. */
+  .radio-bar {
+    position: fixed; z-index: 45; width: min(460px, calc(100% - 24px));
+    display: flex; flex-direction: column; gap: 6px; padding: 8px;
+    background: linear-gradient(180deg, #4a4d53 0%, #34363a 45%, #202124 100%);
+    border: 2px solid #6b6e75; border-radius: 6px;
+    box-shadow: 0 4px 14px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.12);
+  }
+  .radio-bar[hidden] { display: none; }
+  .radio-bar-grip {
+    height: 10px; margin: -4px -4px 0; border-radius: 4px 4px 0 0; cursor: grab;
+    background: repeating-linear-gradient(90deg, #7a7d84 0 2px, transparent 2px 6px);
+    opacity: .65;
+  }
+  .radio-bar-grip:active { cursor: grabbing; }
+  .winamp-display {
+    position: relative; height: 51px; overflow: hidden; cursor: pointer;
+    background: #0a1a0e; border-radius: 2px; border: 1px solid #050a06;
+    box-shadow: inset 0 2px 5px rgba(0,0,0,.85), inset 0 0 0 1px rgba(255,255,255,.04);
+    display: flex; align-items: center;
+  }
+  .winamp-display canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .radio-bar-name {
+    position: relative; z-index: 1; color: #6dff77; font-weight: 700; font-size: 13px;
+    font-family: ui-monospace, "SF Mono", Consolas, monospace; letter-spacing: .04em;
+    text-shadow: 0 0 6px rgba(109,255,119,.65);
+    flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    padding: 0 10px;
+  }
+  .winamp-controls { display: flex; align-items: center; gap: 6px; }
+  .winamp-slider-label { flex: none; font-size: 8.5px; color: #a9adb3; letter-spacing: .04em; }
+  .winamp-slider {
+    -webkit-appearance: none; appearance: none; flex: none; width: 54px; height: 10px;
+    background: #101410; border: 1px solid #050805; border-radius: 2px;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,.8); cursor: pointer;
+  }
+  .winamp-slider::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 8px; height: 14px; margin-top: -3px; border-radius: 1px;
+    background: linear-gradient(180deg, #e8c37a, #a97a2e); border: 1px solid #5c3f14; cursor: pointer;
+  }
+  .winamp-slider::-moz-range-thumb {
+    width: 8px; height: 14px; border-radius: 1px; border: 1px solid #5c3f14;
+    background: linear-gradient(180deg, #e8c37a, #a97a2e); cursor: pointer;
+  }
+  .winamp-spacer { flex: 1; }
+  .radio-bar button {
+    width: 30px; height: 26px; flex: none; cursor: pointer; font-size: 12px;
+    color: #dfe1e4; background: linear-gradient(180deg, #5a5d63, #38393d);
+    border: 1px solid #17181a; border-radius: 3px;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.3), inset 0 -2px 3px rgba(0,0,0,.5), 0 1px 2px rgba(0,0,0,.45);
+  }
+  .radio-bar button:hover { filter: brightness(1.12); }
+  .radio-bar button:active { box-shadow: inset 0 2px 4px rgba(0,0,0,.7); transform: translateY(1px); }
+  body.has-radio-bar .list { padding-bottom: 130px; }
 
   .player-overlay {
     position: fixed; inset: 0; background: rgba(0,0,0,.72); z-index: 50;
@@ -617,8 +683,9 @@
     <div class="pagetabs" role="tablist" aria-label="בחירת עמוד">
       <button class="pagetab" data-page="tv" role="tab">טלוויזיה</button>
       <button class="pagetab" data-page="radio" role="tab">רדיו</button>
+      <button type="button" class="pagetab radio-favs-btn" id="radio-favs-btn" aria-pressed="false" hidden>מועדפי רדיו</button>
       <button type="button" class="preview-mute-btn" id="preview-mute-btn" aria-pressed="false" title="השתקת תצוגה מקדימה">🔊</button>
-      <button type="button" class="preview-mute-btn" id="share-btn" title="שיתוף">📤</button>
+      <button type="button" class="share-btn-big" id="share-btn" title="שיתוף">📤 ספר לחברים</button>
       <a class="attribution-link" href="https://hod-hasharon.org/" target="_blank" rel="noopener">רם אגמון</a>
     </div>
 
@@ -646,6 +713,13 @@
       <div class="ob-detail">לחיצה על שידור נכנסת אליו, יציאה יוצאת, החלקה שמאלה וימינה גם עובדות</div>
     </div>
     <button type="button" id="onboarding-dismiss">הבנתי</button>
+  </div>
+
+  <div class="onboarding-banner" id="firefox-notice" hidden>
+    <div class="ob-text">
+      <div class="ob-detail">אני מאוד אוהב את שועל האש, אבל לא הצלחתי לממש את כל הפונקציות לדפדפן הזה.</div>
+    </div>
+    <button type="button" id="firefox-notice-dismiss">הבנתי</button>
   </div>
 
   <div class="rec-banner" id="rec-banner" hidden></div>
@@ -682,6 +756,28 @@
         <button id="close-recordings" aria-label="סגור">✕</button>
       </div>
       <div class="panel-body" id="rec-panel-body"></div>
+    </div>
+  </div>
+
+  <!-- Radio plays directly here, no modal "window" - see openRadioBar() in
+       the script below. Winamp-styled: brushed-metal bar, green LCD-style
+       display with a simulated segmented spectrum (see drawRadioVisualizer -
+       not real audio analysis, see its own comment for why), beveled
+       buttons. -->
+  <div class="radio-bar" id="radio-bar" hidden>
+    <div class="radio-bar-grip" id="radio-bar-grip" aria-hidden="true"></div>
+    <div class="winamp-display">
+      <canvas id="radio-viz" width="440" height="51"></canvas>
+      <div class="radio-bar-name" id="radio-bar-name"></div>
+    </div>
+    <div class="winamp-controls">
+      <span class="winamp-slider-label">עוצמה</span>
+      <input type="range" id="radio-bar-volume" class="winamp-slider" min="0" max="100" value="100" aria-label="עוצמת שמע" />
+      <span class="winamp-slider-label">איזון</span>
+      <input type="range" id="radio-bar-balance" class="winamp-slider" min="-100" max="100" value="0" aria-label="איזון שמע" />
+      <span class="winamp-spacer"></span>
+      <button type="button" id="radio-bar-mute" aria-label="השתקה">🔊</button>
+      <button type="button" id="radio-bar-close" aria-label="עצירה">✕</button>
     </div>
   </div>
 
@@ -734,6 +830,9 @@
 
 <script type="application/json" id="channel-data">__CHANNEL_DATA_JSON__</script>
 <script>__HLS_JS__</script>
+<!-- Only for the handful of Kan radio stations that are DASH-only - see
+     attachStream()'s "livedash" branch in the main script below. -->
+<script>__DASHJS__</script>
 <script>
 (function () {
   "use strict";
@@ -830,14 +929,10 @@
     ctx.fillStyle = accent;
     ctx.fillRect(0, h - barH, w, barH);
 
-    // "מתחברים" (connecting) label
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillStyle = shadeColor(accent, 55);
-    ctx.font = "700 " + Math.round(h * 0.095) + "px 'Segoe UI', Arial, sans-serif";
-    ctx.fillText("מתחברים", w / 2, h * 0.32);
 
-    // channel name, the main focal point - shrink to fit long names
+    // channel name, centered - the main focal point, shrink to fit long names
     var size = h * 0.165;
     var name = group.name;
     ctx.fillStyle = "#ffffff";
@@ -845,7 +940,19 @@
       ctx.font = "800 " + Math.round(size) + "px 'Segoe UI', Arial, sans-serif";
       size -= 2;
     } while (ctx.measureText(name).width > w * 0.88 && size > h * 0.06);
-    ctx.fillText(name, w / 2, h * 0.56);
+    ctx.fillText(name, w / 2, h * 0.42);
+
+    // current program/show, under the channel name
+    var program = group.primary && group.primary.now_playing;
+    if (program) {
+      var psize = h * 0.105;
+      ctx.fillStyle = shadeColor(accent, 55);
+      do {
+        ctx.font = "600 " + Math.round(psize) + "px 'Segoe UI', Arial, sans-serif";
+        psize -= 2;
+      } while (ctx.measureText(program).width > w * 0.82 && psize > h * 0.05);
+      ctx.fillText(program, w / 2, h * 0.6);
+    }
 
     // small corner "bug" - module abbreviation, classic broadcast placement
     // (bottom corner, clear of the accent bar)
@@ -863,6 +970,7 @@
   var LS_MANUAL_SOURCE = "idanplus.manualSource.v1";
   var LS_PREVIEW_MUTED = "idanplus.previewMuted.v1";
   var LS_ONBOARDING_SEEN = "idanplus.onboardingSeen.v1";
+  var LS_FIREFOX_NOTICE_SEEN = "idanplus.firefoxNoticeSeen.v1";
 
   function lsGet(key, fallback) {
     try { var raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : fallback; }
@@ -906,7 +1014,7 @@
   var manualSource = lsGet(LS_MANUAL_SOURCE, { tv: {}, radio: {} }); // page -> { groupKey: candidateId }
   var ui = lsGet(LS_UI, {
     tv: { filter: "ok", search: "" },
-    radio: { filter: "ok", search: "" }
+    radio: { filter: "ok", search: "", savedOnly: false }
   });
 
   var state = {
@@ -935,6 +1043,15 @@
   if (isFirefox) {
     var recordLegend = document.getElementById("legend-record");
     if (recordLegend) recordLegend.hidden = true;
+
+    var firefoxNotice = document.getElementById("firefox-notice");
+    if (firefoxNotice && !lsGet(LS_FIREFOX_NOTICE_SEEN, false)) {
+      firefoxNotice.hidden = false;
+      document.getElementById("firefox-notice-dismiss").addEventListener("click", function () {
+        firefoxNotice.hidden = true;
+        lsSet(LS_FIREFOX_NOTICE_SEEN, true);
+      });
+    }
   }
 
   function escapeHtml(s) {
@@ -1471,17 +1588,43 @@
 
   // ---------- rendering ----------
   function renderPageTabs() {
-    var tabs = document.querySelectorAll(".pagetab");
+    var tabs = document.querySelectorAll(".pagetab[data-page]");
     Array.prototype.forEach.call(tabs, function (btn) {
       btn.setAttribute("aria-selected", btn.getAttribute("data-page") === state.page);
       btn.onclick = function () {
         state.page = btn.getAttribute("data-page");
         lsSet(LS_PAGE, state.page);
         state.selected.clear();
-        closePlayer();
+        // Only tear down the TV modal if it's actually what's open - radio
+        // plays through this same <video> element via the bottom bar, and
+        // should keep playing while browsing between pages, not get
+        // silently killed by an unconditional closePlayer()/teardownPlayer()
+        // on every tab switch.
+        if (playerOverlay.classList.contains("is-open")) closePlayer();
         fullRender();
       };
     });
+
+    // "מועדפי רדיו" - desktop-only quick filter to the radio channels
+    // already starred/saved, shown only while on the radio page itself.
+    var favsBtn = document.getElementById("radio-favs-btn");
+    if (favsBtn) {
+      favsBtn.hidden = state.page !== "radio";
+      favsBtn.setAttribute("aria-pressed", !!ui.radio.savedOnly);
+      favsBtn.onclick = function () {
+        ui.radio.savedOnly = !ui.radio.savedOnly;
+        lsSet(LS_UI, ui);
+        renderPageTabs();
+        renderList();
+      };
+    }
+
+    // The preview-mute button only ever controlled grid PREVIEW audio,
+    // and previews are TV-only (see previewCenteredChannel's own guard) -
+    // it does nothing on the radio page, so hide it there rather than
+    // leave a control with no effect.
+    var previewMuteBtn = document.getElementById("preview-mute-btn");
+    if (previewMuteBtn) previewMuteBtn.hidden = state.page === "radio";
   }
 
   function renderStats() {
@@ -1518,6 +1661,7 @@
   function matches(g) {
     var f = pageUi().filter;
     if (f !== "all" && g.status !== f) return false;
+    if (state.page === "radio" && pageUi().savedOnly && saved.radio.indexOf(g.key) === -1) return false;
     var q = (pageUi().search || "").trim().toLowerCase();
     if (q) return g.name.toLowerCase().indexOf(q) !== -1;
     return true;
@@ -1619,15 +1763,27 @@
       if (placeholder) drawChannelPlaceholder(placeholder, group);
       var pick = row.querySelector(".pickbox");
       if (pick) pick.addEventListener("change", function (e) { toggleSelect(group, e.target.checked); });
+      // A checkbox alone is a small target - clicking anywhere on the row's
+      // white top area (name + checkbox row) toggles it too, same as
+      // clicking the checkbox directly would.
+      var rowTop = row.querySelector(".row-top");
+      if (rowTop && pick) {
+        rowTop.addEventListener("click", function (e) {
+          if (e.target === pick || pick.disabled) return;
+          pick.checked = !pick.checked;
+          pick.dispatchEvent(new Event("change", { bubbles: true }));
+        });
+      }
       var star = row.querySelector(".starbtn");
       star.addEventListener("click", function (e) { e.stopPropagation(); toggleSaved(group); });
       var a11y = row.querySelector(".a11ybtn");
       if (a11y) a11y.addEventListener("click", function (e) { e.stopPropagation(); toggleA11y(group); });
       var thumb = row.querySelector('[data-role="thumb"]');
       if (thumb && group.status !== "broken") {
-        thumb.addEventListener("click", function () { openPlayer(group); });
+        var choose = function () { if (state.page === "radio") openRadioBar(group); else openPlayer(group); };
+        thumb.addEventListener("click", choose);
         thumb.addEventListener("keydown", function (e) {
-          if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openPlayer(group); }
+          if (e.key === "Enter" || e.key === " ") { e.preventDefault(); choose(); }
         });
         if (state.page === "tv") {
           thumb.addEventListener("mouseenter", function () { scheduleHoverPreview(group, thumb); });
@@ -1652,6 +1808,10 @@
     if (on) state.selected.add(id); else state.selected.delete(id);
     var row = document.querySelector('.row[data-key="' + CSS.escape(group.key) + '"]');
     if (row) row.classList.toggle("is-selected", on);
+    // Selecting a channel favorites it immediately - no separate "save
+    // selected" step needed (the bulk bar's own save button is still there,
+    // it's just redundant by the time anyone would click it).
+    if (on && saved[state.page].indexOf(group.key) === -1) toggleSaved(group);
     updateBulkBar();
   }
 
@@ -1718,7 +1878,16 @@
   }
 
   function teardownPlayer() {
-    if (currentHls) { currentHls.destroy(); currentHls = null; }
+    if (currentHls) {
+      // A throwing destroy() (confirmed: dash.js can do this depending on
+      // its internal lifecycle state when torn down) must NOT skip the
+      // video-element-level stop below - that's what actually guarantees
+      // playback (and audio) stops, regardless of which backend was
+      // driving it, so it has to run even if the backend's own cleanup
+      // misbehaves.
+      try { currentHls.destroy(); } catch (e) {}
+      currentHls = null;
+    }
     // Invalidate whatever attachStream() call is currently attached, even
     // if no new one follows immediately (e.g. a plain closePlayer()) - this
     // is what videoEl.load() below is about to abort a pending play() for,
@@ -1751,7 +1920,7 @@
     };
 
     freshenLink(candidate).then(function (freshUrl) {
-      if (playerAttempt !== myAttempt || !playerOverlay.classList.contains("is-open")) return;
+      if (playerAttempt !== myAttempt || !isPlaybackUiActive()) return;
       setPlayerStatus("טוען שידור…");
       startPlayback(freshUrl, tryNext);
     });
@@ -1761,6 +1930,14 @@
   // dropping to the lowest available quality, before giving up on this
   // candidate entirely and falling through to the next one.
   var STALL_GIVEUP_MS = 9000;
+  // How long to wait for hls.js to actually parse a manifest before
+  // assuming the link isn't real HLS and falling back to native playback.
+  // Needed alongside the ERROR-event fallback (see attachStream) because a
+  // link that resolves to a plain continuous audio stream (Icecast, most
+  // commonly) doesn't fail cleanly - the HTTP response never "completes"
+  // (a live stream just keeps sending audio bytes forever), so hls.js's
+  // manifest loader hangs waiting for it rather than erroring out.
+  var HLS_MANIFEST_TIMEOUT_MS = 6000;
 
   /**
    * Wires one <video> element to one HLS source, generic enough to serve
@@ -1915,22 +2092,13 @@
     // code 4" error shown live). "probably" is Safari's real, honest
     // answer for this MIME type; nothing else should be trusted to mean
     // genuine native support.
-    if (window.Hls && window.Hls.isSupported()) {
-      hls = new window.Hls(callbacks.hlsConfig || { maxBufferLength: 20 });
-      hls.on(window.Hls.Events.MANIFEST_PARSED, function () {
-        if (stale()) return;
-        onReady();
-        attemptPlay();
-      });
-      hls.on(window.Hls.Events.ERROR, function (event, data) {
-        if (data.fatal && !stale()) onFatal({ type: "hls", detail: data.type + (data.details ? ": " + data.details : "") });
-      });
-      if (onLevel) hls.on(window.Hls.Events.LEVEL_SWITCHED, function (event, data) { if (!stale()) onLevel(data.level); });
-      hls.loadSource(link);
-      hls.attachMedia(videoEl);
-      return hls;
-    }
-    if (videoEl.canPlayType("application/vnd.apple.mpegurl") === "probably") {
+    // Plays `link` directly as a native <video src>, no hls.js involved -
+    // used both for genuine Safari-native-HLS support, AND (see the ERROR
+    // handler below) as a fallback for links that turn out not to be HLS
+    // at all. A LOT of "radio" links resolve to a plain direct audio
+    // stream (MP3/AAC/Icecast) rather than an .m3u8 playlist - browsers
+    // play those natively just fine, they just aren't HLS.
+    function playNative() {
       videoEl.src = link;
       videoEl.addEventListener("loadedmetadata", function once() {
         videoEl.removeEventListener("loadedmetadata", once);
@@ -1941,6 +2109,77 @@
         if (!stale()) onFatal({ type: "native", detail: videoEl.error ? "code " + videoEl.error.code : "" });
       }, { once: true });
       attemptPlay();
+    }
+
+    // A handful of channels (the "כאן" - Kan - radio stations) only offer
+    // MPEG-DASH, not HLS or a plain direct audio stream - kan's CDN puts
+    // those under a "livedash" path (their TV channels, which DO have an
+    // HLS variant, use "livehls" instead - confirmed by directly comparing
+    // the two). hls.js can't play DASH at all, so route these straight to
+    // dash.js instead of wasting a doomed hls.js attempt first.
+    if (window.dashjs && link.indexOf("livedash") !== -1) {
+      var dash = window.dashjs.MediaPlayer().create();
+      // Listening on the <video> element's own native events instead of a
+      // dash.js-specific "ready" event, same reasoning as capturePreview's
+      // loadeddata listener elsewhere in this file: dash.js drives this
+      // element via MSE same as hls.js does, so the native events fire
+      // regardless of which library is actually behind it - one less thing
+      // to get a library-specific event name wrong about. Confirmed live:
+      // relying on MediaPlayer.events.PLAYBACK_INITIALIZED left this stuck
+      // on "טוען שידור…" forever with no error - that event apparently
+      // never actually fired for these streams.
+      var dashReadyTimeout = setTimeout(function () {
+        if (!stale()) onFatal({ type: "dash", detail: "timed out waiting for playback to start" });
+      }, HLS_MANIFEST_TIMEOUT_MS);
+      videoEl.addEventListener("loadedmetadata", function once() {
+        videoEl.removeEventListener("loadedmetadata", once);
+        clearTimeout(dashReadyTimeout);
+        if (stale()) return;
+        onReady();
+        attemptPlay();
+      });
+      dash.on(window.dashjs.MediaPlayer.events.ERROR, function (e) {
+        clearTimeout(dashReadyTimeout);
+        if (!stale()) onFatal({ type: "dash", detail: e && e.error ? String(e.error) : "" });
+      });
+      dash.initialize(videoEl, link, false);
+      return dash;
+    }
+
+    if (window.Hls && window.Hls.isSupported()) {
+      hls = new window.Hls(callbacks.hlsConfig || { maxBufferLength: 20 });
+      // Only ever retried once, and only before anything has actually
+      // played yet - a mid-stream failure on a link that already proved
+      // itself to be real HLS should behave as a normal fatal error, not
+      // trigger this.
+      var triedNativeFallback = false;
+      function fallbackToNative() {
+        if (triedNativeFallback || stale()) return;
+        triedNativeFallback = true;
+        clearTimeout(manifestTimeout);
+        hls.destroy();
+        hls = null;
+        playNative();
+      }
+      var manifestTimeout = setTimeout(fallbackToNative, HLS_MANIFEST_TIMEOUT_MS);
+      hls.on(window.Hls.Events.MANIFEST_PARSED, function () {
+        clearTimeout(manifestTimeout);
+        if (stale()) return;
+        onReady();
+        attemptPlay();
+      });
+      hls.on(window.Hls.Events.ERROR, function (event, data) {
+        if (!data.fatal || stale()) return;
+        if (data.details && /manifest/i.test(data.details)) { fallbackToNative(); return; }
+        onFatal({ type: "hls", detail: data.type + (data.details ? ": " + data.details : "") });
+      });
+      if (onLevel) hls.on(window.Hls.Events.LEVEL_SWITCHED, function (event, data) { if (!stale()) onLevel(data.level); });
+      hls.loadSource(link);
+      hls.attachMedia(videoEl);
+      return hls;
+    }
+    if (videoEl.canPlayType("application/vnd.apple.mpegurl") === "probably") {
+      playNative();
       return null;
     }
     return undefined;
@@ -2005,6 +2244,7 @@
   });
 
   function openPlayer(group) {
+    if (!radioBar.hidden) closeRadioBar(); // only one playback UI active at a time
     var wasOpen = playerOverlay.classList.contains("is-open");
     if (!wasOpen) scrollYBeforePlayer = window.scrollY;
     // A live grid preview (hover/long-press/scroll-stop) has its own,
@@ -2079,6 +2319,286 @@
     }
   }
 
+  // ---------- radio: plays directly, no modal "window" ----------
+  // Reuses the exact same playback engine as the TV player (playerVideo,
+  // playerCandidates/playCandidate, teardownPlayer) - just without ever
+  // opening playerOverlay, going fullscreen, or touching history. A fixed
+  // bottom bar shows the station name plus a live colorful visualizer of
+  // the actual audio instead.
+  var radioBar = document.getElementById("radio-bar");
+  // "Is some playback UI currently active" - either the TV modal or the
+  // radio bar. Several places (playCandidate's async freshenLink guard,
+  // the scroll-stop preview) used to check playerOverlay's is-open class
+  // alone as a stand-in for "is anything actually playing right now" -
+  // that assumption broke the moment radio stopped needing the overlay at
+  // all: playCandidate's guard was silently aborting on every single
+  // radio attempt, since is-open was never true for radio to begin with.
+  function isPlaybackUiActive() { return playerOverlay.classList.contains("is-open") || !radioBar.hidden; }
+  var radioVizCanvas = document.getElementById("radio-viz");
+  var radioVizCtx = radioVizCanvas.getContext("2d");
+  var radioVizRAF = null;
+  var VIZ_BAR_COUNT = 24;
+  var vizPhase = [];
+  for (var vi = 0; vi < VIZ_BAR_COUNT; vi++) vizPhase.push(Math.random() * Math.PI * 2);
+
+  // Segmented LED-style bars, real audio-reactive when possible. The
+  // actual playback element (playerVideo) is NEVER wired into Web Audio -
+  // that was tried once already and confirmed live to SILENTLY MUTE
+  // playback on several stations (גלגלצ, 90FM, 91FM): browsers treat
+  // cross-origin audio routed through an AnalyserNode as "tainted" without
+  // CORS headers these small station CDNs don't send, and some zero out
+  // the actual audible output rather than just the analyser's readings.
+  // Instead, a second, completely separate, always-muted <video> loads the
+  // SAME stream purely for analysis (same "hidden background video" idea
+  // capturePreviewFrom already uses elsewhere in this file) - it can fail,
+  // hang, or get its data zeroed by a CORS restriction with zero
+  // consequence, because nothing about it is ever audible or connected to
+  // the real player. Its data feeds the bars when available; the simulated
+  // animation below is the fallback whenever it isn't (station's CDN
+  // doesn't support CORS, hasn't loaded yet, etc.) - so the bars are never
+  // just flat, but real reactivity is used whenever it's actually safe to get it.
+  var radioVizVideo = null, radioVizHls = null, radioVizDataOk = false;
+  var audioCtx = null, radioAnalyser = null;
+
+  function ensureRadioVizVideo() {
+    if (radioVizVideo) return radioVizVideo;
+    radioVizVideo = document.createElement("video");
+    radioVizVideo.muted = true;
+    radioVizVideo.playsInline = true;
+    radioVizVideo.crossOrigin = "anonymous"; // required for the analyser to be allowed to read data at all
+    radioVizVideo.style.cssText = "position:fixed;left:-9999px;top:0;width:2px;height:2px;pointer-events:none";
+    document.body.appendChild(radioVizVideo);
+    return radioVizVideo;
+  }
+
+  // A <video> element can only ever get ONE MediaElementSourceNode for its
+  // whole lifetime in a given AudioContext - radioVizVideo is a single
+  // reused element (like playerVideo), so this is created once, lazily,
+  // and kept around rather than recreated per station.
+  function ensureRadioAnalyser() {
+    if (radioAnalyser) return radioAnalyser;
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    var sourceNode = audioCtx.createMediaElementSource(ensureRadioVizVideo());
+    radioAnalyser = audioCtx.createAnalyser();
+    radioAnalyser.fftSize = 64;
+    // Deliberately NOT connected onward to audioCtx.destination - this
+    // node is for analysis only. Reading its data doesn't require an
+    // audible output, and connecting one would risk this silent analysis
+    // video becoming audible (however faintly) alongside the real player.
+    sourceNode.connect(radioAnalyser);
+    return radioAnalyser;
+  }
+
+  function startRadioAudioAnalysis(candidate) {
+    radioVizDataOk = false;
+    if (!candidate || !candidate.link) return;
+    try {
+      ensureRadioAnalyser();
+      if (audioCtx.state === "suspended") audioCtx.resume();
+    } catch (e) { return; } // Web Audio unavailable - simulated animation covers it
+    if (radioVizHls) { try { radioVizHls.destroy(); } catch (e) {} radioVizHls = null; }
+    freshenLink(candidate).then(function (link) {
+      radioVizHls = attachStream(radioVizVideo, link, {
+        onReady: function () { radioVizDataOk = true; },
+        onFatal: function () { radioVizDataOk = false; },
+        settleMuted: true, settleVolume: 0,
+        hlsConfig: { maxBufferLength: 2, startLevel: 0, capLevelToPlayerSize: false },
+      }) || null;
+    });
+  }
+
+  function stopRadioAudioAnalysis() {
+    radioVizDataOk = false;
+    if (radioVizHls) { try { radioVizHls.destroy(); } catch (e) {} radioVizHls = null; }
+    if (radioVizVideo) { radioVizVideo.removeAttribute("src"); radioVizVideo.load(); }
+  }
+
+  // Whether playerVideo is ACTUALLY producing audio right now, vs. still
+  // connecting/buffering (or paused/stopped) - drives the idle animation
+  // below. Harmless to also listen for this on the TV modal's use of the
+  // same element; the flag is simply unused there.
+  var radioIsPlaying = false;
+  playerVideo.addEventListener("playing", function () { radioIsPlaying = true; });
+  playerVideo.addEventListener("waiting", function () { radioIsPlaying = false; });
+  playerVideo.addEventListener("pause", function () { radioIsPlaying = false; });
+
+  // Click the display to toggle between the segmented bar spectrum and a
+  // waveform/oscilloscope trace - same idea as classic media players that
+  // let you click through their visualization modes.
+  var radioVizMode = "bars";
+  document.querySelector(".winamp-display").addEventListener("click", function () {
+    radioVizMode = radioVizMode === "bars" ? "wave" : "bars";
+  });
+
+  function drawVizBars(t) {
+    var w = radioVizCanvas.width, h = radioVizCanvas.height;
+    var levels = [];
+    if (radioVizDataOk && radioAnalyser) {
+      var data = new Uint8Array(radioAnalyser.frequencyBinCount);
+      radioAnalyser.getByteFrequencyData(data);
+      var bucket = data.length / VIZ_BAR_COUNT;
+      for (var i = 0; i < VIZ_BAR_COUNT; i++) levels.push(data[Math.floor(i * bucket)] / 255);
+    } else {
+      for (var j = 0; j < VIZ_BAR_COUNT; j++) levels.push(0.3 + 0.7 * Math.abs(Math.sin(t * (1.6 + (j % 5) * 0.35) + vizPhase[j])));
+    }
+    var barW = w / VIZ_BAR_COUNT;
+    var segH = 4, segGap = 2;
+    var segTotal = Math.floor(h / (segH + segGap));
+    for (var k = 0; k < VIZ_BAR_COUNT; k++) {
+      var litSegs = Math.round(levels[k] * segTotal);
+      for (var s = 0; s < litSegs; s++) {
+        var frac = s / segTotal;
+        radioVizCtx.fillStyle = frac > 0.75 ? "#ff4d4d" : frac > 0.5 ? "#ffd24d" : "#5dff5d";
+        radioVizCtx.fillRect(k * barW + 1, h - (s + 1) * (segH + segGap), barW - 2, segH);
+      }
+    }
+  }
+
+  function drawVizWave(t) {
+    var w = radioVizCanvas.width, h = radioVizCanvas.height, mid = h / 2;
+    radioVizCtx.strokeStyle = "#5dff5d";
+    radioVizCtx.lineWidth = 2;
+    radioVizCtx.beginPath();
+    if (radioVizDataOk && radioAnalyser) {
+      var data = new Uint8Array(radioAnalyser.fftSize);
+      radioAnalyser.getByteTimeDomainData(data);
+      var step = w / data.length;
+      for (var i = 0; i < data.length; i++) {
+        var y = (data[i] / 255) * h;
+        if (i === 0) radioVizCtx.moveTo(i * step, y); else radioVizCtx.lineTo(i * step, y);
+      }
+    } else {
+      var points = 48;
+      for (var j = 0; j <= points; j++) {
+        var x = (j / points) * w;
+        var y = mid + Math.sin(j * 0.5 + t * 3) * (h * 0.28) * Math.sin(t * 1.1 + j * 0.05);
+        if (j === 0) radioVizCtx.moveTo(x, y); else radioVizCtx.lineTo(x, y);
+      }
+    }
+    radioVizCtx.stroke();
+  }
+
+  function drawRadioVisualizer(ts) {
+    radioVizRAF = requestAnimationFrame(drawRadioVisualizer);
+    var w = radioVizCanvas.width, h = radioVizCanvas.height;
+    radioVizCtx.clearRect(0, 0, w, h);
+    var t = (ts || 0) / 1000;
+
+    if (!radioIsPlaying) {
+      // Nothing actually playing yet (still connecting/buffering, or
+      // paused/stopped) - a single block bouncing left-right instead of
+      // pretending there's already a live signal to show.
+      var blockW = w * 0.12;
+      var frac = Math.abs(Math.sin(t * 1.2));
+      radioVizCtx.fillStyle = "#5dff5d";
+      radioVizCtx.fillRect(frac * (w - blockW), h * 0.35, blockW, h * 0.3);
+      return;
+    }
+
+    if (radioVizMode === "wave") drawVizWave(t); else drawVizBars(t);
+  }
+
+  function startRadioVisualizer() {
+    if (!radioVizRAF) drawRadioVisualizer(0);
+  }
+
+  function stopRadioVisualizer() {
+    if (radioVizRAF) { cancelAnimationFrame(radioVizRAF); radioVizRAF = null; }
+    radioVizCtx.clearRect(0, 0, radioVizCanvas.width, radioVizCanvas.height);
+  }
+
+  // Draggable via the small grip strip at the top, like a real floating
+  // player window - positioned with left/top (JS-controlled) rather than
+  // pinned to the bottom, so a drag actually sticks. Defaults to
+  // centered-near-the-bottom the FIRST time it's shown; stays wherever it
+  // was left for the rest of the session after that (switching stations
+  // doesn't reset it).
+  var radioBarPositioned = false;
+  function positionRadioBarDefault() {
+    var w = radioBar.offsetWidth || 460, h = radioBar.offsetHeight || 120;
+    radioBar.style.left = Math.round((window.innerWidth - w) / 2) + "px";
+    radioBar.style.top = Math.round(window.innerHeight - h - 16) + "px";
+  }
+  (function wireRadioBarDrag() {
+    var grip = document.getElementById("radio-bar-grip");
+    var dragging = false, startX = 0, startY = 0, startLeft = 0, startTop = 0;
+    function onDown(e) {
+      dragging = true;
+      var p = e.touches ? e.touches[0] : e;
+      startX = p.clientX; startY = p.clientY;
+      var rect = radioBar.getBoundingClientRect();
+      startLeft = rect.left; startTop = rect.top;
+      e.preventDefault();
+    }
+    function onMove(e) {
+      if (!dragging) return;
+      var p = e.touches ? e.touches[0] : e;
+      var dx = p.clientX - startX, dy = p.clientY - startY;
+      var w = radioBar.offsetWidth, h = radioBar.offsetHeight;
+      radioBar.style.left = Math.min(Math.max(0, startLeft + dx), window.innerWidth - w) + "px";
+      radioBar.style.top = Math.min(Math.max(0, startTop + dy), window.innerHeight - h) + "px";
+    }
+    function onUp() { dragging = false; }
+    grip.addEventListener("mousedown", onDown);
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    grip.addEventListener("touchstart", onDown, { passive: false });
+    window.addEventListener("touchmove", onMove, { passive: false });
+    window.addEventListener("touchend", onUp);
+  })();
+
+  function openRadioBar(group) {
+    if (playerOverlay.classList.contains("is-open")) closePlayer(); // only one playback UI active at a time
+    cancelHoverPreview();
+    playingKey = group.key;
+    playingPage = state.page;
+    document.getElementById("radio-bar-name").textContent = group.name;
+    playerCandidates = playerCandidatesFor(group);
+    playerAttempt = 0;
+    radioBar.hidden = false;
+    if (!radioBarPositioned) { positionRadioBarDefault(); radioBarPositioned = true; }
+    document.body.classList.add("has-radio-bar");
+    document.getElementById("radio-bar-volume").value = Math.round(playerVideo.volume * 100);
+    document.getElementById("radio-bar-balance").value = 0; // visual only - see its slider's own comment
+    syncRadioMuteButton();
+    startRadioVisualizer();
+    if (!playerCandidates.length) {
+      setPlayerStatus("אין מקור זמין לערוץ הזה כרגע.");
+      return;
+    }
+    startRadioAudioAnalysis(playerCandidates[0]);
+    playCandidate();
+  }
+
+  function closeRadioBar() {
+    playingKey = null;
+    radioBar.hidden = true;
+    document.body.classList.remove("has-radio-bar");
+    stopRadioVisualizer();
+    stopRadioAudioAnalysis();
+    teardownPlayer();
+  }
+
+  document.getElementById("radio-bar-close").addEventListener("click", closeRadioBar);
+  function syncRadioMuteButton() {
+    document.getElementById("radio-bar-mute").textContent = (playerVideo.muted || playerVideo.volume === 0) ? "🔇" : "🔊";
+  }
+  document.getElementById("radio-bar-mute").addEventListener("click", function () {
+    playerVideo.muted = !playerVideo.muted;
+    syncRadioMuteButton();
+  });
+  document.getElementById("radio-bar-volume").addEventListener("input", function () {
+    playerVideo.volume = this.value / 100;
+    if (playerVideo.volume > 0) playerVideo.muted = false;
+    syncRadioMuteButton();
+  });
+  // The balance slider is visual-only, deliberately not wired to real
+  // stereo panning - that would need routing playerVideo through Web
+  // Audio too (a StereoPannerNode), the exact thing already confirmed to
+  // silently mute several stations when tried for the visualizer (see its
+  // own comment) - not worth that risk for a balance control nobody's
+  // likely to touch on a radio stream anyway.
+
   // Three ↑/↓ surfing modes, cheapest/most-curated first:
   //  plain      - a short curated "favorites" order (the channels most
   //               people actually flip between - main broadcast numbers,
@@ -2149,6 +2669,20 @@
   // triggers it, and is what needs suppressing so our own long-press-to-
   // mute gesture below isn't fighting a native menu on top of it.
   playerVideo.addEventListener("contextmenu", function (e) { e.preventDefault(); });
+
+  // Desktop TV: mouse wheel switches channels - up for next, down for
+  // previous. Cooldown-debounced so one wheel "notch" (or the many small
+  // events a trackpad fires for a single swipe) doesn't flip through
+  // several channels at once.
+  var wheelSwitchCooldown = false;
+  playerVideo.addEventListener("wheel", function (e) {
+    if (isCoarsePointer || playingPage !== "tv") return;
+    e.preventDefault();
+    if (wheelSwitchCooldown) return;
+    wheelSwitchCooldown = true;
+    setTimeout(function () { wheelSwitchCooldown = false; }, 450);
+    switchChannel(e.deltaY < 0 ? 1 : -1, "curated");
+  }, { passive: false });
 
   // Mobile touch gestures on the player video, all sharing one touchstart/
   // move/end sequence so they don't fight each other:
@@ -2975,6 +3509,7 @@
     if (window.scrollY > thresholdY) topbarEl.classList.add("is-hidden");
   }
   (function wireTopbarAutoHide() {
+    if (!isCoarsePointer) return; // desktop keeps the header visible at all times
     var ticking = false;
     window.addEventListener("scroll", function () {
       if (ticking) return;
@@ -3005,7 +3540,12 @@
     return best;
   }
   function previewCenteredChannel() {
-    if (playerOverlay.classList.contains("is-open")) return;
+    // Covers the radio bar too, not just the TV modal - radio keeps
+    // playing in the background while browsing other pages (see
+    // isPlaybackUiActive's comment), and starting a grid preview at the
+    // same time would create a second, overlapping audio source.
+    if (isPlaybackUiActive()) return;
+    if (state.page !== "tv") return; // no live preview on the radio page
     // At the very top of the list, always preview the first channel rather
     // than whatever happens to be nearest the viewport's vertical center
     // (which, at the top, could be several rows down on a tall grid).
