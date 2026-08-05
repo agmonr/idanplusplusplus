@@ -180,13 +180,6 @@
   }
   .meta { font-size: 12px; color: var(--text-dim); }
 
-  /* "Keep only טלוויזיה/רדיו in the header" - the stats row and the
-     search/filter/recordings/saved controls stay in the DOM (a large
-     amount of JS reads from them directly with no null-guards - renderStats,
-     renderFilters, updateRecUI, updateSavedCount, the search listener) but
-     are hidden rather than removed, so nothing downstream breaks. */
-  .stats, .controls { display: none; }
-
   .pagetabs { display: flex; gap: 6px; margin-top: 14px; }
   .pagetab {
     border: 1px solid var(--border); background: var(--surface); color: var(--text-dim);
@@ -396,6 +389,13 @@
     /* "מקליט" recording dot on card - dropped on mobile (both tv/radio
        pages), matching the header recordings button already being hidden. */
     .row-rec-dot { display: none; }
+    /* Mobile header keeps only טלוויזיה/רדיו + the attribution link - the
+       stats row and the search/filter/recordings/saved controls stay in the
+       DOM (a large amount of JS reads from them directly with no null-guards
+       - renderStats, renderFilters, updateRecUI, updateSavedCount, the
+       search listener) but are hidden rather than removed, so nothing
+       downstream breaks. Desktop keeps showing them. */
+    .stats, .controls { display: none; }
   }
   .row-sub { font-size: 11px; color: var(--text-dim); min-height: 1.3em; }
   .row-sub .pulse {
