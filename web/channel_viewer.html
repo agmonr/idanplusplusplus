@@ -1182,6 +1182,13 @@
     return new Promise(function (resolve) {
       var video = document.createElement("video");
       video.muted = true; video.playsInline = true;
+      // Best-effort guard against a tainted canvas on the toDataURL() call
+      // below - some browsers (reportedly Firefox, more so than Chrome) are
+      // stricter about treating MSE-backed video as cross-origin-tainted
+      // even though hls.js feeds it bytes via SourceBuffer rather than the
+      // browser's own cross-origin fetch path. Harmless if it isn't the
+      // actual cause here.
+      video.crossOrigin = "anonymous";
       video.style.cssText = "position:fixed;left:-10000px;top:0;width:320px;height:180px;pointer-events:none";
       document.body.appendChild(video);
 
@@ -1269,7 +1276,7 @@
   // whole point is getting picture up as quickly as possible.
   var HOVER_HLS_CONFIG = { maxBufferLength: 4, startLevel: 0, capLevelToPlayerSize: false };
   var HOVER_HLS_CONFIG_FAST = { maxBufferLength: 2, maxMaxBufferLength: 2, startLevel: 0, capLevelToPlayerSize: false, backBufferLength: 0 };
-  var hoverPreview = { timer: null, key: null, video: null, hls: null, spinner: null, thumb: null, muteBadge: null };
+  var hoverPreview = { timer: null, key: null, page: null, video: null, hls: null, spinner: null, thumb: null, muteBadge: null };
   // Header mute button (id="preview-mute-btn") toggles this - applies to
   // every preview (hover/long-press/scroll-stop) and persists across visits.
   var previewMuted = lsGet(LS_PREVIEW_MUTED, false);
@@ -1279,17 +1286,38 @@
     hoverPreview.timer = setTimeout(function () { startHoverPreview(group, thumb); }, HOVER_PREVIEW_DELAY_MS);
   }
 
+  // A live preview already has real, current pixels loaded by the time it
+  // ends - grab one more frame right before tearing it down and use it as
+  // the channel's new static snapshot, same as the dedicated background
+  // capture does, instead of leaving that to wait for the next periodic sweep.
+  function captureFrameFromHoverPreview() {
+    var video = hoverPreview.video;
+    if (!video || !video.videoWidth || !hoverPreview.page || !hoverPreview.key) return;
+    try {
+      var canvas = document.createElement("canvas");
+      canvas.width = 320; canvas.height = Math.round(320 * video.videoHeight / video.videoWidth);
+      canvas.getContext("2d").drawImage(video, 0, 0, canvas.width, canvas.height);
+      var dataUrl = canvas.toDataURL("image/jpeg", 0.6);
+      var cacheKey = hoverPreview.page + "::" + hoverPreview.key;
+      previewCache[cacheKey] = dataUrl;
+      savePreviewToStorage(cacheKey, dataUrl);
+      applyPreviewToDom(hoverPreview.page, hoverPreview.key, dataUrl);
+    } catch (ex) { /* tainted canvas or decode failure - just keep whatever snapshot already existed */ }
+  }
+
   function cancelHoverPreview() {
     if (hoverPreview.timer) { clearTimeout(hoverPreview.timer); hoverPreview.timer = null; }
     if (hoverPreview.spinner) { hoverPreview.spinner.remove(); hoverPreview.spinner = null; }
     if (hoverPreview.muteBadge) { hoverPreview.muteBadge.remove(); hoverPreview.muteBadge = null; }
     if (hoverPreview.video) {
+      captureFrameFromHoverPreview();
       if (hoverPreview.hls) hoverPreview.hls.destroy();
       hoverPreview.video.pause();
       hoverPreview.video.remove();
       hoverPreview.video = null;
       hoverPreview.hls = null;
       hoverPreview.key = null;
+      hoverPreview.page = null;
       hoverPreview.thumb = null;
     }
   }
@@ -1314,6 +1342,7 @@
   function startHoverPreview(group, thumb, opts) {
     opts = opts || {};
     hoverPreview.key = group.key;
+    hoverPreview.page = state.page;
     hoverPreview.thumb = thumb;
     var candidate = activeCandidate(group);
     if (!candidate || !candidate.link) return;
@@ -1401,8 +1430,11 @@
       clearTimeout(timer);
       if (longPressed) {
         e.preventDefault(); // suppress the synthetic click - releasing a long-press should NOT also open the player
-        saveSnapshot(group);
+        // cancelHoverPreview() first - it grabs one last frame from the just-
+        // playing preview and refreshes previewCache, so the snapshot this
+        // saves is that fresh frame rather than whatever was cached before.
         cancelHoverPreview();
+        saveSnapshot(group);
       }
       // else: a genuine short tap - let the click listener open the player as usual
     });
@@ -1915,6 +1947,7 @@
 
   var playingKey = null;
   var playingPage = null; // the page the CURRENT playingKey belongs to - state.page can change (page-tab switch) before closePlayer() runs, so this can't just be read from state.page there
+  var scrollYBeforePlayer = 0; // restored in closePlayer() - see the comment there
   var osdTimer = null;
   var osdEl = document.getElementById("player-osd");
 
@@ -1949,6 +1982,7 @@
 
   function openPlayer(group) {
     var wasOpen = playerOverlay.classList.contains("is-open");
+    if (!wasOpen) scrollYBeforePlayer = window.scrollY;
     playingKey = group.key;
     playingPage = state.page;
     document.getElementById("player-title").textContent = group.name;
@@ -1976,6 +2010,14 @@
     // the back gesture instead already triggered this from fullscreenchange,
     // where document.fullscreenElement is already null - a no-op here then).
     if (document.fullscreenElement) document.exitFullscreen();
+    // Exiting fullscreen on mobile shows the browser's address bar again,
+    // shrinking the viewport - which the browser "corrects" for by nudging
+    // the scroll position on its own, on top of whatever we set below. That
+    // lands after this synchronous handler runs, so re-assert the pre-
+    // player scroll position a beat later rather than immediately, or the
+    // browser's own adjustment (which is what caused the reported "list
+    // drops by about half a card" jump) would just win and override it.
+    setTimeout(function () { window.scrollTo(0, scrollYBeforePlayer); }, 60);
     // Closed via the X/Escape/click-outside (not via the back button
     // itself, which already consumed this entry through popstate) - pop
     // the history entry we pushed on open so it doesn't linger for a LATER
