@@ -291,7 +291,7 @@
 
   .row {
     display: flex; flex-direction: column;
-    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    background: var(--surface); border: 1px solid transparent; border-radius: 12px;
     overflow: hidden; transition: border-color .15s, background .15s, transform .15s;
   }
   .row.is-selected { border-color: var(--accent); background: var(--accent-soft); }
@@ -496,7 +496,12 @@
   .player-head h2 { font-size: 15px; margin: 0; font-weight: 700; }
   .player-head button { background: none; border: none; color: var(--text-dim); font-size: 20px; cursor: pointer; line-height: 1; }
   .player-video-wrap { position: relative; background: #000; aspect-ratio: 16 / 9; }
-  .player-video-wrap:fullscreen, .player-video-wrap:-webkit-full-screen {
+  /* Covers both cases: the video-wrap itself being the fullscreen element,
+     and the whole page/<html> being fullscreen with the wrap just a
+     descendant of it (see enterFullscreen() - it now prefers fullscreening
+     the whole browser, not just this element, when that's available). */
+  :fullscreen .player-video-wrap, .player-video-wrap:fullscreen,
+  :-webkit-full-screen .player-video-wrap, .player-video-wrap:-webkit-full-screen {
     aspect-ratio: auto; width: 100vw; height: 100vh;
   }
   .player-video-wrap video { width: 100%; height: 100%; display: block; background: #000; }
@@ -1128,13 +1133,14 @@
   // A quick static snapshot (above) is one thing; hovering longer gets an
   // actual short LIVE peek - real picture, not just a frozen frame - so
   // someone can tell what's actually airing right now without fully
-  // opening the player. Muted everywhere this is used (mouse hover, touch
-  // long-press, scroll-stop) - a picture-only peek, no surprise audio while
-  // scrolling or hovering across the grid. Debounced so a mouse just
-  // passing over the grid doesn't spin up a stream for every card it
-  // crosses, and only ever one at a time (starting a new one always tears
-  // down whatever was previously playing) to keep this from stacking up.
+  // opening the player - real picture AND a hint of audio, everywhere this
+  // is used (mouse hover, touch long-press, scroll-stop). Debounced so a
+  // mouse just passing over the grid doesn't spin up a stream for every
+  // card it crosses, and only ever one at a time (starting a new one
+  // always tears down whatever was previously playing) to keep this from
+  // stacking up.
   var HOVER_PREVIEW_DELAY_MS = 400;
+  var HOVER_PREVIEW_VOLUME = 0.15; // weak - a hint of audio, not a second audio source
   // Same lightweight profile as the snapshot capture - this is a preview
   // peek, not the main viewing experience, so the lowest rendition is
   // plenty and keeps hovering across the grid cheap. The "fast" variant
@@ -1191,20 +1197,37 @@
           if (hoverPreview.spinner) { hoverPreview.spinner.remove(); hoverPreview.spinner = null; }
         },
         onFatal: function () { if (hoverPreview.video === video) cancelHoverPreview(); },
-        settleMuted: true,
+        settleMuted: false,
+        settleVolume: HOVER_PREVIEW_VOLUME,
         hlsConfig: opts.fast ? HOVER_HLS_CONFIG_FAST : HOVER_HLS_CONFIG,
       }) || null;
     });
   }
 
+  // Saves whatever snapshot is already cached for this channel (the
+  // periodic-capture thumbnail, see previewCache above) as a JPEG download -
+  // reuses that cached frame rather than grabbing a fresh one, since it's
+  // already sitting there ready to go the moment a long-press fires.
+  function saveSnapshot(group) {
+    var dataUrl = previewCache[state.page + "::" + group.key];
+    if (!dataUrl) return; // nothing captured for this channel yet - nothing to save
+    var a = document.createElement("a");
+    a.href = dataUrl;
+    a.download = group.name + ".jpg";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }
+
   // Touch equivalent of hover: a short tap opens the full player (the
   // existing "click" listener already does that - taps fire a synthetic
   // click same as a mouse would), a LONG press instead starts the same live
-  // preview hovering does on desktop. The tricky part is telling them apart
-  // and stopping a long-press from ALSO opening the player once the finger
-  // lifts (browsers fire a synthetic click ~after touchend unless it's
-  // prevented) - and not mistaking a scroll gesture (finger moves) for a
-  // long press.
+  // preview hovering does on desktop AND saves a snapshot of the channel's
+  // cached thumbnail to the phone. The tricky part is telling a long press
+  // apart from a short tap and stopping it from ALSO opening the player
+  // once the finger lifts (browsers fire a synthetic click ~after touchend
+  // unless it's prevented) - and not mistaking a scroll gesture (finger
+  // moves) for a long press.
   var LONG_PRESS_MS = 450;
   var LONG_PRESS_MOVE_TOLERANCE = 10;
   function wireLongPress(thumb, group) {
@@ -1233,6 +1256,7 @@
       clearTimeout(timer);
       if (longPressed) {
         e.preventDefault(); // suppress the synthetic click - releasing a long-press should NOT also open the player
+        saveSnapshot(group);
         cancelHoverPreview();
       }
       // else: a genuine short tap - let the click listener open the player as usual
@@ -1946,8 +1970,14 @@
   function enterFullscreen() {
     if (document.fullscreenElement) return; // already there (e.g. switching channels mid-watch) - no need to re-request
     var wrap = playerVideo.closest(".player-video-wrap");
-    var target = wrap.requestFullscreen ? wrap : playerVideo;
-    target.requestFullscreen().then(function () {
+    var wrapTarget = wrap && wrap.requestFullscreen ? wrap : playerVideo;
+    // Prefer fullscreening the whole page/browser, not just the video's own
+    // box - hides every last bit of browser chrome, not only what's around
+    // the video. Falls back to just the video wrap when that's blocked
+    // (e.g. an embedding iframe without the fullscreen permission).
+    var root = document.documentElement;
+    var target = root && root.requestFullscreen ? root : wrapTarget;
+    var afterEnter = function () {
       // "Flip it on the side" - landscape suits a horizontal broadcast far
       // better than the portrait a phone opens in by default. Most browsers
       // only allow locking orientation while an element is actually
@@ -1955,7 +1985,11 @@
       if (window.screen && screen.orientation && screen.orientation.lock) {
         screen.orientation.lock("landscape").catch(function () {});
       }
-    }).catch(function () {});
+    };
+    target.requestFullscreen().then(afterEnter).catch(function () {
+      if (target === wrapTarget) return; // already tried the fallback target - nothing left to try
+      wrapTarget.requestFullscreen().then(afterEnter).catch(function () {});
+    });
   }
 
   function toggleFullscreen() {
@@ -2568,15 +2602,31 @@
   }
   wireGridKeyboardNav();
 
-  // ---------- topbar auto-hide on scroll ----------
+  // ---------- topbar auto-hide (scroll + timed) ----------
   // Hidden once scrolled past the 3rd channel card, brought back only by
   // scrolling all the way back to the top of the list (not just scrolling
-  // up a bit) - see the .topbar.is-hidden CSS transform.
+  // up a bit) - see the .topbar.is-hidden CSS transform. On top of that, it
+  // also hides itself after TOPBAR_TIMED_HIDE_MS even if you never scroll
+  // at all - restarted every time it becomes visible again.
   var topbarEl = document.querySelector(".topbar");
   var TOPBAR_HIDE_AFTER_INDEX = 2; // 0-indexed - hide once past the 3rd row
+  var TOPBAR_TIMED_HIDE_MS = 10000;
+  var topbarTimedHideTimer = null;
+  function scheduleTopbarTimedHide() {
+    if (topbarTimedHideTimer) clearTimeout(topbarTimedHideTimer);
+    topbarTimedHideTimer = setTimeout(function () {
+      if (topbarEl) topbarEl.classList.add("is-hidden");
+    }, TOPBAR_TIMED_HIDE_MS);
+  }
   function updateTopbarVisibility() {
     if (!topbarEl) return;
-    if (window.scrollY <= 1) { topbarEl.classList.remove("is-hidden"); return; }
+    if (window.scrollY <= 1) {
+      if (!topbarEl.classList.contains("is-hidden")) return; // already shown - don't restart its clock every scroll tick
+      topbarEl.classList.remove("is-hidden");
+      scheduleTopbarTimedHide();
+      return;
+    }
+    if (topbarTimedHideTimer) { clearTimeout(topbarTimedHideTimer); topbarTimedHideTimer = null; }
     var rows = document.querySelectorAll("#list .row");
     var thresholdRow = rows[TOPBAR_HIDE_AFTER_INDEX];
     if (!thresholdRow) return;
@@ -2590,6 +2640,7 @@
       ticking = true;
       requestAnimationFrame(function () { updateTopbarVisibility(); ticking = false; });
     }, { passive: true });
+    scheduleTopbarTimedHide(); // page loads at the top, already shown - start its clock right away
   })();
 
   // ---------- live preview on the centered card once scrolling settles ----------
@@ -2614,7 +2665,12 @@
   }
   function previewCenteredChannel() {
     if (playerOverlay.classList.contains("is-open")) return;
-    var thumb = centeredThumb();
+    // At the very top of the list, always preview the first channel rather
+    // than whatever happens to be nearest the viewport's vertical center
+    // (which, at the top, could be several rows down on a tall grid).
+    var thumb = window.scrollY <= 1
+      ? document.querySelector('#list [data-role="thumb"]')
+      : centeredThumb();
     if (!thumb) return;
     var row = thumb.closest(".row");
     var key = row && row.getAttribute("data-key");
@@ -2631,5 +2687,9 @@
   })();
 
   fullRender();
+  // The page also starts out at the top, same as scrolling back up to it -
+  // give it the same short settle delay as any other scroll-stop, rather
+  // than duplicating previewCenteredChannel's logic for the load-at-top case.
+  scrollLoadTimer = setTimeout(previewCenteredChannel, SCROLL_LOAD_MS);
 })();
 </script>
