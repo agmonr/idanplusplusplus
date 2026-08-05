@@ -234,7 +234,10 @@
   }
   .attribution-link:hover { color: var(--accent); text-decoration: underline; }
 
-  .stats { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+  /* תקינים/לא זמינים counts - removed everywhere (not just mobile), same
+     reasoning as the status filter chips: only working channels ever show
+     now, so a broken-channel count is just confusing noise. */
+  .stats { display: none; }
   .stat {
     display: flex; align-items: center; gap: 8px;
     background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
@@ -447,14 +450,13 @@
 
   .row-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; padding: 10px 12px; }
   .row-top { display: flex; align-items: center; gap: 6px; cursor: pointer; }
-  .row-name { font-weight: 700; font-size: 13.5px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .row-name.is-broken-text { color: var(--danger); }
-  /* Program name next to the channel name - what's actually airing/playing
-     right now, shown everywhere (tv and radio, mobile and desktop). */
-  .row-now-playing {
-    display: block; font-size: 11px; font-weight: 400; color: var(--text-dim);
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: none; max-width: 45%;
-  }
+  /* Station name + current program, in the row below the thumbnail -
+     removed, both already show ON the thumbnail/placeholder image itself
+     (see drawChannelPlaceholder), so this was just duplicate text. Hidden
+     rather than deleted - the checkbox (.pickbox) shares .row-top with
+     .row-name and still needs it there for its own click-to-select area. */
+  .row-name { display: none; }
+  .row-now-playing { display: none; }
   @media (max-width: 640px) {
     /* "מקליט" recording dot on card - dropped on mobile (both tv/radio
        pages), matching the header recordings button already being hidden. */
@@ -565,8 +567,12 @@
   .radio-bar-grip:active { cursor: grabbing; }
   .winamp-display {
     position: relative; height: 51px; overflow: hidden; cursor: pointer;
-    background: #0a1a0e; border-radius: 2px; border: 1px solid #050a06;
-    box-shadow: inset 0 2px 5px rgba(0,0,0,.85), inset 0 0 0 1px rgba(255,255,255,.04);
+    background: #0a1a0e; border-radius: 3px;
+    /* Station's own module color (set inline per open, see openRadioBar) -
+       a glowing "now playing" frame instead of a plain dark border. */
+    border: 2px solid var(--now-playing-color, #050a06);
+    box-shadow: inset 0 2px 5px rgba(0,0,0,.85), inset 0 0 0 1px rgba(255,255,255,.04),
+      0 0 10px var(--now-playing-color, transparent);
     display: flex; align-items: flex-start;
   }
   .winamp-display canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
@@ -617,7 +623,12 @@
     background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
     width: min(880px, 100%); box-shadow: var(--shadow); direction: rtl; overflow: hidden;
   }
-  .player-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--border); }
+  /* Draggable via the head bar (see wirePlayerPanelDrag) - once a drag has
+     actually happened, position switches to fixed left/top (JS-controlled)
+     so it sticks; until then it just sits at the overlay's normal centered
+     position, unaffected. */
+  .player-panel.is-dragged { position: fixed; margin: 0; }
+  .player-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--border); cursor: move; }
   .player-head h2 { font-size: 15px; margin: 0; font-weight: 700; }
   .player-head button { background: none; border: none; color: var(--text-dim); font-size: 20px; cursor: pointer; line-height: 1; }
   .player-video-wrap { position: relative; background: #000; aspect-ratio: 16 / 9; }
@@ -802,6 +813,7 @@
         </span>
         <span style="display:flex;align-items:center;gap:4px">
           <button id="mute-toggle" aria-label="השתקה/ביטול השתקה" aria-pressed="false">🔊</button>
+          <button id="fullscreen-toggle" aria-label="מסך מלא">⛶</button>
           <button id="close-player" aria-label="סגור">✕</button>
         </span>
       </div>
@@ -2578,6 +2590,7 @@
     playingKey = group.key;
     playingPage = state.page;
     document.getElementById("radio-bar-name").textContent = group.name;
+    radioBar.style.setProperty("--now-playing-color", moduleBadge(group.module).color);
     playerCandidates = playerCandidatesFor(group);
     playerAttempt = 0;
     radioBar.hidden = false;
@@ -2693,6 +2706,47 @@
   // mute button and for adjustVolume()/the M shortcut - one listener keeps
   // this button's icon accurate no matter which of those changed it.
   playerVideo.addEventListener("volumechange", syncMuteButton);
+  document.getElementById("fullscreen-toggle").addEventListener("click", function () { toggleFullscreen(); });
+
+  // Draggable via the head bar (title/mute/fullscreen/close row) - stays
+  // centered (the overlay's own flex-centering, untouched) until the
+  // FIRST actual drag, at which point it switches to fixed left/top
+  // (capturing wherever it currently visually is first, so there's no
+  // jump) and stays wherever it's left for the rest of the session.
+  (function wirePlayerPanelDrag() {
+    var panel = document.querySelector(".player-panel");
+    var head = document.querySelector(".player-head");
+    var dragging = false, startX = 0, startY = 0, startLeft = 0, startTop = 0;
+    function onDown(e) {
+      if (e.target.closest("button")) return; // mute/fullscreen/close shouldn't start a drag
+      dragging = true;
+      var p = e.touches ? e.touches[0] : e;
+      startX = p.clientX; startY = p.clientY;
+      var rect = panel.getBoundingClientRect();
+      startLeft = rect.left; startTop = rect.top;
+      if (!panel.classList.contains("is-dragged")) {
+        panel.classList.add("is-dragged");
+        panel.style.left = startLeft + "px";
+        panel.style.top = startTop + "px";
+      }
+      e.preventDefault();
+    }
+    function onMove(e) {
+      if (!dragging) return;
+      var p = e.touches ? e.touches[0] : e;
+      var dx = p.clientX - startX, dy = p.clientY - startY;
+      var w = panel.offsetWidth, h = panel.offsetHeight;
+      panel.style.left = Math.min(Math.max(0, startLeft + dx), window.innerWidth - w) + "px";
+      panel.style.top = Math.min(Math.max(0, startTop + dy), window.innerHeight - h) + "px";
+    }
+    function onUp() { dragging = false; }
+    head.addEventListener("mousedown", onDown);
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    head.addEventListener("touchstart", onDown, { passive: false });
+    window.addEventListener("touchmove", onMove, { passive: false });
+    window.addEventListener("touchend", onUp);
+  })();
   // Opening a channel already goes straight to fullscreen on its own (see
   // enterFullscreen() in openPlayer), and native <video controls> are gone
   // (mute/pause/fullscreen all have their own dedicated controls/shortcuts
@@ -2814,7 +2868,15 @@
   playerOverlay.addEventListener("click", function (e) { if (e.target === playerOverlay) closePlayer(); });
   document.addEventListener("keydown", function (e) {
     if (!playerOverlay.classList.contains("is-open")) return;
-    if (e.key === "Escape") { closePlayer(); return; }
+    if (e.key === "Escape") {
+      // While fullscreen, Escape is the browser's own (non-overridable)
+      // exit-fullscreen shortcut - it already fires on its own, so only
+      // close the player ourselves when there's no fullscreen for it to
+      // exit first. Otherwise one Escape press would drop straight past
+      // the windowed player to the channel list instead of landing on it.
+      if (!document.fullscreenElement) closePlayer();
+      return;
+    }
     // Ignore arrows while a text field has focus (e.g. the search box) so
     // they still move the caret/selection there as expected.
     var tag = document.activeElement && document.activeElement.tagName;
@@ -2904,12 +2966,16 @@
 
     if (!document.fullscreenElement) {
       if (window.screen && screen.orientation && screen.orientation.unlock) screen.orientation.unlock();
-      // On a phone, the hardware/gesture back action while fullscreen exits
-      // JUST the fullscreen on its own (browser default) without touching
-      // our history stack - so on its own it would take a SECOND back-press
-      // to actually leave the player. Treat exiting fullscreen as "leaving
-      // the viewer" and close the player right along with it, in one press.
-      if (playerOverlay.classList.contains("is-open")) closePlayer();
+      // Mobile only: the hardware/gesture back action while fullscreen
+      // exits JUST the fullscreen on its own (browser default) without
+      // touching our history stack - so on its own it would take a SECOND
+      // back-press to actually leave the player. Treat exiting fullscreen
+      // as "leaving the viewer" and close the player right along with it,
+      // in one press. Desktop deliberately does NOT do this - Escape
+      // exiting fullscreen there should drop back to the windowed player,
+      // not skip straight past it to the channel list; a second Escape (or
+      // the close button) closes it from there.
+      if (isCoarsePointer && playerOverlay.classList.contains("is-open")) closePlayer();
     }
   });
 
