@@ -2141,28 +2141,37 @@
     else toggleFullscreen();
   });
 
-  // Mobile: swipe left/right on the player to switch channels - right for
-  // next, left for previous. Only fires on a clearly horizontal drag (small
-  // vertical drift tolerated, otherwise it'd fight a vertical scroll/drag);
-  // preventDefault on touchend once a swipe fires so the tap-to-close click
-  // above doesn't also happen right after. No pointer-type gate needed here
-  // (unlike the click handler above) - touchstart itself only ever fires
-  // from actual touch input.
-  (function wirePlayerSwipe() {
+  // Mobile touch gestures on the player video, all sharing one touchstart/
+  // move/end sequence so they don't fight each other:
+  //  - short tap, no real movement -> close (the "click" listener above)
+  //  - horizontal drag past the threshold -> switch channel (swipe)
+  //  - held still past LONG_PRESS_MS without moving -> toggle mute
+  // No pointer-type gate needed here (unlike the click handler above) -
+  // these touch events only ever fire from actual touch input.
+  (function wirePlayerTouchGestures() {
     var SWIPE_MIN_DISTANCE = 50;
     var SWIPE_MAX_VERTICAL = 60;
-    var startX = 0, startY = 0, tracking = false, swiped = false;
+    var MOVE_TOLERANCE = 10; // beyond this it's a drag, not a long-press-in-place
+    var LONG_PRESS_MUTE_MS = 450;
+    var startX = 0, startY = 0, tracking = false, swiped = false, longPressed = false;
+    var longPressTimer = null;
 
     playerVideo.addEventListener("touchstart", function (e) {
       var t = e.touches[0];
       startX = t.clientX; startY = t.clientY;
-      tracking = true; swiped = false;
+      tracking = true; swiped = false; longPressed = false;
+      longPressTimer = setTimeout(function () {
+        longPressed = true;
+        playerVideo.muted = !playerVideo.muted;
+        showVolumeOsd();
+      }, LONG_PRESS_MUTE_MS);
     }, { passive: true });
 
     playerVideo.addEventListener("touchmove", function (e) {
       if (!tracking || swiped) return;
       var t = e.touches[0];
       var dx = t.clientX - startX, dy = t.clientY - startY;
+      if (Math.abs(dx) > MOVE_TOLERANCE || Math.abs(dy) > MOVE_TOLERANCE) clearTimeout(longPressTimer);
       if (Math.abs(dx) > SWIPE_MIN_DISTANCE && Math.abs(dy) < SWIPE_MAX_VERTICAL) {
         swiped = true;
         switchChannel(dx > 0 ? 1 : -1, "curated");
@@ -2170,8 +2179,9 @@
     }, { passive: true });
 
     playerVideo.addEventListener("touchend", function (e) {
-      if (swiped) e.preventDefault();
-      tracking = false; swiped = false;
+      clearTimeout(longPressTimer);
+      if (swiped || longPressed) e.preventDefault(); // suppress the tap-to-close click that would otherwise follow
+      tracking = false; swiped = false; longPressed = false;
     });
   })();
 
