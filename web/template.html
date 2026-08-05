@@ -318,6 +318,12 @@
     opacity: 0; transition: opacity .25s ease; background: #000;
   }
   .row-thumb .hover-video.is-shown { opacity: 1; }
+  .row-thumb-spinner {
+    position: absolute; top: 8px; inset-inline-end: 8px; width: 16px; height: 16px;
+    border-radius: 50%; border: 2px solid rgba(255,255,255,.35); border-top-color: #fff;
+    animation: spin .7s linear infinite; pointer-events: none;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
   /* A per-broadcaster colored monogram badge (own design, not a copy of any
      real network logo) - shown until the live single-frame preview above
      loads in, then hidden. Color comes from --badge-color (set inline per
@@ -630,7 +636,7 @@
         </span>
       </div>
       <div class="player-video-wrap">
-        <video id="player-video" playsinline controls></video>
+        <video id="player-video" playsinline></video>
         <div class="player-status" id="player-status"></div>
         <div class="player-osd" id="player-osd">
           <div class="osd-name" id="osd-name"></div>
@@ -1118,17 +1124,25 @@
     }
   }
 
-  // ---------- hover preview (live, low-volume, low-quality) ----------
+  // ---------- hover preview (live, muted, low-quality) ----------
   // A quick static snapshot (above) is one thing; hovering longer gets an
-  // actual short LIVE peek - real picture and a hint of audio, not just a
-  // frozen frame - so someone can tell what's actually airing right now
-  // without fully opening the player. Debounced so a mouse just passing
-  // over the grid doesn't spin up a stream for every card it crosses, and
-  // only ever one at a time (starting a new one always tears down
-  // whatever was previously playing) to keep this from stacking up.
+  // actual short LIVE peek - real picture, not just a frozen frame - so
+  // someone can tell what's actually airing right now without fully
+  // opening the player. Muted everywhere this is used (mouse hover, touch
+  // long-press, scroll-stop) - a picture-only peek, no surprise audio while
+  // scrolling or hovering across the grid. Debounced so a mouse just
+  // passing over the grid doesn't spin up a stream for every card it
+  // crosses, and only ever one at a time (starting a new one always tears
+  // down whatever was previously playing) to keep this from stacking up.
   var HOVER_PREVIEW_DELAY_MS = 400;
-  var HOVER_PREVIEW_VOLUME = 0.18; // was 0.15, +20%
-  var hoverPreview = { timer: null, key: null, video: null, hls: null };
+  // Same lightweight profile as the snapshot capture - this is a preview
+  // peek, not the main viewing experience, so the lowest rendition is
+  // plenty and keeps hovering across the grid cheap. The "fast" variant
+  // (scroll-stop preview) trims buffering further still, since there the
+  // whole point is getting picture up as quickly as possible.
+  var HOVER_HLS_CONFIG = { maxBufferLength: 4, startLevel: 0, capLevelToPlayerSize: false };
+  var HOVER_HLS_CONFIG_FAST = { maxBufferLength: 2, maxMaxBufferLength: 2, startLevel: 0, capLevelToPlayerSize: false, backBufferLength: 0 };
+  var hoverPreview = { timer: null, key: null, video: null, hls: null, spinner: null };
 
   function scheduleHoverPreview(group, thumb) {
     cancelHoverPreview();
@@ -1137,6 +1151,7 @@
 
   function cancelHoverPreview() {
     if (hoverPreview.timer) { clearTimeout(hoverPreview.timer); hoverPreview.timer = null; }
+    if (hoverPreview.spinner) { hoverPreview.spinner.remove(); hoverPreview.spinner = null; }
     if (hoverPreview.video) {
       if (hoverPreview.hls) hoverPreview.hls.destroy();
       hoverPreview.video.pause();
@@ -1147,10 +1162,16 @@
     }
   }
 
-  function startHoverPreview(group, thumb) {
+  function startHoverPreview(group, thumb, opts) {
+    opts = opts || {};
     hoverPreview.key = group.key;
     var candidate = activeCandidate(group);
     if (!candidate || !candidate.link) return;
+
+    var spinner = document.createElement("div");
+    spinner.className = "row-thumb-spinner";
+    thumb.appendChild(spinner);
+    hoverPreview.spinner = spinner;
 
     freshenLink(candidate).then(function (link) {
       // The mouse may well have left (or landed on a different card)
@@ -1165,14 +1186,13 @@
       hoverPreview.video = video;
 
       hoverPreview.hls = attachStream(video, link, {
-        onReady: function () { video.classList.add("is-shown"); },
+        onReady: function () {
+          video.classList.add("is-shown");
+          if (hoverPreview.spinner) { hoverPreview.spinner.remove(); hoverPreview.spinner = null; }
+        },
         onFatal: function () { if (hoverPreview.video === video) cancelHoverPreview(); },
-        settleMuted: false,
-        settleVolume: HOVER_PREVIEW_VOLUME,
-        // Same lightweight profile as the snapshot capture above - this is
-        // a preview peek, not the main viewing experience, so the lowest
-        // rendition is plenty and keeps hovering across the grid cheap.
-        hlsConfig: { maxBufferLength: 4, startLevel: 0, capLevelToPlayerSize: false },
+        settleMuted: true,
+        hlsConfig: opts.fast ? HOVER_HLS_CONFIG_FAST : HOVER_HLS_CONFIG,
       }) || null;
     });
   }
@@ -1781,6 +1801,10 @@
     playingKey = null;
     playerOverlay.classList.remove("is-open");
     teardownPlayer();
+    // Closing via X/Escape/click-outside while still fullscreen (exiting via
+    // the back gesture instead already triggered this from fullscreenchange,
+    // where document.fullscreenElement is already null - a no-op here then).
+    if (document.fullscreenElement) document.exitFullscreen();
     // Closed via the X/Escape/click-outside (not via the back button
     // itself, which already consumed this entry through popstate) - pop
     // the history entry we pushed on open so it doesn't linger for a LATER
@@ -1819,7 +1843,7 @@
   // Radio has no curated order defined, so plain arrows there fall back to
   // the full-list mode.
   var CURATED_ORDER = {
-    tv: ["כאן 11", "קשת 12", "רשת 13", "כאן חינוכית 23", "מכאן 33", "עכשיו 14", "כנסת 99", "ערוץ 9"],
+    tv: ["כאן 11", "קשת 12", "רשת 13", "כאן חינוכית 23", "עכשיו 14", "כלכלה 10", "מכאן 33", "כנסת 99", "ערוץ 9"],
   };
 
   function switchChannel(delta, mode) {
@@ -1850,7 +1874,12 @@
   // mute button and for adjustVolume()/the M shortcut - one listener keeps
   // this button's icon accurate no matter which of those changed it.
   playerVideo.addEventListener("volumechange", syncMuteButton);
-  playerVideo.addEventListener("dblclick", toggleFullscreen);
+  // Opening a channel already goes straight to fullscreen on its own (see
+  // enterFullscreen() in openPlayer), and native <video controls> are gone
+  // (mute/pause/fullscreen all have their own dedicated controls/shortcuts
+  // already) - so a single tap/click anywhere on the video itself now just
+  // closes the channel and returns to the list.
+  playerVideo.addEventListener("click", closePlayer);
   muteToggleBtn.addEventListener("click", function () {
     playerVideo.muted = !playerVideo.muted;
     showVolumeOsd();
@@ -1917,7 +1946,16 @@
   function enterFullscreen() {
     if (document.fullscreenElement) return; // already there (e.g. switching channels mid-watch) - no need to re-request
     var wrap = playerVideo.closest(".player-video-wrap");
-    (wrap.requestFullscreen ? wrap : playerVideo).requestFullscreen().catch(function () {});
+    var target = wrap.requestFullscreen ? wrap : playerVideo;
+    target.requestFullscreen().then(function () {
+      // "Flip it on the side" - landscape suits a horizontal broadcast far
+      // better than the portrait a phone opens in by default. Most browsers
+      // only allow locking orientation while an element is actually
+      // fullscreen, hence chained here rather than requested eagerly.
+      if (window.screen && screen.orientation && screen.orientation.lock) {
+        screen.orientation.lock("landscape").catch(function () {});
+      }
+    }).catch(function () {});
   }
 
   function toggleFullscreen() {
@@ -1933,16 +1971,27 @@
   // Hands control back to automatic ABR on exit. Native Safari HLS has no
   // public API for this, so this only does anything when hls.js is driving.
   document.addEventListener("fullscreenchange", function () {
-    if (!currentHls || !currentHls.levels || !currentHls.levels.length) return;
-    if (document.fullscreenElement) {
-      var screenHeight = (window.screen.height || 1080) * (window.devicePixelRatio || 1);
-      var levels = currentHls.levels.map(function (lvl, i) { return { i: i, h: lvl.height || 0 }; });
-      var fitting = levels.filter(function (l) { return l.h > 0 && l.h <= screenHeight; });
-      var pool = fitting.length ? fitting : levels; // nothing fits (tiny levels only) - just take the best available
-      var best = pool.reduce(function (a, b) { return b.h > a.h ? b : a; });
-      currentHls.currentLevel = best.i;
-    } else {
-      currentHls.currentLevel = -1; // back to automatic ABR
+    if (currentHls && currentHls.levels && currentHls.levels.length) {
+      if (document.fullscreenElement) {
+        var screenHeight = (window.screen.height || 1080) * (window.devicePixelRatio || 1);
+        var levels = currentHls.levels.map(function (lvl, i) { return { i: i, h: lvl.height || 0 }; });
+        var fitting = levels.filter(function (l) { return l.h > 0 && l.h <= screenHeight; });
+        var pool = fitting.length ? fitting : levels; // nothing fits (tiny levels only) - just take the best available
+        var best = pool.reduce(function (a, b) { return b.h > a.h ? b : a; });
+        currentHls.currentLevel = best.i;
+      } else {
+        currentHls.currentLevel = -1; // back to automatic ABR
+      }
+    }
+
+    if (!document.fullscreenElement) {
+      if (window.screen && screen.orientation && screen.orientation.unlock) screen.orientation.unlock();
+      // On a phone, the hardware/gesture back action while fullscreen exits
+      // JUST the fullscreen on its own (browser default) without touching
+      // our history stack - so on its own it would take a SECOND back-press
+      // to actually leave the player. Treat exiting fullscreen as "leaving
+      // the viewer" and close the player right along with it, in one press.
+      if (playerOverlay.classList.contains("is-open")) closePlayer();
     }
   });
 
@@ -2544,11 +2593,12 @@
   })();
 
   // ---------- live preview on the centered card once scrolling settles ----------
-  // Reuses the same hover-preview machinery as mouse-hover/long-press - just
-  // triggered by "stopped scrolling for 2s" instead, targeting whichever
-  // card is nearest the vertical center of the viewport.
-  var SCROLL_STOP_MS = 2000;
-  var scrollStopTimer = null;
+  // Reuses the same hover-preview machinery as mouse-hover/long-press,
+  // targeting whichever card is nearest the vertical center of the
+  // viewport. Loading starts on a short pause (SCROLL_LOAD_MS) and is
+  // revealed the moment it's actually ready - no extra artificial delay.
+  var SCROLL_LOAD_MS = 400;
+  var scrollLoadTimer = null;
   function centeredThumb() {
     var thumbs = Array.prototype.slice.call(document.querySelectorAll('#list [data-role="thumb"]'));
     var centerY = window.innerHeight / 2;
@@ -2570,13 +2620,13 @@
     var key = row && row.getAttribute("data-key");
     var group = key && groups().filter(function (g) { return g.key === key; })[0];
     if (!group) return;
-    startHoverPreview(group, thumb);
+    startHoverPreview(group, thumb, { fast: true });
   }
   (function wireScrollStopPreview() {
     window.addEventListener("scroll", function () {
-      if (scrollStopTimer) clearTimeout(scrollStopTimer);
-      cancelHoverPreview(); // scrolling away from whatever was centered - stop showing it until settled again
-      scrollStopTimer = setTimeout(previewCenteredChannel, SCROLL_STOP_MS);
+      if (scrollLoadTimer) clearTimeout(scrollLoadTimer);
+      cancelHoverPreview(); // scrolling away from whatever was centered - stop loading/showing it until settled again
+      scrollLoadTimer = setTimeout(previewCenteredChannel, SCROLL_LOAD_MS);
     }, { passive: true });
   })();
 
