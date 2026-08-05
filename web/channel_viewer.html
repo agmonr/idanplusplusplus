@@ -228,8 +228,8 @@
   }
   .share-btn-big:hover { background: var(--accent); color: #fff; }
   .attribution-link {
-    align-self: center;
-    font-size: 12px; font-weight: 400; color: var(--text-dim);
+    position: absolute; top: 10px; right: 0;
+    font-size: 14px; font-weight: 400; color: var(--text-dim);
     background: none; border: none; text-decoration: none;
   }
   .attribution-link:hover { color: var(--accent); text-decoration: underline; }
@@ -562,18 +562,18 @@
     position: relative; height: 51px; overflow: hidden; cursor: pointer;
     background: #0a1a0e; border-radius: 2px; border: 1px solid #050a06;
     box-shadow: inset 0 2px 5px rgba(0,0,0,.85), inset 0 0 0 1px rgba(255,255,255,.04);
-    display: flex; align-items: center;
+    display: flex; align-items: flex-start;
   }
   .winamp-display canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
   .radio-bar-name {
-    position: relative; z-index: 1; color: #6dff77; font-weight: 700; font-size: 13px;
+    position: relative; z-index: 1; color: #6dff77; font-weight: 700; font-size: 16px;
     font-family: ui-monospace, "SF Mono", Consolas, monospace; letter-spacing: .04em;
     text-shadow: 0 0 6px rgba(109,255,119,.65);
     flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-    padding: 0 10px;
+    padding: 4px 10px 0;
   }
   .winamp-controls { display: flex; align-items: center; gap: 6px; }
-  .winamp-slider-label { flex: none; font-size: 8.5px; color: #a9adb3; letter-spacing: .04em; }
+  .winamp-slider-label { flex: none; font-size: 10.5px; color: #a9adb3; letter-spacing: .04em; }
   .winamp-slider {
     -webkit-appearance: none; appearance: none; flex: none; width: 54px; height: 10px;
     background: #101410; border: 1px solid #050805; border-radius: 2px;
@@ -589,7 +589,7 @@
   }
   .winamp-spacer { flex: 1; }
   .radio-bar button {
-    width: 30px; height: 26px; flex: none; cursor: pointer; font-size: 12px;
+    width: 32px; height: 28px; flex: none; cursor: pointer; font-size: 14px;
     color: #dfe1e4; background: linear-gradient(180deg, #5a5d63, #38393d);
     border: 1px solid #17181a; border-radius: 3px;
     box-shadow: inset 0 1px 0 rgba(255,255,255,.3), inset 0 -2px 3px rgba(0,0,0,.5), 0 1px 2px rgba(0,0,0,.45);
@@ -686,7 +686,7 @@
       <button type="button" class="pagetab radio-favs-btn" id="radio-favs-btn" aria-pressed="false" hidden>מועדפי רדיו</button>
       <button type="button" class="preview-mute-btn" id="preview-mute-btn" aria-pressed="false" title="השתקת תצוגה מקדימה">🔊</button>
       <button type="button" class="share-btn-big" id="share-btn" title="שיתוף">📤 ספר לחברים</button>
-      <a class="attribution-link" href="https://hod-hasharon.org/" target="_blank" rel="noopener">רם אגמון</a>
+      <a class="attribution-link" href="https://hod-hasharon.org/" target="_blank" rel="noopener">פרויקט של רם אגמון</a>
     </div>
 
     <div class="stats" id="stats"></div>
@@ -2426,16 +2426,23 @@
   playerVideo.addEventListener("waiting", function () { radioIsPlaying = false; });
   playerVideo.addEventListener("pause", function () { radioIsPlaying = false; });
 
-  // Click the display to toggle between the segmented bar spectrum and a
-  // waveform/oscilloscope trace - same idea as classic media players that
-  // let you click through their visualization modes.
-  var radioVizMode = "bars";
+  // Waveform/oscilloscope is the default while actually playing - click
+  // the display to toggle to the segmented bar spectrum instead, same idea
+  // as classic media players that let you click through visualization modes.
+  var radioVizMode = "wave";
   document.querySelector(".winamp-display").addEventListener("click", function () {
     radioVizMode = radioVizMode === "bars" ? "wave" : "bars";
   });
 
+  // The station name sits on top of this canvas (see .radio-bar-name),
+  // pinned to the top of the display - every drawing mode below is
+  // confined to the bottom VIZ_ZONE_FRAC of the canvas so nothing ever
+  // draws behind/through the text.
+  var VIZ_ZONE_FRAC = 0.62;
+
   function drawVizBars(t) {
     var w = radioVizCanvas.width, h = radioVizCanvas.height;
+    var zoneH = h * VIZ_ZONE_FRAC, zoneBottom = h;
     var levels = [];
     if (radioVizDataOk && radioAnalyser) {
       var data = new Uint8Array(radioAnalyser.frequencyBinCount);
@@ -2447,19 +2454,20 @@
     }
     var barW = w / VIZ_BAR_COUNT;
     var segH = 4, segGap = 2;
-    var segTotal = Math.floor(h / (segH + segGap));
+    var segTotal = Math.floor(zoneH / (segH + segGap));
     for (var k = 0; k < VIZ_BAR_COUNT; k++) {
       var litSegs = Math.round(levels[k] * segTotal);
       for (var s = 0; s < litSegs; s++) {
         var frac = s / segTotal;
         radioVizCtx.fillStyle = frac > 0.75 ? "#ff4d4d" : frac > 0.5 ? "#ffd24d" : "#5dff5d";
-        radioVizCtx.fillRect(k * barW + 1, h - (s + 1) * (segH + segGap), barW - 2, segH);
+        radioVizCtx.fillRect(k * barW + 1, zoneBottom - (s + 1) * (segH + segGap), barW - 2, segH);
       }
     }
   }
 
   function drawVizWave(t) {
-    var w = radioVizCanvas.width, h = radioVizCanvas.height, mid = h / 2;
+    var w = radioVizCanvas.width, h = radioVizCanvas.height;
+    var zoneTop = h * (1 - VIZ_ZONE_FRAC), zoneH = h - zoneTop, mid = zoneTop + zoneH / 2;
     radioVizCtx.strokeStyle = "#5dff5d";
     radioVizCtx.lineWidth = 2;
     radioVizCtx.beginPath();
@@ -2468,14 +2476,14 @@
       radioAnalyser.getByteTimeDomainData(data);
       var step = w / data.length;
       for (var i = 0; i < data.length; i++) {
-        var y = (data[i] / 255) * h;
+        var y = zoneTop + (data[i] / 255) * zoneH;
         if (i === 0) radioVizCtx.moveTo(i * step, y); else radioVizCtx.lineTo(i * step, y);
       }
     } else {
       var points = 48;
       for (var j = 0; j <= points; j++) {
         var x = (j / points) * w;
-        var y = mid + Math.sin(j * 0.5 + t * 3) * (h * 0.28) * Math.sin(t * 1.1 + j * 0.05);
+        var y = mid + Math.sin(j * 0.5 + t * 3) * (zoneH * 0.42) * Math.sin(t * 1.1 + j * 0.05);
         if (j === 0) radioVizCtx.moveTo(x, y); else radioVizCtx.lineTo(x, y);
       }
     }
@@ -2491,11 +2499,13 @@
     if (!radioIsPlaying) {
       // Nothing actually playing yet (still connecting/buffering, or
       // paused/stopped) - a single block bouncing left-right instead of
-      // pretending there's already a live signal to show.
+      // pretending there's already a live signal to show. Kept in the same
+      // bottom zone as the real visualizer, clear of the station name.
+      var zoneTop = h * (1 - VIZ_ZONE_FRAC), zoneH = h - zoneTop;
       var blockW = w * 0.12;
       var frac = Math.abs(Math.sin(t * 1.2));
       radioVizCtx.fillStyle = "#5dff5d";
-      radioVizCtx.fillRect(frac * (w - blockW), h * 0.35, blockW, h * 0.3);
+      radioVizCtx.fillRect(frac * (w - blockW), zoneTop + zoneH * 0.3, blockW, zoneH * 0.4);
       return;
     }
 
@@ -2554,6 +2564,7 @@
   function openRadioBar(group) {
     if (playerOverlay.classList.contains("is-open")) closePlayer(); // only one playback UI active at a time
     cancelHoverPreview();
+    radioIsPlaying = false; // don't carry the previous station's "actually playing" state into this one
     playingKey = group.key;
     playingPage = state.page;
     document.getElementById("radio-bar-name").textContent = group.name;
@@ -2576,6 +2587,7 @@
 
   function closeRadioBar() {
     playingKey = null;
+    radioIsPlaying = false;
     radioBar.hidden = true;
     document.body.classList.remove("has-radio-bar");
     stopRadioVisualizer();
