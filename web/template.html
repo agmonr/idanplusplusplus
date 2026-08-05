@@ -1,6 +1,6 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>מדריך הערוצים — עידן+</title>
+<title>מתחברים מחדש לטלויזה — עידן+</title>
 <style>
   /*
    * Palette ported from govapiportal (agmonr.github.io/govapiportal) so this
@@ -175,13 +175,18 @@
     backdrop-filter: blur(10px);
     border-bottom: 1px solid var(--border);
     padding: 16px 0 14px; margin-bottom: 20px;
-    transition: transform .22s ease;
+    overflow: hidden; max-height: 260px; /* generous ceiling - real content is well under this */
+    transition: max-height .22s ease, padding-block .22s ease, margin-bottom .22s ease, border-color .22s ease;
   }
-  /* Slid off-screen while scrolled past the 3rd channel - it's sticky, so
-     the space below flows continuously beneath it already; translating it
-     away just reveals what's already there, no layout jump. Brought back
-     only by scrolling all the way back to the top, see updateTopbarVisibility(). */
-  .topbar.is-hidden { transform: translateY(-100%); }
+  /* Collapsed (not just slid away) so the channel grid actually moves up to
+     fill the freed space - a plain transform would keep this sticky box's
+     normal-flow height reserved, leaving a blank gap at the top whenever it
+     hides while still scrolled at (or near) the top of the page - e.g. the
+     10s timed hide. Brought back by scrolling all the way back to the top,
+     see updateTopbarVisibility(). */
+  .topbar.is-hidden {
+    max-height: 0; padding-block: 0; margin-bottom: 0; border-color: transparent;
+  }
   .meta { font-size: 12px; color: var(--text-dim); }
 
   .pagetabs { display: flex; gap: 6px; margin-top: 14px; }
@@ -190,8 +195,14 @@
     border-radius: 10px; padding: 8px 18px; font-size: 13.5px; font-weight: 700; cursor: pointer;
   }
   .pagetab[aria-selected="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
-  .attribution-link {
+  .preview-mute-btn {
     margin-inline-start: auto; align-self: center;
+    border: none; background: none; color: var(--text-dim); font-size: 16px; line-height: 1;
+    cursor: pointer; padding: 4px 6px;
+  }
+  .preview-mute-btn[aria-pressed="true"] { color: var(--accent); }
+  .attribution-link {
+    align-self: center;
     font-size: 12px; font-weight: 400; color: var(--text-dim);
     background: none; border: none; text-decoration: none;
   }
@@ -570,6 +581,7 @@
     <div class="pagetabs" role="tablist" aria-label="בחירת עמוד">
       <button class="pagetab" data-page="tv" role="tab">טלוויזיה</button>
       <button class="pagetab" data-page="radio" role="tab">רדיו</button>
+      <button type="button" class="preview-mute-btn" id="preview-mute-btn" aria-pressed="false" title="השתקת תצוגה מקדימה">🔊</button>
       <a class="attribution-link" href="https://hod-hasharon.org/" target="_blank" rel="noopener">רם אגמון</a>
     </div>
 
@@ -719,6 +731,7 @@
   var LS_UI = "idanplus.ui.v1";
   var LS_THEME = "idanplus.theme.v1";
   var LS_MANUAL_SOURCE = "idanplus.manualSource.v1";
+  var LS_PREVIEW_MUTED = "idanplus.previewMuted.v1";
 
   function lsGet(key, fallback) {
     try { var raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : fallback; }
@@ -1149,6 +1162,9 @@
   var HOVER_HLS_CONFIG = { maxBufferLength: 4, startLevel: 0, capLevelToPlayerSize: false };
   var HOVER_HLS_CONFIG_FAST = { maxBufferLength: 2, maxMaxBufferLength: 2, startLevel: 0, capLevelToPlayerSize: false, backBufferLength: 0 };
   var hoverPreview = { timer: null, key: null, video: null, hls: null, spinner: null };
+  // Header mute button (id="preview-mute-btn") toggles this - applies to
+  // every preview (hover/long-press/scroll-stop) and persists across visits.
+  var previewMuted = lsGet(LS_PREVIEW_MUTED, false);
 
   function scheduleHoverPreview(group, thumb) {
     cancelHoverPreview();
@@ -1197,7 +1213,7 @@
           if (hoverPreview.spinner) { hoverPreview.spinner.remove(); hoverPreview.spinner = null; }
         },
         onFatal: function () { if (hoverPreview.video === video) cancelHoverPreview(); },
-        settleMuted: false,
+        settleMuted: previewMuted,
         settleVolume: HOVER_PREVIEW_VOLUME,
         hlsConfig: opts.fast ? HOVER_HLS_CONFIG_FAST : HOVER_HLS_CONFIG,
       }) || null;
@@ -2601,6 +2617,25 @@
     });
   }
   wireGridKeyboardNav();
+
+  // ---------- header preview-mute button ----------
+  (function wirePreviewMuteButton() {
+    var btn = document.getElementById("preview-mute-btn");
+    if (!btn) return;
+    function sync() {
+      btn.setAttribute("aria-pressed", previewMuted);
+      btn.textContent = previewMuted ? "🔇" : "🔊";
+    }
+    sync();
+    btn.addEventListener("click", function () {
+      previewMuted = !previewMuted;
+      lsSet(LS_PREVIEW_MUTED, previewMuted);
+      sync();
+      // Apply immediately to whatever preview is playing right now, rather
+      // than only taking effect the next time one starts.
+      if (hoverPreview.video) hoverPreview.video.muted = previewMuted;
+    });
+  })();
 
   // ---------- topbar auto-hide (scroll + timed) ----------
   // Hidden once scrolled past the 3rd channel card, brought back only by
