@@ -280,36 +280,6 @@
     display: inline-flex; align-items: center; justify-content: center; font-size: 11px;
     font-family: ui-monospace, monospace; padding: 0 5px;
   }
-  .recbtn { border-color: var(--danger); color: var(--danger); }
-  .recbtn .count { background: var(--danger); }
-  .rec-dot {
-    width: 8px; height: 8px; border-radius: 50%; background: var(--danger);
-    animation: recpulse 1.2s ease-in-out infinite;
-  }
-  @keyframes recpulse { 0%,100% { opacity: 1; } 50% { opacity: .3; } }
-  .rec-dot.is-pending { background: var(--accent); }
-
-  .rec-banner {
-    max-width: 980px; margin: 0 auto 14px; padding: 12px 16px; border-radius: 10px;
-    background: var(--danger-soft); border: 1px solid var(--danger); color: var(--text);
-    font-size: 13px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
-  }
-  /* Bug fixed here: an author rule setting display:flex unconditionally
-     beats the browser's own [hidden]{display:none} rule regardless of
-     selector specificity or source order (different, lower-priority
-     cascade origin) - so the empty quality-warning banner was rendering as
-     a full-width red box with nothing in it even while genuinely hidden. */
-  .rec-banner[hidden] { display: none; }
-  .rec-banner strong { color: var(--danger); }
-  .rec-banner .rb-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-inline-start: auto; }
-  .rec-banner button {
-    border: 1px solid var(--danger); background: var(--surface); color: var(--danger);
-    border-radius: 8px; padding: 6px 11px; font-size: 12px; font-weight: 700; cursor: pointer;
-  }
-  .rec-banner button:hover { background: var(--danger); color: #fff; }
-  .rec-banner .rb-dismiss { border-color: var(--border); color: var(--text-dim); }
-  .rec-banner .rb-dismiss:hover { background: var(--surface-2); color: var(--text); }
-
   /* First-run mobile onboarding - shown once (localStorage-gated, see
      wireOnboardingBanner() in the script below), explaining the touch
      gestures (tap to open/close, swipe to switch) before anyone has to
@@ -326,24 +296,6 @@
   .onboarding-banner button {
     border: 1px solid var(--accent); background: var(--accent); color: #fff;
     border-radius: 8px; padding: 7px 16px; font-size: 12.5px; font-weight: 700; cursor: pointer; flex: none;
-  }
-
-  .row-rec-dot { flex: none; }
-  .rec-item {
-    display: flex; align-items: center; gap: 10px; padding: 9px 8px; border-radius: 9px;
-  }
-  .rec-item:hover { background: var(--surface-2); }
-  .rec-item .ri-name { flex: 1; font-size: 13.5px; font-weight: 600; }
-  .rec-item .ri-time { font-size: 12px; color: var(--text-dim); }
-  .rec-item .ri-stop {
-    border: 1px solid var(--danger); background: var(--surface); color: var(--danger);
-    border-radius: 8px; padding: 5px 10px; font-size: 12px; font-weight: 700; cursor: pointer;
-  }
-  .rec-item .ri-stop:hover { background: var(--danger); color: #fff; }
-  .player-rec-badge {
-    display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700;
-    color: var(--danger); background: var(--danger-soft); border-radius: 999px; padding: 3px 9px;
-    margin-inline-start: 8px;
   }
 
   .list {
@@ -417,7 +369,6 @@
     display: inline-flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 700;
     background: rgba(0,0,0,.55); color: #fff; border-radius: 999px; padding: 2px 7px;
   }
-  .row-thumb-live .rec-dot { width: 5px; height: 5px; background: var(--danger); }
   .row-thumb-index {
     font-size: 10px; color: #fff; background: rgba(0,0,0,.55); border-radius: 999px;
     padding: 2px 7px; font-family: ui-monospace, monospace;
@@ -458,13 +409,10 @@
   .row-name { display: none; }
   .row-now-playing { display: none; }
   @media (max-width: 640px) {
-    /* "מקליט" recording dot on card - dropped on mobile (both tv/radio
-       pages), matching the header recordings button already being hidden. */
-    .row-rec-dot { display: none; }
     /* Mobile header keeps only טלוויזיה/רדיו + the attribution link - the
-       stats row and the search/filter/recordings/saved controls stay in the
+       stats row and the search/filter/saved controls stay in the
        DOM (a large amount of JS reads from them directly with no null-guards
-       - renderStats, renderFilters, updateRecUI, updateSavedCount, the
+       - renderStats, renderFilters, updateSavedCount, the
        search listener) but are hidden rather than removed, so nothing
        downstream breaks. Desktop keeps showing them. */
     .stats, .controls { display: none; }
@@ -622,6 +570,11 @@
   .player-panel {
     background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
     width: min(880px, 100%); box-shadow: var(--shadow); direction: rtl; overflow: hidden;
+    /* Native resize handle, width only - height stays derived from the
+       video's own 16:9 aspect-ratio (.player-video-wrap) rather than being
+       independently draggable, which would just leave blank space rather
+       than actually resizing the video. */
+    resize: horizontal; min-width: 320px; max-width: 100vw;
   }
   /* Draggable via the head bar (see wirePlayerPanelDrag) - once a drag has
      actually happened, position switches to fixed left/top (JS-controlled)
@@ -716,11 +669,6 @@
       <input class="search" id="search" type="search" placeholder="חיפוש ערוץ…" autocomplete="off" />
       <div class="chipset" id="status-filter" role="group" aria-label="סינון לפי סטטוס"></div>
       <div class="spacer"></div>
-      <button class="savedbtn recbtn" id="open-recordings" hidden>
-        <span class="rec-dot" aria-hidden="true"></span>
-        <span id="rec-label">מקליט</span>
-        <span class="count mono" id="rec-count">0</span>
-      </button>
       <button class="savedbtn" id="open-saved">
         <span>★ שמורים</span>
         <span class="count mono" id="saved-count">0</span>
@@ -742,8 +690,6 @@
     </div>
     <button type="button" id="firefox-notice-dismiss">הבנתי</button>
   </div>
-
-  <div class="rec-banner" id="rec-banner" hidden></div>
 
   <main class="list" id="list"></main>
   <div class="empty" id="empty-state" hidden>לא נמצאו ערוצים תואמים.</div>
@@ -767,16 +713,6 @@
         <button class="export-json" id="export-json" disabled>⬇ ייצוא JSON</button>
         <button class="export-m3u" id="export-m3u" disabled>⬇ ייצוא M3U</button>
       </div>
-    </div>
-  </div>
-
-  <div class="overlay" id="recordings-overlay">
-    <div class="panel" role="dialog" aria-modal="true" aria-label="הקלטות פעילות">
-      <div class="panel-head">
-        <h2>הקלטות פעילות (<span class="mono" id="rec-panel-count">0</span>)</h2>
-        <button id="close-recordings" aria-label="סגור">✕</button>
-      </div>
-      <div class="panel-body" id="rec-panel-body"></div>
     </div>
   </div>
 
@@ -809,7 +745,6 @@
       <div class="player-head">
         <span style="display:flex;align-items:center;overflow:hidden">
           <h2 id="player-title"></h2>
-          <span class="player-rec-badge" id="player-rec-badge" hidden><span class="rec-dot" aria-hidden="true"></span>מקליט</span>
         </span>
         <span style="display:flex;align-items:center;gap:4px">
           <button id="mute-toggle" aria-label="השתקה/ביטול השתקה" aria-pressed="false">🔊</button>
@@ -837,7 +772,6 @@
         <span><kbd>←</kbd><kbd>→</kbd> ערוצים מומלצים</span>
         <span><kbd>Ctrl</kbd>+<kbd>←</kbd><kbd>→</kbd> מועדפים ★</span>
         <span><kbd>Shift</kbd>+<kbd>←</kbd><kbd>→</kbd> כל הערוצים</span>
-        <span id="legend-record"><kbd>R</kbd> הקלטה</span>
         <span><kbd>P</kbd> השהיה</span>
         <span><kbd>M</kbd> השתקה</span>
         <span><kbd>↑</kbd><kbd>↓</kbd> עוצמת קול</span>
@@ -1059,15 +993,8 @@
   if (generatedAtEl) generatedAtEl.textContent = fmtGeneratedAt(DATA.generatedAt);
   initThemePicker(document.getElementById("themePick"));
 
-  // Firefox's captureStream()/MediaRecorder combination for this kind of
-  // hls.js-driven <video> doesn't reliably work (confirmed: recording
-  // silently produces no data there) - advertising the R shortcut in a
-  // browser where it doesn't actually work is worse than not mentioning it.
   var isFirefox = /firefox/i.test(navigator.userAgent);
   if (isFirefox) {
-    var recordLegend = document.getElementById("legend-record");
-    if (recordLegend) recordLegend.hidden = true;
-
     var firefoxNotice = document.getElementById("firefox-notice");
     if (firefoxNotice && !lsGet(LS_FIREFOX_NOTICE_SEEN, false)) {
       firefoxNotice.hidden = false;
@@ -1820,7 +1747,6 @@
       wireSourcePicks(row, group);
     });
     updateBulkBar();
-    updateRecUI();
     visible.forEach(function (g) {
       if (g.status !== "broken" && !state.smartPicks[g.key] && a11yOn[state.page].indexOf(g.key) === -1) {
         runSmartSelect(g);
@@ -1904,6 +1830,13 @@
   }
 
   function teardownPlayer() {
+    // Explicit pause FIRST, before touching hls/src at all: confirmed live,
+    // a player left in a stalled/half-recovered state (e.g. after a forced
+    // quality-level switch got the decoder stuck) could keep audio audible
+    // even after removeAttribute("src")+load() below - those reset what the
+    // element is SOURCED from, but pause() is what actually stops a
+    // decoder that's already mid-playback from continuing to render audio.
+    try { playerVideo.pause(); } catch (e) {}
     if (currentHls) {
       // A throwing destroy() (confirmed: dash.js can do this depending on
       // its internal lifecycle state when torn down) must NOT skip the
@@ -1967,7 +1900,8 @@
 
   /**
    * Wires one <video> element to one HLS source, generic enough to serve
-   * both the visible player and a hidden background recording.
+   * the visible player, hover-preview, and the radio visualizer's hidden
+   * analysis video.
    *
    * Handles buffering stalls the same way everywhere it's used: on a
    * "waiting" event, step hls.js DOWN one quality level first (bandwidth
@@ -1985,7 +1919,7 @@
    *   onLevel(level)      - hls.js quality-level changed (ours or hls.js's own ABR)
    *   onWaiting()          - a "waiting" event fired, before this function's own
    *                         recovery logic runs - callers may use this for their
-   *                         own bookkeeping (e.g. the recording quality monitor)
+   *                         own bookkeeping
    *   onPlayBlocked()      - videoEl.play() was rejected (autoplay policy) -
    *                         playback is technically "ready" but not actually
    *                         moving; the caller decides what, if anything, to
@@ -2019,8 +1953,8 @@
     var onPlayBlocked = callbacks.onPlayBlocked;
     // The state to settle into once playback has actually started - NOT the
     // state play() is attempted with (see attemptPlay below). Defaults to
-    // unmuted/full volume for the visible player; recordings pass
-    // { muted:false, volume:0 } instead (see startRecording).
+    // unmuted/full volume for the visible player; other callers (hover
+    // preview, radio visualizer analysis) pass their own muted/volume.
     var settleMuted = "settleMuted" in callbacks ? callbacks.settleMuted : false;
     var settleVolume = "settleVolume" in callbacks ? callbacks.settleVolume : 1;
 
@@ -2282,7 +2216,6 @@
     playingKey = group.key;
     playingPage = state.page;
     document.getElementById("player-title").textContent = group.name;
-    updateRecIndicatorInModal();
     showOsd(group);
     playerCandidates = playerCandidatesFor(group);
     playerAttempt = 0;
@@ -2893,7 +2826,6 @@
     var navMode = e.shiftKey ? "full" : (e.ctrlKey || e.metaKey) ? "saved" : "curated";
     if (e.key === "ArrowLeft") { e.preventDefault(); switchChannel(1, navMode); }
     else if (e.key === "ArrowRight") { e.preventDefault(); switchChannel(-1, navMode); }
-    else if (e.key === "r" || e.key === "R") { e.preventDefault(); toggleRecordingCurrent(); }
     else if (e.key === "Enter") { e.preventDefault(); toggleFullscreen(); }
     else if (e.key === "p" || e.key === "P") { e.preventDefault(); togglePause(); }
     else if (e.key === "m" || e.key === "M") { e.preventDefault(); playerVideo.muted = !playerVideo.muted; showVolumeOsd(); }
@@ -2946,8 +2878,7 @@
   // A bigger screen deserves better quality than whatever ABR had settled on
   // for the small windowed view - but "better" means the highest level that
   // still FITS the actual screen, not unconditionally the top level: a 1080p
-  // display gains nothing from a 4K stream, just wasted bandwidth (and a
-  // recording running in the background would feel that waste directly).
+  // display gains nothing from a 4K stream, just wasted bandwidth.
   // Hands control back to automatic ABR on exit. Native Safari HLS has no
   // public API for this, so this only does anything when hls.js is driving.
   document.addEventListener("fullscreenchange", function () {
@@ -2958,8 +2889,13 @@
         var fitting = levels.filter(function (l) { return l.h > 0 && l.h <= screenHeight; });
         var pool = fitting.length ? fitting : levels; // nothing fits (tiny levels only) - just take the best available
         var best = pool.reduce(function (a, b) { return b.h > a.h ? b : a; });
-        currentHls.currentLevel = best.i;
-      } else {
+        // Guarded: forcing currentLevel triggers an immediate buffer flush
+        // in hls.js even when it's already at that level - repeatedly
+        // toggling fullscreen was re-flushing the buffer every single time,
+        // which is what made playback go choppy/stuck after a couple of
+        // in-and-out toggles. Only actually switch when the level differs.
+        if (currentHls.currentLevel !== best.i) currentHls.currentLevel = best.i;
+      } else if (currentHls.currentLevel !== -1) {
         currentHls.currentLevel = -1; // back to automatic ABR
       }
     }
@@ -2978,391 +2914,6 @@
       if (isCoarsePointer && playerOverlay.classList.contains("is-open")) closePlayer();
     }
   });
-
-  // ---------- recording ----------
-  // Records what's actually decoded and rendered by a hidden <video>, via
-  // HTMLMediaElement.captureStream() + MediaRecorder - not a raw download of
-  // the HLS segments. That's the only thing that works generically across
-  // every provider here without a server: some CDNs require a session
-  // ticket per segment (keshet), others need a specific Referer, and none of
-  // that machinery has to be reimplemented if we just record what the
-  // player itself is already successfully playing.
-  var recordings = {}; // id ("page::key") -> { page, group, video, hls, recorder, chunks, startedAt, stalls: [], downgrades: [], mimeType }
-  var recBanner = document.getElementById("rec-banner");
-  var recBannerDismissedAt = 0;
-
-  function recId(page, key) { return page + "::" + key; }
-  function activeRecordingCount() { return Object.keys(recordings).length; }
-  // Only counts recordings that have actually produced real data - an
-  // attempt that's still connecting (or stuck/failing before ever
-  // confirming) shouldn't light up "מקליט" over nothing. The header badge,
-  // player badge, and row dot color all key off this; the recordings PANEL
-  // (once opened) still lists pending attempts too, as "מתחיל…".
-  function confirmedRecordingCount() {
-    return Object.keys(recordings).filter(function (id) { return recordings[id].confirmed; }).length;
-  }
-
-  function recordingSupport() {
-    var v = document.createElement("video");
-    if (!window.MediaRecorder || !v.captureStream) {
-      return "הדפדפן הזה אינו תומך בהקלטה מהדפדפן (חסר MediaRecorder/captureStream).";
-    }
-    return null;
-  }
-
-  function pickMimeType() {
-    var options = ["video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm"];
-    for (var i = 0; i < options.length; i += 1) {
-      if (window.MediaRecorder.isTypeSupported(options[i])) return options[i];
-    }
-    return "";
-  }
-
-  function sanitizeFilename(s) {
-    return String(s).replace(/[\\/:*?"<>|]/g, "_").slice(0, 120);
-  }
-
-  function candidatesForPage(page, group) {
-    var prevPage = state.page;
-    state.page = page;
-    var list = playerCandidatesFor(group);
-    state.page = prevPage;
-    return list;
-  }
-
-  function toggleRecordingCurrent() {
-    if (!playingKey) return;
-    var group = groups().filter(function (g) { return g.key === playingKey; })[0];
-    if (!group) return;
-    var id = recId(state.page, group.key);
-    if (recordings[id]) stopRecording(id);
-    else startRecording(state.page, group);
-  }
-
-  function startRecording(page, group) {
-    var id = recId(page, group.key);
-    if (recordings[id]) return;
-    var unsupported = recordingSupport();
-    if (unsupported) { alert(unsupported); return; }
-
-    var candidates = candidatesForPage(page, group);
-    if (!candidates.length) { alert("אין מקור זמין להקלטה עבור " + group.name + "."); return; }
-
-    var video = document.createElement("video");
-    // volume=0 instead of muted=true: some browsers (Firefox in particular
-    // has had bugs here) drop the audio track from captureStream() entirely
-    // when the element is muted, even though decoding itself continues.
-    // volume=0 keeps the audio pipeline "live" while just not sending sound
-    // to speakers. Positioned off-screen at REAL size rather than
-    // opacity:0/1px - some browsers throttle or skip decoding frames for
-    // video that's effectively invisible (0 opacity, 0 area), which would
-    // make captureStream() produce nothing despite the element otherwise
-    // looking like it's playing fine.
-    video.volume = 0; video.playsInline = true;
-    video.style.cssText = "position:fixed;left:-10000px;top:0;width:320px;height:180px;pointer-events:none";
-    document.body.appendChild(video);
-
-    var rec = {
-      page: page, group: group, video: video, hls: null, recorder: null, chunks: [],
-      startedAt: Date.now(), stalls: [], downgrades: [], mimeType: pickMimeType(), confirmed: false,
-    };
-    recordings[id] = rec;
-    updateRecUI(); // shows as "starting…" (see rowSubHtml/renderRecordingsPanel) until confirmed below
-
-    var attempt = 0;
-    function tryNext() {
-      attempt += 1;
-      if (attempt >= candidates.length) {
-        alert("לא הצלחנו להתחיל הקלטה עבור " + group.name + " — אף מקור לא נטען בהצלחה.");
-        stopRecording(id, /* download = */ false);
-        return;
-      }
-      load();
-    }
-    function load() {
-      freshenLink(candidates[attempt]).then(function (link) {
-        if (!recordings[id]) return; // stopped/cancelled meanwhile
-        if (rec.hls) { rec.hls.destroy(); rec.hls = null; }
-        rec.hls = attachStream(video, link, {
-          onReady: onReady,
-          onFatal: tryNext,
-          onLevel: function (level) {
-            rec.downgrades.push({ t: Date.now(), level: level });
-            checkQuality();
-          },
-          onWaiting: function () {
-            rec.stalls.push(Date.now());
-            checkQuality();
-          },
-          // No visible controls on this hidden element for a person to
-          // press - retry once, shortly, rather than leave the recording
-          // silently frozen on a blocked autoplay. Should be rare now that
-          // attemptPlay() itself always starts muted (which browsers
-          // reliably allow) - this is just a safety net for whatever's left.
-          onPlayBlocked: function () {
-            setTimeout(function () { if (recordings[id]) video.play().catch(function () {}); }, 500);
-          },
-          // Settle back to volume=0 (not muted=true) after starting, same
-          // captureStream()-audio-track reasoning as elsewhere in this file.
-          settleMuted: false,
-          settleVolume: 0,
-        }) || null;
-      });
-    }
-    function onReady() {
-      if (!recordings[id] || rec.recorder) return; // already started, or stopped meanwhile
-      startCapture();
-    }
-    // Stall bookkeeping (rec.stalls) now happens via attachStream's own
-    // onWaiting callback above, not a second listener here - avoids
-    // double-counting the same stall.
-    load();
-
-    function startCapture() {
-      if (!video.captureStream && !video.mozCaptureStream) {
-        alert("הדפדפן הזה לא תומך ב-captureStream, ולכן אי אפשר להקליט בו.");
-        stopRecording(id, false);
-        return;
-      }
-      var stream = video.captureStream ? video.captureStream() : video.mozCaptureStream();
-      var recorder;
-      try {
-        recorder = new MediaRecorder(stream, rec.mimeType ? { mimeType: rec.mimeType } : undefined);
-      } catch (ex) {
-        alert("לא ניתן להתחיל הקלטה: " + ex.message);
-        stopRecording(id, false);
-        return;
-      }
-      recorder.ondataavailable = function (e) {
-        if (!e.data || !e.data.size) return;
-        rec.chunks.push(e.data);
-        if (!rec.confirmed) { rec.confirmed = true; updateRecUI(); } // first real bytes - genuinely recording now
-      };
-      recorder.onerror = function (e) {
-        alert("שגיאה בהקלטת " + group.name + ": " + (e.error && e.error.message ? e.error.message : "שגיאה לא ידועה"));
-        stopRecording(id, rec.chunks.length > 0);
-      };
-      recorder.start(1000);
-      rec.recorder = recorder;
-      updateRecUI();
-
-      // Watchdog: if the recorder never produces a single real chunk within
-      // 10s, something is silently broken (captureStream returning an empty
-      // stream is the known failure mode) - surface that instead of leaving
-      // a "recording" indicator running over nothing, forever.
-      setTimeout(function () {
-        if (recordings[id] && !rec.confirmed) {
-          alert(
-            "ההקלטה של " + group.name + " לא הניבה נתונים ונעצרה. " +
-            "ייתכן שהדפדפן הזה חוסם הקלטה ממקור הווידאו הזה (captureStream ריק) - נסו דפדפן אחר."
-          );
-          stopRecording(id, false);
-        }
-      }, 10000);
-    }
-  }
-
-  function stopRecording(id, download) {
-    var rec = recordings[id];
-    if (!rec) return;
-    delete recordings[id];
-
-    var finished = false;
-    var finish = function () {
-      if (finished) return; // guards against both the real onstop AND the fallback timeout below firing
-      finished = true;
-      if (download !== false) {
-        if (rec.chunks.length) {
-          var blob = new Blob(rec.chunks, { type: rec.mimeType || "video/webm" });
-          var now = new Date();
-          var dateStr = now.toLocaleDateString("he-IL").replace(/\./g, "-");
-          var timeStr = now.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" }).replace(":", "");
-          var program = rec.group.primary && rec.group.primary.now_playing;
-          var name = sanitizeFilename(
-            rec.group.name + (program ? " - " + program : "") + " - " + dateStr + " " + timeStr
-          ) + ".webm";
-          downloadBlob(blob, name, rec.mimeType || "video/webm");
-        } else {
-          // Explicit rather than silent: an empty recording (stopped before
-          // any real data came in, or the underlying stream never actually
-          // produced frames - the captureStream failure mode from before)
-          // used to just do nothing here with no explanation.
-          alert("ההקלטה של " + rec.group.name + " נעצרה, אך לא נאספו נתונים - לא נשמר קובץ.");
-        }
-      }
-      if (rec.hls) rec.hls.destroy();
-      rec.video.pause();
-      rec.video.remove();
-      updateRecUI();
-    };
-
-    if (rec.recorder && rec.recorder.state !== "inactive") {
-      rec.recorder.onstop = finish;
-      try {
-        rec.recorder.stop();
-      } catch (ex) {
-        finish(); // stop() itself threw - clean up immediately rather than leave the indicator stuck
-      }
-      // Belt and suspenders: if the browser never fires onstop (seen in the
-      // wild when the underlying MediaStream's track has already died),
-      // force cleanup anyway - "stop doesn't work" should never mean the
-      // recording indicator is stuck forever.
-      setTimeout(finish, 4000);
-    } else {
-      finish();
-    }
-  }
-
-  function elapsedLabel(startedAt) {
-    var s = Math.floor((Date.now() - startedAt) / 1000);
-    var h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
-    var pad = function (n) { return String(n).padStart(2, "0"); };
-    return (h ? h + ":" : "") + pad(m) + ":" + pad(sec);
-  }
-
-  function updateRecIndicatorInModal() {
-    var id = recId(state.page, playingKey);
-    document.getElementById("player-rec-badge").hidden = !(recordings[id] && recordings[id].confirmed);
-  }
-
-  function updateRecUI() {
-    var confirmedIds = Object.keys(recordings).filter(function (id) { return recordings[id].confirmed; });
-    var n = confirmedIds.length;
-    var btn = document.getElementById("open-recordings");
-    btn.hidden = n === 0;
-    document.getElementById("rec-count").textContent = n;
-    var names = confirmedIds.map(function (id) { return recordings[id].group.name; });
-    // Names right on the button when there's room for them (1-2 recordings);
-    // beyond that it'd overflow the header, so fall back to a plain count -
-    // the full list is always in the title tooltip and in the panel either way.
-    document.getElementById("rec-label").textContent = names.length && names.length <= 2 ? names.join(", ") : "מקליט";
-    btn.title = names.length ? "מקליט כעת: " + names.join(", ") : "";
-    updateRecIndicatorInModal();
-    // A recording row might be on-screen right now even on a different page
-    // than the one being recorded is not possible to show a dot for (rows
-    // only render for the currently open page) - only re-render the dot for
-    // rows that belong to state.page.
-    document.querySelectorAll(".row-rec-dot").forEach(function (el) { el.remove(); });
-    Object.keys(recordings).forEach(function (id) {
-      var rec = recordings[id];
-      // Only a genuinely confirmed (real data captured) recording gets a
-      // dot on the main page - a still-connecting/never-panned-out attempt
-      // showed one too before, which read as "recording" when nothing was
-      // actually being recorded yet.
-      if (rec.page !== state.page || !rec.confirmed) return;
-      var row = document.querySelector('.row[data-key="' + CSS.escape(rec.group.key) + '"]');
-      if (row && !row.querySelector(".row-rec-dot")) {
-        var dot = document.createElement("span");
-        dot.className = "rec-dot row-rec-dot";
-        dot.title = "מקליט";
-        row.querySelector(".starbtn").insertAdjacentElement("afterend", dot);
-      }
-    });
-    if (document.getElementById("recordings-overlay").classList.contains("is-open")) renderRecordingsPanel();
-  }
-
-  function renderRecordingsPanel() {
-    var ids = Object.keys(recordings);
-    document.getElementById("rec-panel-count").textContent = ids.length;
-    var body = document.getElementById("rec-panel-body");
-    if (!ids.length) {
-      body.innerHTML = '<div class="panel-empty">אין הקלטות פעילות כרגע. פתחו ערוץ בנגן ולחצו רווח כדי להתחיל.</div>';
-      return;
-    }
-    body.innerHTML = ids.map(function (id) {
-      var rec = recordings[id];
-      return (
-        '<div class="rec-item" data-id="' + id + '">' +
-          '<span class="rec-dot' + (rec.confirmed ? "" : " is-pending") + '" aria-hidden="true"></span>' +
-          '<span class="ri-name">' + escapeHtml(rec.group.name) + " (" + PAGE_LABEL[rec.page] + ")</span>" +
-          '<span class="ri-time mono" data-role="elapsed">' + (rec.confirmed ? elapsedLabel(rec.startedAt) : "מתחיל…") + "</span>" +
-          '<button class="ri-stop">⏹ עצור</button>' +
-        "</div>"
-      );
-    }).join("");
-    body.querySelectorAll(".ri-stop").forEach(function (btn) {
-      btn.addEventListener("click", function () {
-        stopRecording(btn.closest(".rec-item").getAttribute("data-id"));
-      });
-    });
-  }
-
-  setInterval(function () {
-    if (!activeRecordingCount()) return;
-    updateRecIndicatorInModal();
-    if (document.getElementById("recordings-overlay").classList.contains("is-open")) {
-      document.querySelectorAll('[data-role="elapsed"]').forEach(function (el) {
-        var rec = recordings[el.closest(".rec-item").getAttribute("data-id")];
-        if (rec) el.textContent = elapsedLabel(rec.startedAt);
-      });
-    }
-  }, 1000);
-
-  document.getElementById("open-recordings").addEventListener("click", function () {
-    renderRecordingsPanel();
-    document.getElementById("recordings-overlay").classList.add("is-open");
-  });
-  document.getElementById("close-recordings").addEventListener("click", function () {
-    document.getElementById("recordings-overlay").classList.remove("is-open");
-  });
-  document.getElementById("recordings-overlay").addEventListener("click", function (e) {
-    if (e.target === document.getElementById("recordings-overlay")) {
-      document.getElementById("recordings-overlay").classList.remove("is-open");
-    }
-  });
-
-  // ---------- recording quality monitor ----------
-  // Bandwidth contention from recording several channels at once shows up as
-  // either the player stalling (buffer underrun, "waiting" events) or hls.js
-  // stepping DOWN to a lower quality level. Either signal, seen recently
-  // across the recordings actually running right now, is worth flagging -
-  // a single recording having its own bad day isn't "too many recordings",
-  // so this only fires with 2+ active.
-  var QUALITY_WINDOW_MS = 30000;
-  var QUALITY_STALL_THRESHOLD = 3;
-
-  function checkQuality() {
-    var ids = Object.keys(recordings);
-    if (ids.length < 2) return;
-    if (Date.now() - recBannerDismissedAt < 60000) return; // don't re-nag right after a dismiss
-    var now = Date.now();
-    var totalRecentStalls = 0;
-    var degraded = [];
-    ids.forEach(function (id) {
-      var rec = recordings[id];
-      rec.stalls = rec.stalls.filter(function (t) { return now - t < QUALITY_WINDOW_MS; });
-      totalRecentStalls += rec.stalls.length;
-      var recentDowngrade = rec.downgrades.length && now - rec.downgrades[rec.downgrades.length - 1].t < QUALITY_WINDOW_MS;
-      if (rec.stalls.length || recentDowngrade) degraded.push(id);
-    });
-    if (totalRecentStalls >= QUALITY_STALL_THRESHOLD || degraded.length >= 2) {
-      showQualityWarning(degraded.length ? degraded : ids);
-    }
-  }
-
-  function showQualityWarning(candidateIds) {
-    var names = candidateIds.map(function (id) { return recordings[id] ? recordings[id].group.name : null; }).filter(Boolean);
-    recBanner.innerHTML =
-      '<span>⚠ <strong>איכות השידור ירדה</strong> — כנראה עומס רוחב פס מהקלטת ' + activeRecordingCount() + ' ערוצים בו-זמנית. מומלץ להפסיק חלק מההקלטות.</span>' +
-      '<span class="rb-actions">' +
-      candidateIds.map(function (id) {
-        var rec = recordings[id];
-        return rec ? '<button data-stop="' + id + '">עצור: ' + escapeHtml(rec.group.name) + "</button>" : "";
-      }).join("") +
-      '<button class="rb-dismiss" id="rb-dismiss">התעלם</button>' +
-      "</span>";
-    recBanner.hidden = false;
-    recBanner.querySelectorAll("[data-stop]").forEach(function (btn) {
-      btn.addEventListener("click", function () {
-        stopRecording(btn.getAttribute("data-stop"));
-        recBanner.hidden = true;
-      });
-    });
-    document.getElementById("rb-dismiss").addEventListener("click", function () {
-      recBanner.hidden = true;
-      recBannerDismissedAt = Date.now();
-    });
-  }
 
   function updateBulkBar() {
     var n = state.selected.size;
