@@ -553,7 +553,10 @@
   :-webkit-full-screen .player-video-wrap, .player-video-wrap:-webkit-full-screen {
     aspect-ratio: auto; width: 100vw; height: 100vh;
   }
-  .player-video-wrap video { width: 100%; height: 100%; display: block; background: #000; }
+  .player-video-wrap video {
+    width: 100%; height: 100%; display: block; background: #000;
+    -webkit-touch-callout: none; /* iOS long-press callout (save/copy image etc.) */
+  }
   .player-status {
     position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
     color: #eee; font-size: 13.5px; text-align: center; padding: 24px; background: rgba(0,0,0,.55);
@@ -700,7 +703,7 @@
         </span>
       </div>
       <div class="player-video-wrap">
-        <video id="player-video" playsinline></video>
+        <video id="player-video" playsinline disablePictureInPicture disableRemotePlayback></video>
         <div class="player-status" id="player-status"></div>
         <div class="player-osd" id="player-osd">
           <div class="osd-name" id="osd-name"></div>
@@ -2140,6 +2143,14 @@
     if (isCoarsePointer) closePlayer();
     else toggleFullscreen();
   });
+
+  // The browser's own long-press-on-video menu ("Copy video frame",
+  // "Picture in Picture", etc. on Android Chrome) isn't stopped by
+  // preventDefault() on touchend - that fires too late, after the browser
+  // has already decided to show it. contextmenu is the actual event that
+  // triggers it, and is what needs suppressing so our own long-press-to-
+  // mute gesture below isn't fighting a native menu on top of it.
+  playerVideo.addEventListener("contextmenu", function (e) { e.preventDefault(); });
 
   // Mobile touch gestures on the player video, all sharing one touchstart/
   // move/end sequence so they don't fight each other:
