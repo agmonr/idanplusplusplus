@@ -1,50 +1,94 @@
 <title>מדריך הערוצים — עידן+</title>
 <style>
+  /*
+   * Palette ported from govapiportal (agmonr.github.io/govapiportal) so this
+   * page reads as part of the same site family: forest-green chrome as the
+   * default ("יום"/clouds), an opt-in near-black/gold night look
+   * ("לילה"/fashion), and an opt-in strict black/white look ("זברה"/zebra).
+   * Status colors (--ok/--danger) deliberately stay close to constant across
+   * themes, same as the source - they carry meaning, not mood.
+   */
   :root {
-    --bg: #f2f4f4;
+    --bg: #f2f7ee;
     --surface: #ffffff;
-    --surface-2: #eaeeed;
-    --border: #dde2e1;
-    --text: #10181a;
-    --text-dim: #5b6b69;
-    --accent: #d94a1f;
-    --accent-soft: rgba(217, 74, 31, .10);
-    --ok: #1f9d6b;
-    --ok-soft: rgba(31, 157, 107, .12);
-    --danger: #c93b3b;
-    --danger-soft: rgba(201, 59, 59, .12);
+    --surface-2: #eaf3e6;
+    --border: #dfe9d8;
+    --text: #24331f;
+    --text-dim: #5b6f56;
+    --accent: #2e7d46;
+    --accent-soft: rgba(46, 125, 70, .10);
+    --ok: #4caf50;
+    --ok-soft: rgba(76, 175, 80, .12);
+    --danger: #e05353;
+    --danger-soft: rgba(224, 83, 83, .12);
     --a11y: #6a4fc9;
     --a11y-soft: rgba(106, 79, 201, .12);
-    --shadow: 0 1px 2px rgba(16, 24, 26, .06), 0 8px 24px -12px rgba(16, 24, 26, .18);
+    --header-grad: linear-gradient(135deg, #1b5e34, #2e7d46 60%, #4caf50);
+    --shadow: 0 1px 2px rgba(27, 94, 52, .10), 0 8px 24px -12px rgba(27, 94, 52, .22);
     color-scheme: light;
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg: #0e1113; --surface: #171b1d; --surface-2: #1f2427; --border: #2a3033;
-      --text: #eef1f0; --text-dim: #97a3a1; --accent: #ef5a2c; --accent-soft: rgba(239, 90, 44, .16);
-      --ok: #34c98f; --ok-soft: rgba(52, 201, 143, .14);
-      --danger: #ef4b4b; --danger-soft: rgba(239, 75, 75, .16);
+      /* govapiportal's own "deepened forest" - not the separate opt-in
+         night theme below, just this same palette darkened. */
+      --bg: #0f1c13; --surface: #142018; --surface-2: #17251b; --border: #24382a;
+      --text: #e6f0e1; --text-dim: #9db393; --accent: #5fce8f; --accent-soft: rgba(95, 206, 143, .16);
+      --ok: #3f9a5c; --ok-soft: rgba(63, 154, 92, .16);
+      --danger: #f2766b; --danger-soft: rgba(242, 118, 107, .16);
       --a11y: #a48cf0; --a11y-soft: rgba(164, 140, 240, .18);
+      --header-grad: linear-gradient(135deg, #123a24, #1d5c34 60%, #3f9a5c);
       --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 12px 32px -16px rgba(0, 0, 0, .6);
       color-scheme: dark;
     }
   }
+  /* Compatibility with the Artifact viewer's own light/dark toggle (two
+     values only: "dark"/"light") - honored so the platform contract still
+     holds even though this page's OWN picker below uses three different
+     values (clouds/fashion/zebra) for the same attribute. Last write wins:
+     our picker's explicit choice (persisted in localStorage, re-applied
+     before paint) takes priority over a platform toggle made earlier. */
   :root[data-theme="dark"] {
-    --bg: #0e1113; --surface: #171b1d; --surface-2: #1f2427; --border: #2a3033;
-    --text: #eef1f0; --text-dim: #97a3a1; --accent: #ef5a2c; --accent-soft: rgba(239, 90, 44, .16);
-    --ok: #34c98f; --ok-soft: rgba(52, 201, 143, .14);
-    --danger: #ef4b4b; --danger-soft: rgba(239, 75, 75, .16);
+    --bg: #0f1c13; --surface: #142018; --surface-2: #17251b; --border: #24382a;
+    --text: #e6f0e1; --text-dim: #9db393; --accent: #5fce8f; --accent-soft: rgba(95, 206, 143, .16);
+    --ok: #3f9a5c; --ok-soft: rgba(63, 154, 92, .16);
+    --danger: #f2766b; --danger-soft: rgba(242, 118, 107, .16);
     --a11y: #a48cf0; --a11y-soft: rgba(164, 140, 240, .18);
+    --header-grad: linear-gradient(135deg, #123a24, #1d5c34 60%, #3f9a5c);
     --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 12px 32px -16px rgba(0, 0, 0, .6);
     color-scheme: dark;
   }
-  :root[data-theme="light"] {
-    --bg: #f2f4f4; --surface: #ffffff; --surface-2: #eaeeed; --border: #dde2e1;
-    --text: #10181a; --text-dim: #5b6b69; --accent: #d94a1f; --accent-soft: rgba(217, 74, 31, .10);
-    --ok: #1f9d6b; --ok-soft: rgba(31, 157, 107, .12);
-    --danger: #c93b3b; --danger-soft: rgba(201, 59, 59, .12);
+  :root[data-theme="light"], :root[data-theme="clouds"] {
+    --bg: #f2f7ee; --surface: #ffffff; --surface-2: #eaf3e6; --border: #dfe9d8;
+    --text: #24331f; --text-dim: #5b6f56; --accent: #2e7d46; --accent-soft: rgba(46, 125, 70, .10);
+    --ok: #4caf50; --ok-soft: rgba(76, 175, 80, .12);
+    --danger: #e05353; --danger-soft: rgba(224, 83, 83, .12);
     --a11y: #6a4fc9; --a11y-soft: rgba(106, 79, 201, .12);
-    --shadow: 0 1px 2px rgba(16, 24, 26, .06), 0 8px 24px -12px rgba(16, 24, 26, .18);
+    --header-grad: linear-gradient(135deg, #1b5e34, #2e7d46 60%, #4caf50);
+    --shadow: 0 1px 2px rgba(27, 94, 52, .10), 0 8px 24px -12px rgba(27, 94, 52, .22);
+    color-scheme: light;
+  }
+  /* "לילה" (night) - opt-in near-black/gold, distinct from the plain OS-dark
+     media query above. */
+  :root[data-theme="fashion"] {
+    --bg: #0d0b08; --surface: #221c12; --surface-2: #18140d; --border: #3c3320;
+    --text: #f3ecdc; --text-dim: #b7a67f; --accent: #ddb44f; --accent-soft: rgba(221, 180, 79, .14);
+    --ok: #4caf50; --ok-soft: rgba(76, 175, 80, .14);
+    --danger: #d2685a; --danger-soft: rgba(210, 104, 90, .16);
+    --a11y: #a48cf0; --a11y-soft: rgba(164, 140, 240, .16);
+    --header-grad: #0d0b08;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 12px 32px -16px rgba(0, 0, 0, .7);
+    color-scheme: dark;
+  }
+  /* "זברה" - strict black/white/gray, no hue anywhere (status colors are the
+     one deliberate exception, same reasoning as the source). */
+  :root[data-theme="zebra"] {
+    --bg: #ffffff; --surface: #ffffff; --surface-2: #f0f0f0; --border: #cfcfcf;
+    --text: #111111; --text-dim: #5c5c5c; --accent: #111111; --accent-soft: rgba(17, 17, 17, .08);
+    --ok: #4caf50; --ok-soft: rgba(76, 175, 80, .12);
+    --danger: #a30000; --danger-soft: rgba(163, 0, 0, .12);
+    --a11y: #444444; --a11y-soft: rgba(68, 68, 68, .12);
+    --header-grad: #000000;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .10), 0 8px 24px -12px rgba(0, 0, 0, .22);
     color-scheme: light;
   }
 
@@ -52,12 +96,69 @@
   html, body { margin: 0; padding: 0; }
   body {
     background: var(--bg); color: var(--text);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Arial Hebrew", "Helvetica Neue", Arial, sans-serif;
+    font: 16px/1.55 system-ui, "Segoe UI", "Arial Hebrew", Arial, sans-serif;
     -webkit-font-smoothing: antialiased;
   }
   .mono { font-family: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace; font-variant-numeric: tabular-nums; }
 
   .app { direction: rtl; max-width: 980px; margin: 0 auto; padding: 0 20px 120px; }
+
+  .site-footer {
+    max-width: 980px; margin: 32px auto 0; padding: 16px 20px;
+    border-top: 1px solid var(--border); text-align: center;
+  }
+  .site-footer a { color: var(--text-dim); font-size: 12px; text-decoration: none; }
+  .site-footer a:hover { color: var(--accent); text-decoration: underline; }
+
+  /* ---------- header.site: ported from govapiportal ---------- */
+  header.site {
+    border-radius: 18px; margin: 16px 0 20px;
+    background: var(--header-grad);
+    box-shadow: var(--shadow);
+    color: #fff;
+  }
+  header.site .wrap {
+    padding: 1.1rem 20px;
+    display: flex; align-items: baseline; flex-wrap: wrap; gap: .4rem 1rem;
+  }
+  header.site h1 { font-size: 1.05rem; margin: 0; color: #fff; font-weight: 800; }
+  header.site a { color: #eafbe7; text-decoration: none; font-size: .82rem; }
+  header.site a:hover { color: #fff; }
+  header.site .site-by { display: flex; flex-direction: column; gap: 2px; font-size: .76rem; color: #d7ecd2; }
+  header.site .site-disclaimer { font-size: .68rem; opacity: .85; }
+  header.site .meta { color: #d7ecd2; font-size: 11px; }
+
+  .theme-pick { display: flex; gap: 6px; margin-inline-start: auto; }
+  .theme-pick button {
+    font-size: 11px; padding: 5px 9px; border-radius: 999px; cursor: pointer;
+    background: rgba(255,255,255,.15); color: #eafbe7; border: 1px solid rgba(255,255,255,.35);
+  }
+  .theme-pick button[aria-pressed="true"] { background: #fff; color: #1b5e34; border-color: #fff; font-weight: 700; }
+  @media (max-width: 640px) { .theme-pick .theme-btn-label { display: none; } }
+
+  /* Fashion (night): a flat panel reads better than a bright forest gradient
+     on a near-black page. Zebra: solid black with a striped band along the
+     bottom edge, matching the source's literal zebra-stripe treatment. */
+  :root[data-theme="fashion"] header.site { color: var(--text); }
+  :root[data-theme="fashion"] header.site h1,
+  :root[data-theme="fashion"] header.site a { color: var(--text); }
+  :root[data-theme="fashion"] header.site .site-by,
+  :root[data-theme="fashion"] header.site .meta { color: var(--text-dim); }
+  :root[data-theme="fashion"] header.site .theme-pick button {
+    background: var(--surface-2); color: var(--text); border-color: var(--border);
+  }
+  :root[data-theme="fashion"] header.site .theme-pick button[aria-pressed="true"] {
+    background: var(--accent); color: #1a1408; border-color: var(--accent);
+  }
+  :root[data-theme="zebra"] header.site {
+    position: relative; border-radius: 0; margin-inline: 0; box-shadow: none;
+    padding-block-end: 10px;
+  }
+  :root[data-theme="zebra"] header.site::after {
+    content: ""; position: absolute; inset-inline: 0; inset-block-end: 0; block-size: 8px;
+    background: repeating-linear-gradient(135deg, #fff 0 12px, #000 12px 24px);
+  }
+  :root[data-theme="zebra"] header.site a { text-decoration: underline; }
 
   .topbar {
     position: sticky; top: 0; z-index: 20;
@@ -66,13 +167,6 @@
     border-bottom: 1px solid var(--border);
     padding: 16px 0 14px; margin-bottom: 20px;
   }
-  .titlerow { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
-  .brand { display: flex; align-items: baseline; gap: 10px; }
-  .brand .dot {
-    width: 10px; height: 10px; border-radius: 50%; background: var(--accent);
-    box-shadow: 0 0 0 4px var(--accent-soft); display: inline-block; transform: translateY(-1px);
-  }
-  h1 { font-size: 20px; font-weight: 800; letter-spacing: -.01em; margin: 0; text-wrap: balance; }
   .meta { font-size: 12px; color: var(--text-dim); }
 
   .pagetabs { display: flex; gap: 6px; margin-top: 14px; }
@@ -301,16 +395,32 @@
   }
 </style>
 
-<div class="app" dir="rtl" lang="he">
-  <header class="topbar">
-    <div class="titlerow">
-      <div class="brand">
-        <span class="dot" aria-hidden="true"></span>
-        <h1>מדריך הערוצים — עידן+</h1>
-      </div>
-      <div class="meta">עודכן <span class="mono" id="generated-at" dir="ltr"></span></div>
-    </div>
+<script>
+  // Applies a saved theme choice before the app markup below renders, same
+  // "no flash of the wrong theme on reload" reasoning as govapiportal's own
+  // head script. See initThemePicker() further down for the click-handling
+  // half of this.
+  try {
+    var _t = localStorage.getItem("idanplus.theme.v1");
+    if (_t) document.documentElement.setAttribute("data-theme", _t);
+  } catch (e) {}
+</script>
 
+<div class="app" dir="rtl" lang="he">
+  <header class="site">
+    <div class="wrap">
+      <h1>מדריך הערוצים — עידן+</h1>
+      <span class="site-by">כלי נלווה לתוסף Kodi עידן+<span class="site-disclaimer">קישורי השידור עלולים להשתנות או להיות שגויים</span><a href="https://agmonr.github.io/govapiportal/" target="_blank" rel="noopener">← חזרה לכל האפליקציות</a></span>
+      <div class="theme-pick" id="themePick" role="group" aria-label="ערכת נושא">
+        <button type="button" data-theme="clouds">☀️<span class="theme-btn-label"> יום</span></button>
+        <button type="button" data-theme="fashion">🌙<span class="theme-btn-label"> לילה</span></button>
+        <button type="button" data-theme="zebra">🦓<span class="theme-btn-label"> זברה</span></button>
+      </div>
+      <span class="meta">עודכן <span class="mono" id="generated-at" dir="ltr"></span></span>
+    </div>
+  </header>
+
+  <header class="topbar">
     <div class="pagetabs" role="tablist" aria-label="בחירת עמוד">
       <button class="pagetab" data-page="tv" role="tab">טלוויזיה</button>
       <button class="pagetab" data-page="radio" role="tab">רדיו</button>
@@ -404,6 +514,10 @@
       </div>
     </div>
   </div>
+
+  <footer class="site-footer">
+    <a href="https://github.com/Fishenzon/repo.git" target="_blank" rel="noopener">מקור הנתונים: Fishenzon/repo ↗</a>
+  </footer>
 </div>
 
 <script type="application/json" id="channel-data">{"generatedAt": "2026-08-05T09:37:06", "radio": [{"accessibility": null, "backups": [], "index": 1, "key": "גלגל\"צ", "module": "glz", "name": "גלגל\"צ", "primary": {"backupN": null, "channel_id": "rd_glglz", "detail": "HTTP 200", "image": "glglz.jpg", "index": 1, "kind": "primary", "module": "glz", "name": "גלגל\"צ", "now_playing": "מדינה בדרך - עושה לי את הדרך", "refresh": null, "resolved_link": "http://glzwizzlv.bynetcdn.com/glglz_mp3?awCollectionId=misc&awEpisodeId=glglz", "status": "ok", "tvgID": "glglz"}, "status": "ok"}, {"accessibility": null, "backups": [], "index": 2, "key": "כאן 88", "module": "kan", "name": "כאן 88", "primary": {"backupN": null, "channel_id": "rd_88", "detail": "HTTP 200", "image": "88.png", "index": 2, "kind": "primary", "module": "kan", "name": "כאן 88", "now_playing": "יואב יפת", "refresh": null, "resolved_link": "https://r.il.cdn-redge.media/livedash/oil/kancdn-live/live/radio/kan_88/live.livx?dvr=14400000", "status": "ok", "tvgID": "88"}, "status": "ok"}, {"accessibility": null, "backups": [], "index": 3, "key": "90FM רדיו תשעים", "module": "radio", "name": "90FM רדיו תשעים", "primary": {"backupN": null, "channel_id": "rd_90", "detail": "HTTP 200", "image": "90fm.jpg", "index": 3, "kind": "primary", "module": "radio", "name": "90FM רדיו תשעים", "now_playing": "הטייס האוטומטי", "refresh": null, "resolved_link": "https://cdn.cybercdn.live/Emtza_Haderech/Live_Audio/icecast.audio", "status": "ok", "tvgID": "90fm"}, "status": "ok"}, {"accessibility": null, "backups": [], "index": 4, "key": "91FM רדיו לב המדינה", "module": "radio", "name": "91FM רדיו לב המדינה", "primary": {"backupN": null, "channel_id": "rd_91", "detail": "HTTP 200", "image": "91fm.jpg", "index": 4, "kind": "primary", "module": "radio", "name": "91FM רדיו לב המדינה", "now_playing": "מעירים את המדינה", "refresh": null, "resolved_link": "https://cdn.cybercdn.live/Lev_Hamedina/Audio/icecast.audio", "status": "ok", "tvgID": "91fm"}, "status": "ok"}, {"accessibility": null, "backups": [], "index": 5, "key": "97FM רדיו דרום", "module": "radio", "name": "97FM רדיו דרום", "primary": {"backupN": null, "channel_id": "rd_97", "detail": "HTTP 200", "image": "97fm.jpg", "index": 5, "kind": "primary", "module": "radio", "name": "97FM רדיו דרום", "now_playing": "תשע - המגזין של רדיו דרום", "refresh": null, "resolved_link": "https://cdn.cybercdn.live/Darom_97FM/Live/icecast.audio", "status": "ok", "tvgID": "97fm"}, "status": "ok"}, {"accessibility": null, "backups": [], "index": 6, "key": "ECO 99FM", "module": "99fm", "name": "ECO 99FM", "primary": {"backupN": null, "channel_id": "rd_99", "detail": "HTTP 200", "image": "99fm.png", "index": 6, "kind": "primary", "module": "99fm", "name": "ECO 99FM", "now_playing": "אביה מלכה", "refresh": null, "resolved_link": "http://eco-live.mediacast.co.il/99fm_aac", "status": "ok", "tvgID": "99fm"}, "status": "ok"}, {"accessibility": null, "backups": [], "index": 7, "key": "100FM רדיוס", "module": "100fm", "name": "100FM רדיוס", "primary": {"backupN": null, "channel_id": "rd_100", "detail": "resolved live via 100fm app API (fallback link was stale)", "image": "100fm.jpg", "index": 7, "kind": "primary", "module": "100fm", "name": "100FM רדיוס", "now_playing": "אהבה פלוס", "refresh": null, "resolved_link": "https://cdn.cybercdn.live/Radios_100FM/Audio/playlist.m3u8", "status": "updated", "tvgID": "100fm"}, "status": "ok"}, {"accessibility": null, "backups": [], "index": 8, "key": "101FM רדיו ירושלים", "module": "radio", "name": "101FM רדיו ירושלים", "primary": {"backupN": null, "channel_id": "rd_101", "detail": "HTTP 200", "image": "101fm.png", "index": 8, "kind": "primary", "module": "radio", "name": "101FM רדיו ירושלים", "now_playing": "מוסיקה ברצף - שבת קלאסיקות", "refresh": null, "resolved_link": "https://radio.streamgates.net/stream/101fm", "status": "ok", "tvgID": "101fm"}, "status": "ok"}, {"accessibility": null, "backups": [], "index": 9, "key": "101.5FM רדיו דרום", "module": "radio", "name": "101.5FM רדיו דרום", "primary": {"backupN": null, "channel_id": "rd_1015", "detail": "live page + regex still resolves (HTTP 200)", "image": "1015fm.jpg", "index": 9, "kind": "primary", "module": "radio", "name": "101.5FM רדיו דרום", "now_playing": null, "refresh": null, "resolved_link": "https://cdn.cybercdn.live/Hatahana_1015/Live_Audio/icecast.audio", "status": "ok", "tvgID": "1015fm"}, "status": "ok"}, {"accessibility": null, "backups": [], "index": 10, "key": "102FM רדיו תל אביב", "module": "radio", "name": "102FM רדיו תל אביב", "primary": {"backupN": null, "channel_id": "rd_102", "detail": "HTTP 200", "image": "102fm.jpg", "index": 10, "kind": "primary", "module": "radio", "name": "102FM רדיו תל אביב", "now_playing": "מוזיקה ב-102 תל אביב", "refresh": null, "resolved_link": "https://102.livecdn.biz/102fm_aac", "status": "ok", "tvgID": "102fm"}, "status": "ok"}, {"accessibility": null, "backups": [], "index": 11, "key": "102FM רדיו קול הים האדום", "module": "radio", "name": "102FM רדיו קול הים האדום", "primary": {"backupN": null, "channel_id": "rd_102Eilat", "detail": "HTTP 200", "image": "102fmEilat.jpg", "index": 11, "kind": "primary", "module": "radio", "name": "102FM רדיו קול הים האדום", "now_playing": "הבוקר של אילת", "refresh": null, "resolved_link": "https://cdn.cybercdn.live/Eilat_Radio/Live/icecast.audio", "status": "ok", "tvgID": "102fmEilat"}, "status": "ok"}, {"accessibility": null, "backups": [], "index": 12, "key": "103FM רדיו ללא הפסקה", "module": "radio", "name": "103FM רדיו ללא הפסקה", "primary": {"backupN": null, "channel_id": "rd_103", "detail": "live page + regex still resolves (HTTP 200)", "image": "103fm.png", "index": 12, "kind": "primary", "module": "radio", "name": "103FM רדיו ללא הפסקה", "now_playing": "ינון מגל ובן כספית", "refresh": null, "resolved_link": "https://cdn.cybercdn.live/103FM/Live/icecast.audio", "status": "ok", "tvgID": "103fm"}, "status": "ok"}, {"accessibility": null, "backups": [], "index": 13, "key": "104.5FM רדיו צפון", "module": "radio", "name": "104.5FM רדיו צפון", "primary": {"backupN": null, "channel_id": "rd_1045", "detail": "live page + regex still resolves (HTTP 200)", "image": "1045fm.jpg", "index": 13, "kind": "primary", "module": "radio", "name": "104.5FM רדיו צפון", "now_playing": "תשע עם גדי נס", "refresh": null, "resolved_link": "https://cdn.cybercdn.live/Tzafon_NonStop/Live_Audio/icecast.audio", "status": "ok", "tvgID": "1045fm"}, "status": "ok"}, {"accessibility": null, "backups": [], "index": 14, "key": "107.5FM רדיו חיפה", "module": "radio", "name": "107.5FM רדיו חיפה", "primary": {"backupN": null, "channel_id": "rd_1075", "detail": "HTTP 200", "image": "1075fm.jpg", "index": 14, "kind": "primary", "module": "radio", "name": "107.5FM רדיו חיפה", "now_playing": "שרון גל", "refresh": null, "resolved_link": "https://1075.livecdn.biz/radiohaifa", "status": "ok", "tvgID": "1075fm"}, "status": "ok"}, {"accessibility": null, "backups": [], "index": 15, "key": "גלי צה\"ל", "module": "glz", "name": "גלי צה\"ל", "primary": {"backupN": null, "channel_id": "rd_glz", "detail": "HTTP 200", "image": "glz.jpg", "index": 15, "kind": "primary", "module": "glz", "name": "גלי צה\"ל", "now_playing": "ספי עובדיה ויניר קוזין", "refresh": null, "resolved_link": "http://glzwizzlv.bynetcdn.com/glz_mp3?awCollectionId=misc&awEpisodeId=glz", "status": "ok", "tvgID": "glz"}, "status": "ok"}, {"accessibility": null, "backups": [], "index": 16, "key": "כאן ב", "module": "kan", "name": "כאן ב", "primary": {"backupN": null, "channel_id": "rd_bet", "detail": "HTTP 200", "image": "bet.png", "index": 16, "kind": "primary", "module": "kan", "name": "כאן ב", "now_playing": "קלמן ליברמן", "refresh": null, "resolved_link": "https://r.il.cdn-redge.media/livedash/oil/kancdn-live/live/radio/kan_reshet_bet/live.livx?dvr=14400000", "status": "ok", "tvgID": "bet"}, "status": "ok"}, {"accessibility": null, "backups": [], "index": 17, "key": "כאן גימל", "module": "kan", "name": "כאן גימל", "primary": {"backupN": null, "channel_id": "rd_gimel", "detail": "HTTP 200", "image": "gimel.png", "index": 17, "kind": "primary", "module": "kan", "name": "כאן גימל", "now_playing": "אהרון פררה", "refresh": null, "resolved_link": "https://r.il.cdn-redge.media/livedash/oil/kancdn-live/live/radio/kan_gimel/live.livx?dvr=14400000", "status": "ok", "tvgID": "gimel"}, "status": "ok"}, {"accessibility": null, "backups": [], "index": 18, "key": "כאן תרבות", "module": "kan", "name": "כאן תרבות", "primary": {"backupN": null, "channel_id": "rd_culture", "detail": "HTTP 200", "image": "culture.png", "index": 18, "kind": "primary", "module": "kan", "name": "כאן תרבות", "now_playing": "גם כן תרבות", "refresh": null, "resolved_link": "https://r.il.cdn-redge.media/livedash/oil/kancdn-live/live/radio/kan_tarbut/live.livx?dvr=14400000", "status": "ok", "tvgID": "culture"}, "status": "ok"}, {"accessibility": null, "backups": [], "index": 19, "key": "כאן קול המוסיקה", "module": "kan", "name": "כאן קול המוסיקה", "primary": {"backupN": null, "channel_id": "rd_music", "detail": "HTTP 200", "image": "music.png", "index": 19, "kind": "primary", "module": "kan", "name": "כאן קול המוסיקה", "now_playing": "ארוחת בוקר", "refresh": null, "resolved_link": "https://r.il.cdn-redge.media/livedash/oil/kancdn-live/live/radio/kan_kol_hamuzika/live.livx?dvr=14400000", "status": "ok", "tvgID": "music"}, "status": "ok"}, {"accessibility": null, "backups": [], "index": 20, "key": "כאן מורשת", "module": "kan", "name": "כאן מורשת", "primary": {"backupN": null, "channel_id": "rd_moreshet", "detail": "HTTP 200", "image": "moreshet.png", "index": 20, "kind": "primary", "module": "kan", "name": "כאן מורשת", "now_playing": "קלמן ליברמן: איחוד שידורים רשת ב'", "refresh": null, "resolved_link": "https://r.il.cdn-redge.media/livedash/oil/kancdn-live/live/radio/kan_moreshet/live.livx?dvr=14400000", "status": "ok", "tvgID": "moreshet"}, "status": "ok"}, {"accessibility": null, "backups": [], "index": 21, "key": "כאן ילדים", "module": "kan", "name": "כאן ילדים", "primary": {"backupN": null, "channel_id": "rd_kankids", "detail": "HTTP 200", "image": "23tv.jpg", "index": 21, "kind": "primary", "module": "kan", "name": "כאן ילדים", "now_playing": null, "refresh": null, "resolved_link": "https://r.il.cdn-redge.media/livedash/oil/kancdn-live/live/radio/radio_kan_hinuchit/live.livx", "status": "ok", "tvgID": ""}, "status": "ok"}, {"accessibility": null, "backups": [], "index": 22, "key": "ספורט 5 אתר", "module": "sport5", "name": "ספורט 5 אתר", "primary": {"backupN": null, "channel_id": "rd_sport5", "detail": "resolved live via sport5 data.json", "image": "Sport5.png", "index": 22, "kind": "primary", "module": "sport5", "name": "ספורט 5 אתר", "now_playing": "ספיק נ' רול-פרק 340 - תמונת מצב אצל הגדולות", "refresh": null, "resolved_link": "https://rgelive.akamaized.net/hls/live/2043150/radio5/playlist.m3u8", "status": "ok", "tvgID": "5radio"}, "status": "ok"}, {"accessibility": null, "backups": [], "index": 23, "key": "כאן Reka", "module": "kan", "name": "כאן Reka", "primary": {"backupN": null, "channel_id": "rd_reka", "detail": "HTTP 200", "image": "reka.png", "index": 23, "kind": "primary", "module": "kan", "name": "כאן Reka", "now_playing": "בוקר טוב ישראל", "refresh": null, "resolved_link": "https://r.il.cdn-redge.media/livedash/oil/kancdn-live/live/radio/kan_reka/live.livx?dvr=14400000", "status": "ok", "tvgID": "reka"}, "status": "ok"}, {"accessibility": null, "backups": [], "index": 24, "key": "Первое Радио 89.1FM", "module": "radio", "name": "Первое Радио 89.1FM", "primary": {"backupN": null, "channel_id": "rd_891", "detail": "live page + regex still resolves (HTTP 200)", "image": "891fm.png", "index": 24, "kind": "primary", "module": "radio", "name": "Первое Радио 89.1FM", "now_playing": "סקירת העיתונות", "refresh": null, "resolved_link": "https://cdn.cybercdn.live/Pervoia/Audio/icecast.audio", "status": "ok", "tvgID": "891fm"}, "status": "ok"}, {"accessibility": null, "backups": [], "index": 25, "key": "Лучшее Радио 106.4FM", "module": "1064fm", "name": "Лучшее Радио 106.4FM", "primary": {"backupN": null, "channel_id": "rd_1064", "detail": "resolved live via 1064fm broadcast link", "image": "1064fm.jpg", "index": 25, "kind": "primary", "module": "1064fm", "name": "Лучшее Радио 106.4FM", "now_playing": null, "refresh": null, "resolved_link": "https://cdna.streamgates.net/TheBest/live/playlist.m3u8", "status": "ok", "tvgID": ""}, "status": "ok"}, {"accessibility": null, "backups": [], "index": 26, "key": "כאן مكان", "module": "kan", "name": "כאן مكان", "primary": {"backupN": null, "channel_id": "rd_makan", "detail": "HTTP 200", "image": "makan.png", "index": 26, "kind": "primary", "module": "kan", "name": "כאן مكان", "now_playing": null, "refresh": null, "resolved_link": "https://r.il.cdn-redge.media/livedash/oil/kancdn-live/live/radio/radio_makan/live.livx?dvr=14400000", "status": "ok", "tvgID": "makan"}, "status": "ok"}, {"accessibility": null, "backups": [], "index": 27, "key": "קול הים התיכון", "module": "radio", "name": "קול הים התיכון", "primary": {"backupN": null, "channel_id": "rd_mizrahit", "detail": "HTTP 200", "image": "mizrahit.png", "index": 27, "kind": "primary", "module": "radio", "name": "קול הים התיכון", "now_playing": null, "refresh": null, "resolved_link": "https://rs.mizrahit.fm:7777", "status": "ok", "tvgID": ""}, "status": "ok"}, {"accessibility": null, "backups": [], "index": 28, "key": "93FM קול חי", "module": "radio", "name": "93FM קול חי", "primary": {"backupN": null, "channel_id": "rd_kolhay", "detail": "HTTP 200", "image": "kolhay.jpg", "index": 28, "kind": "primary", "module": "radio", "name": "93FM קול חי", "now_playing": "נשוב לשדר בצאת השבת", "refresh": null, "resolved_link": "https://media2.93fm.co.il/live-new", "status": "ok", "tvgID": "kolhay"}, "status": "ok"}, {"accessibility": null, "backups": [], "index": 29, "key": "קול חי מיוזיק", "module": "radio", "name": "קול חי מיוזיק", "primary": {"backupN": null, "channel_id": "rd_kolhaymusic", "detail": "HTTP 200", "image": "kolhaymusic.jpg", "index": 29, "kind": "primary", "module": "radio", "name": "קול חי מיוזיק", "now_playing": null, "refresh": null, "resolved_link": "https://media2.93fm.co.il/livemusic", "status": "ok", "tvgID": ""}, "status": "ok"}, {"accessibility": null, "backups": [], "index": 30, "key": "קול ברמה", "module": "radio", "name": "קול ברמה", "primary": {"backupN": null, "channel_id": "rd_kolbarama", "detail": "HTTP 200", "image": "kolbarama.jpg", "index": 30, "kind": "primary", "module": "radio", "name": "קול ברמה", "now_playing": "השקפת חיים", "refresh": null, "resolved_link": "https://cdn.cybercdn.live/Kol_Barama/Live_Audio/icecast.audio", "status": "ok", "tvgID": "kolbarama"}, "status": "ok"}, {"accessibility": null, "backups": [], "index": 31, "key": "קול Play", "module": "radio", "name": "קול Play", "primary": {"backupN": null, "channel_id": "rd_kolplay", "detail": "HTTP 200", "image": "kolplay.png", "index": 31, "kind": "primary", "module": "radio", "name": "קול Play", "now_playing": null, "refresh": null, "resolved_link": "https://cdn.cybercdn.live/Kol_Barama/Music/icecast.audio", "status": "ok", "tvgID": ""}, "status": "ok"}, {"accessibility": null, "backups": [], "index": 32, "key": "גלי ישראל", "module": "radio", "name": "גלי ישראל", "primary": {"backupN": null, "channel_id": "rd_gly", "detail": "HTTP 200", "image": "gly.jpg", "index": 32, "kind": "primary", "module": "radio", "name": "גלי ישראל", "now_playing": "שי גולדשטיין וארז תדמור", "refresh": null, "resolved_link": "https://cdn.cybercdn.live/Galei_Israel/Live/icecast.audio", "status": "ok", "tvgID": "gly"}, "status": "ok"}, {"accessibility": null, "backups": [], "index": 33, "key": "95.5FM רדיו", "module": "radio", "name": "95.5FM רדיו", "primary": {"backupN": null, "channel_id": "rd_fm995", "detail": "HTTP 200", "image": "fm95.5.png", "index": 33, "kind": "primary", "module": "radio", "name": "95.5FM רדיו", "now_playing": null, "refresh": null, "resolved_link": "https://995.livecdn.biz/995fm", "status": "ok", "tvgID": ""}, "status": "ok"}, {"accessibility": null, "backups": [], "index": 34, "key": "רדיו נושמים מזרחית", "module": "radio", "name": "רדיו נושמים מזרחית", "primary": {"backupN": null, "channel_id": "rd_noshmim_mizrahit", "detail": "HTTP 200", "image": "noshmim.jpg", "index": 34, "kind": "primary", "module": "radio", "name": "רדיו נושמים מזרחית", "now_playing": null, "refresh": null, "resolved_link": "https://rs.mizrahit.fm:7777", "status": "ok", "tvgID": ""}, "status": "ok"}, {"accessibility": null, "backups": [], "index": 35, "key": "רדיו שירי דיכאון", "module": "radio", "name": "רדיו שירי דיכאון", "primary": {"backupN": null, "channel_id": "rd_diki", "detail": "HTTP 200", "image": "diki.jpg", "index": 35, "kind": "primary", "module": "radio", "name": "רדיו שירי דיכאון", "now_playing": null, "refresh": null, "resolved_link": "https://radio.diki-mizrahit.co.il", "status": "ok", "tvgID": ""}, "status": "ok"}], "tv": [{"accessibility": {"backupN": null, "channel_id": "ch_11c", "detail": "HTTP 200", "image": "kan.jpg", "index": 1, "kind": "accessibility", "module": "kan", "name": "כאן 11 - לקויי שמיעה", "now_playing": "קלמן ליברמן", "refresh": null, "resolved_link": "https://r.il.cdn-redge.media/livehls/oil/kancdn-live/live/kan11_subs/live.livx/playlist.m3u8?dvr=21600000", "status": "ok", "tvgID": "11"}, "backups": [{"backupN": 1, "channel_id": "ch_11b", "detail": "HTTP 200", "image": "kan.jpg", "index": 1, "kind": "backup", "module": "tv", "name": "כאן 11 - גיבוי", "now_playing": "קלמן ליברמן", "refresh": null, "resolved_link": "https://r.il.cdn-redge.media/livedash/oil/kancdn-live/live/kan11/live.livx?dvr=14400000", "status": "ok", "tvgID": "11"}], "index": 1, "key": "כאן 11", "module": "kan", "name": "כאן 11", "primary": {"backupN": null, "channel_id": "ch_11", "detail": "HTTP 200", "image": "kan.jpg", "index": 1, "kind": "primary", "module": "kan", "name": "כאן 11", "now_playing": "קלמן ליברמן", "refresh": null, "resolved_link": "https://r.il.cdn-redge.media/livehls/oil/kancdn-live/live/kan11/live.livx/playlist.m3u8?dvr=21600000", "status": "ok", "tvgID": "11"}, "status": "ok"}, {"accessibility": {"backupN": null, "channel_id": "ch_12c", "detail": "entitlements ticket issued, manifest check: HTTP 200", "image": "keshet.jpg", "index": 2, "kind": "accessibility", "module": "keshet", "name": "קשת 12 - לקויי שמיעה", "now_playing": "חדשות הבוקר - עם נסלי ברדה", "refresh": {"cdn": "AWS", "host": "https://d2249b6f08tjt0.cloudfront.net", "kind": "keshet", "path": "/k12cc/index.m3u8?b-in-range=0-1800"}, "resolved_link": "https://d2249b6f08tjt0.cloudfront.net/k12cc/index.m3u8?b-in-range=0-1800&token=eyJhbGciOiJIUzI1NiJ9.eyJwYXRoIjoiXC9rMTJjY1wvaW5kZXgubTN1OD9iLWluLXJhbmdlPTAtMTgwMCIsInRpbWVzdGFtcCI6MTc4NTkxMTc5ODA3M30.sa6pO6STzBLQ-4hMBoKpM4_PdIkd54J_iGAuF81NoUE", "status": "ok", "tvgID": "12"}, "backups": [{"backupN": 1, "channel_id": "ch_12b", "detail": "entitlements ticket issued, manifest check: HTTP 200", "image": "keshet.jpg", "index": 2, "kind": "backup", "module": "keshet", "name": "קשת 12 - גיבוי", "now_playing": "חדשות הבוקר - עם נסלי ברדה", "refresh": {"cdn": "AKAMAI", "host": "https://mako-streaming.akamaized.net", "kind": "keshet", "path": "/stream/hls/live/2033791/k12n12wad/index.m3u8"}, "resolved_link": "https://mako-streaming.akamaized.net/stream/hls/live/2033791/k12n12wad/index.m3u8?hdnea=st%3D1785911676%7Eexp%3D1785912576%7Eacl%3D%2F*%7Ehmac%3Dd7f851db6b9c3e4336011edc9c2f3d8ac2ffdb3f50325de317d0c061bc4cef03", "status": "ok", "tvgID": "12"}, {"backupN": 2, "channel_id": "ch_12b2", "detail": "entitlements ticket issued, manifest check: HTTP 200", "image": "keshet.jpg", "index": 2, "kind": "backup", "module": "keshet", "name": "קשת 12 - גיבוי 2", "now_playing": "חדשות הבוקר - עם נסלי ברדה", "refresh": {"cdn": "AKAMAI", "host": "https://mako-streaming.akamaized.net", "kind": "keshet", "path": "/stream/hls/live/2033791/k12dvr/index.m3u8"}, "resolved_link": "https://mako-streaming.akamaized.net/stream/hls/live/2033791/k12dvr/index.m3u8?hdnea=st%3D1785911677%7Eexp%3D1785912577%7Eacl%3D%2F*%7Ehmac%3De81752ee445c8aa6472d7df09fed0994681e7adc0a4ad07e5ce8e0c08d3a87f3", "status": "ok", "tvgID": "12"}, {"backupN": 3, "channel_id": "ch_12b3", "detail": "entitlements ticket issued, manifest check: HTTP 200", "image": "keshet.jpg", "index": 2, "kind": "backup", "module": "keshet", "name": "קשת 12 - גיבוי 3", "now_playing": "חדשות הבוקר - עם נסלי ברדה", "refresh": {"cdn": "AKAMAI", "host": "https://mako-streaming.akamaized.net", "kind": "keshet", "path": "/n12/hls/live/20000821/k12rh/index.m3u8"}, "resolved_link": "https://mako-streaming.akamaized.net/n12/hls/live/20000821/k12rh/index.m3u8?hdnea=st%3D1785911677%7Eexp%3D1785912577%7Eacl%3D%2F*%7Ehmac%3De81752ee445c8aa6472d7df09fed0994681e7adc0a4ad07e5ce8e0c08d3a87f3", "status": "ok", "tvgID": "12"}], "index": 2, "key": "קשת 12", "module": "keshet", "name": "קשת 12", "primary": {"backupN": null, "channel_id": "ch_12", "detail": "entitlements ticket issued, manifest check: HTTP 200", "image": "keshet.jpg", "index": 2, "kind": "primary", "module": "keshet", "name": "קשת 12", "now_playing": "חדשות הבוקר - עם נסלי ברדה", "refresh": {"cdn": "AKAMAI", "host": "https://mako-streaming.akamaized.net", "kind": "keshet", "path": "/stream/hls/live/2033791/k12/index.m3u8"}, "resolved_link": "https://mako-streaming.akamaized.net/stream/hls/live/2033791/k12/index.m3u8?hdnea=st%3D1785911621%7Eexp%3D1785912521%7Eacl%3D%2F*%7Ehmac%3D8462f460ce3604497621d643c580dd95b25a1abef9746fc9f451e63ef206422a", "status": "ok", "tvgID": "12"}, "status": "ok"}, {"accessibility": {"backupN": null, "channel_id": "ch_13c", "detail": "HTTP 200", "image": "13.jpg", "index": 3, "kind": "accessibility", "module": "reshet", "name": "רשת 13 - לקויי שמיעה", "now_playing": "פותחים יום- אלעד וירדן", "refresh": null, "resolved_link": "https://reshet.g-mana.live/media/4607e158-e4d4-4e18-9160-3dc3ea9bc677/mainManifest.m3u8", "status": "ok", "tvgID": "13"}, "backups": [{"backupN": 1, "channel_id": "ch_13b", "detail": "HTTP 200", "image": "13.jpg", "index": 3, "kind": "backup", "module": "reshet", "name": "רשת 13 - גיבוי", "now_playing": "פותחים יום- אלעד וירדן", "refresh": null, "resolved_link": "https://d18b0e6mopany4.cloudfront.net/out/v1/2f2bc414a3db4698a8e94b89eaf2da2a/index.m3u8", "status": "ok", "tvgID": "13"}, {"backupN": 2, "channel_id": "ch_13b2", "detail": "HTTP 200", "image": "13.jpg", "index": 3, "kind": "backup", "module": "reshet", "name": "רשת 13 - גיבוי 2", "now_playing": "פותחים יום- אלעד וירדן", "refresh": null, "resolved_link": "https://d2xg1g9o5vns8m.cloudfront.net/out/v1/0855d703f7d5436fae6a9c7ce8ca5075/index.m3u8", "status": "ok", "tvgID": "13"}], "index": 3, "key": "רשת 13", "module": "reshet", "name": "רשת 13", "primary": {"backupN": null, "channel_id": "ch_13", "detail": "HTTP 200", "image": "13.jpg", "index": 3, "kind": "primary", "module": "reshet", "name": "רשת 13", "now_playing": "פותחים יום- אלעד וירדן", "refresh": null, "resolved_link": "https://dsk76kvc9kie6.cloudfront.net/media/87f59c77-03f6-4bad-a648-897e095e7360/mainManifest.m3u8", "status": "ok", "tvgID": "13"}, "status": "ok"}, {"accessibility": null, "backups": [{"backupN": 1, "channel_id": "ch_14b", "detail": "HTTP 200", "image": "14tv.png", "index": 4, "kind": "backup", "module": "tv", "name": "עכשיו 14 - גיבוי", "now_playing": "מהדורת הבוקר - עם דנה ורון", "refresh": null, "resolved_link": "https://ch14channel14.encoders.immergo.tv/app/2/streamPlaylist.m3u8", "status": "ok", "tvgID": "14"}, {"backupN": 2, "channel_id": "ch_14b2", "detail": "HTTP 200", "image": "14tv.png", "index": 4, "kind": "backup", "module": "tv", "name": "עכשיו 14 - גיבוי 2", "now_playing": "מהדורת הבוקר - עם דנה ורון", "refresh": null, "resolved_link": "https://r.il.cdn-redge.media/livehls/oil/ch14/live/ch14/live.livx/playlist.m3u8?dvr=21600000&bitrate=5692000&audioId=1&videoId=0", "status": "ok", "tvgID": "14"}], "index": 4, "key": "עכשיו 14", "module": "14tv", "name": "עכשיו 14", "primary": {"backupN": null, "channel_id": "ch_14", "detail": "resolved live via channel14 API", "image": "14tv.png", "index": 4, "kind": "primary", "module": "14tv", "name": "עכשיו 14", "now_playing": "מהדורת הבוקר - עם דנה ורון", "refresh": null, "resolved_link": "https://ch14channel14-cdn.encoders.immergo.tv/2/streamPlaylist.m3u8", "status": "ok", "tvgID": "14"}, "status": "ok"}, {"accessibility": null, "backups": [], "index": 5, "key": "כלכלה 10", "module": "tv", "name": "כלכלה 10", "primary": {"backupN": null, "channel_id": "ch_10", "detail": "HTTP 200", "image": "10tv.png", "index": 5, "kind": "primary", "module": "tv", "name": "כלכלה 10", "now_playing": "פותחים שוק", "refresh": null, "resolved_link": "https://r.il.cdn-redge.media/livehls/oil/calcala-live/live/channel10/live.livx/playlist.m3u8?dvr=21600000", "status": "ok", "tvgID": "10"}, "status": "ok"}, {"accessibility": null, "backups": [{"backupN": 1, "channel_id": "ch_23b", "detail": "HTTP 200", "image": "23tv.jpg", "index": 6, "kind": "backup", "module": "tv", "name": "כאן חינוכית 23 - גיבוי", "now_playing": "החפרנים - מי המציא את המילים?", "refresh": null, "resolved_link": "https://r.il.cdn-redge.media/livedash/oil/kancdn-live/live/kan_edu/live.livx?dvr=14400000", "status": "ok", "tvgID": "23"}], "index": 6, "key": "כאן חינוכית 23", "module": "kan", "name": "כאן חינוכית 23", "primary": {"backupN": null, "channel_id": "ch_23", "detail": "HTTP 200", "image": "23tv.jpg", "index": 6, "kind": "primary", "module": "kan", "name": "כאן חינוכית 23", "now_playing": "החפרנים - מי המציא את המילים?", "refresh": null, "resolved_link": "https://r.il.cdn-redge.media/livehls/oil/kancdn-live/live/kan_edu/live.livx/playlist.m3u8?dvr=21600000", "status": "ok", "tvgID": "23"}, "status": "ok"}, {"accessibility": null, "backups": [], "index": 7, "key": "ערוץ 24 החדש", "module": "keshet", "name": "ערוץ 24 החדש", "primary": {"backupN": null, "channel_id": "ch_24", "detail": "entitlements ticket issued, manifest check: HTTP 200", "image": "24telad.png", "index": 7, "kind": "primary", "module": "keshet", "name": "ערוץ 24 החדש", "now_playing": "אמהות מבשלות ביחד 2 - פרק 2", "refresh": {"cdn": "AKAMAI", "host": "https://mako-streaming.akamaized.net", "kind": "keshet", "path": "/direct/hls/live/2035340/ch24live/index.m3u8?as=1"}, "resolved_link": "https://mako-streaming.akamaized.net/direct/hls/live/2035340/ch24live/index.m3u8?as=1&hdnea=st%3D1785911682%7Eexp%3D1785912582%7Eacl%3D%2F*%7Ehmac%3D124203c6bacfcb5a7b56066242f6edaf293ce6d243f9decfde377a367ade5e86", "status": "ok", "tvgID": "24"}, "status": "ok"}, {"accessibility": null, "backups": [{"backupN": 1, "channel_id": "ch_bbb", "detail": "ConnectionError: HTTPSConnectionPool(host='d3snfszc9pg25z.cloudfront.net', port=443): Max retries exceeded with url: /media/e1739115-9182-4adc-8d19-8eb7fb6fdd3a/master.m3u8 (Caused by NameResolutionError(\"HTTPSConnection(host='d3snfszc9pg25z.cloudfront.net', port=443): Failed to resolve 'd3snfszc9pg25z.cloudfront.net' ([Errno -5] No address associated with hostname)\"))", "image": "bb.jpg", "index": 8, "kind": "backup", "module": "tv", "name": "האח הגדול 26 - גיבוי", "now_playing": null, "refresh": null, "resolved_link": null, "status": "broken", "tvgID": ""}], "index": 8, "key": "האח הגדול 26", "module": "reshet", "name": "האח הגדול 26", "primary": {"backupN": null, "channel_id": "ch_bb", "detail": "ConnectionError: HTTPSConnectionPool(host='d3snfszc9pg25z.cloudfront.net', port=443): Max retries exceeded with url: /media/e1739115-9182-4adc-8d19-8eb7fb6fdd3a/playlist_3.m3u8?_uid=2dfa21af-47dd-4772-9917-934f3ce7feea&rK=a8&_did=a4f82cc9-f24e-0789-2ffd-66f900f0b94b (Caused by NameResolutionError(\"HTTPSConnection(host='d3snfszc9pg25z.cloudfront.net', port=443): Failed to resolve 'd3snfszc9pg25z.cloudfront.net' ([Errno -5] No address associated with hostname)\"))", "image": "bb.jpg", "index": 8, "kind": "primary", "module": "reshet", "name": "האח הגדול 26", "now_playing": null, "refresh": null, "resolved_link": null, "status": "broken", "tvgID": ""}, "status": "broken"}, {"accessibility": null, "backups": [{"backupN": 1, "channel_id": "ch_33b", "detail": "HTTP 200", "image": "makan.png", "index": 9, "kind": "backup", "module": "tv", "name": "מכאן 33 - גיבוי", "now_playing": "שידורי רדיו מכאן: אג'נדה", "refresh": null, "resolved_link": "https://r.il.cdn-redge.media/livedash/oil/kancdn-live/live/makan/live.livx?dvr=14400000", "status": "ok", "tvgID": "33"}], "index": 9, "key": "מכאן 33", "module": "kan", "name": "מכאן 33", "primary": {"backupN": null, "channel_id": "ch_33", "detail": "HTTP 200", "image": "makan.png", "index": 9, "kind": "primary", "module": "kan", "name": "מכאן 33", "now_playing": "שידורי רדיו מכאן: אג'נדה", "refresh": null, "resolved_link": "https://r.il.cdn-redge.media/livehls/oil/kancdn-live/live/makan/live.livx/playlist.m3u8?dvr=21600000", "status": "ok", "tvgID": "33"}, "status": "ok"}, {"accessibility": null, "backups": [], "index": 10, "key": "קבלה 66", "module": "tv", "name": "קבלה 66", "primary": {"backupN": null, "channel_id": "ch_66", "detail": "HTTP 200", "image": "kabbalah.jpg", "index": 10, "kind": "primary", "module": "tv", "name": "קבלה 66", "now_playing": "שיחות על קבלה עם הרב ד''ר מיכאל לייטמן", "refresh": null, "resolved_link": "https://edge2.il.kab.tv/live/tv66-heb-high/playlist.m3u8", "status": "ok", "tvgID": "66"}, "status": "ok"}, {"accessibility": null, "backups": [], "index": 11, "key": "הידברות 97", "module": "hidabroot", "name": "הידברות 97", "primary": {"backupN": null, "channel_id": "ch_97", "detail": "live page + regex still resolves (HTTP 200)", "image": "hidabroot.jpg", "index": 11, "kind": "primary", "module": "hidabroot", "name": "הידברות 97", "now_playing": "הרצאה", "refresh": null, "resolved_link": "https://htv-live.cybercdn.live/HidabrootIL/Live97/playlist.m3u8", "status": "ok", "tvgID": "97"}, "status": "ok"}, {"accessibility": {"backupN": null, "channel_id": "ch_99c", "detail": "HTTP 200", "image": "knesset.png", "index": 12, "kind": "accessibility", "module": "tv", "name": "כנסת 99 - לקויי שמיעה", "now_playing": "תעודת עיתונאי", "refresh": null, "resolved_link": "https://kneset.gostreaming.tv/p2-Accessibility/_definst_/myStream/index.m3u8", "status": "ok", "tvgID": "99"}, "backups": [], "index": 12, "key": "כנסת 99", "module": "tv", "name": "כנסת 99", "primary": {"backupN": null, "channel_id": "ch_99", "detail": "HTTP 200", "image": "knesset.png", "index": 12, "kind": "primary", "module": "tv", "name": "כנסת 99", "now_playing": "תעודת עיתונאי", "refresh": null, "resolved_link": "https://kneset.gostreaming.tv/p2-kneset/_definst_/myStream/index.m3u8", "status": "ok", "tvgID": "99"}, "status": "ok"}, {"accessibility": null, "backups": [], "index": 13, "key": "Ynet Live", "module": "tv", "name": "Ynet Live", "primary": {"backupN": null, "channel_id": "ch_ynet", "detail": "HTTP 404", "image": "ynet.jpg", "index": 13, "kind": "primary", "module": "tv", "name": "Ynet Live", "now_playing": null, "refresh": null, "resolved_link": null, "status": "broken", "tvgID": ""}, "status": "broken"}, {"accessibility": null, "backups": [], "index": 15, "key": "ספורט 5 אתר", "module": "sport5", "name": "ספורט 5 אתר", "primary": {"backupN": null, "channel_id": "ch_sport5", "detail": "resolved live via sport5 data.json", "image": "Sport5.png", "index": 15, "kind": "primary", "module": "sport5", "name": "ספורט 5 אתר", "now_playing": "ספיק נ' רול-פרק 340 - תמונת מצב אצל הגדולות", "refresh": null, "resolved_link": "https://rgelive.akamaized.net/hls/live/2043151/radiolive/playlist.m3u8", "status": "ok", "tvgID": "5radio"}, "status": "ok"}, {"accessibility": null, "backups": [], "index": 16, "key": "100FM רדיוס", "module": "tv", "name": "100FM רדיוס", "primary": {"backupN": null, "channel_id": "ch_100", "detail": "HTTP 200", "image": "100fm.jpg", "index": 16, "kind": "primary", "module": "tv", "name": "100FM רדיוס", "now_playing": "אהבה פלוס", "refresh": null, "resolved_link": "https://cdn.cybercdn.live/Radios_100FM/Video/playlist.m3u8", "status": "ok", "tvgID": "100fm"}, "status": "ok"}, {"accessibility": null, "backups": [], "index": 17, "key": "Первое Радио 89.1FM", "module": "tv", "name": "Первое Радио 89.1FM", "primary": {"backupN": null, "channel_id": "ch_891", "detail": "live page + regex still resolves (HTTP 200)", "image": "891fm.png", "index": 17, "kind": "primary", "module": "tv", "name": "Первое Радио 89.1FM", "now_playing": "סקירת העיתונות", "refresh": null, "resolved_link": "https://cdn.cybercdn.live/Pervoia/Video/playlist.m3u8", "status": "ok", "tvgID": "891fm"}, "status": "ok"}, {"accessibility": null, "backups": [], "index": 17, "key": "ערוץ 9", "module": "tv", "name": "ערוץ 9", "primary": {"backupN": null, "channel_id": "ch_9", "detail": "HTTP 200", "image": "9tv.png", "index": 17, "kind": "primary", "module": "tv", "name": "ערוץ 9", "now_playing": "טבעת נישואין", "refresh": null, "resolved_link": "https://contact.gostreaming.tv/Con-11/index.m3u8", "status": "ok", "tvgID": "9"}, "status": "ok"}, {"accessibility": null, "backups": [], "index": 18, "key": "קבלה - רוסית", "module": "tv", "name": "קבלה - רוסית", "primary": {"backupN": null, "channel_id": "ch_kabru", "detail": "HTTP 200", "image": "kabbalah.jpg", "index": 18, "kind": "primary", "module": "tv", "name": "קבלה - רוסית", "now_playing": null, "refresh": null, "resolved_link": "https://edge2.il.kab.tv/live/tv66-rus-high/playlist.m3u8", "status": "ok", "tvgID": ""}, "status": "ok"}, {"accessibility": null, "backups": [], "index": 19, "key": "מוסיוף", "module": "tv", "name": "מוסיוף", "primary": {"backupN": null, "channel_id": "ch_musayof", "detail": "HTTP 200", "image": "musayof.jpg", "index": 19, "kind": "primary", "module": "tv", "name": "מוסיוף", "now_playing": null, "refresh": null, "resolved_link": "http://wowza.media-line.co.il/Musayof-Live/livestream.sdp/playlist.m3u8", "status": "ok", "tvgID": ""}, "status": "ok"}, {"accessibility": null, "backups": [], "index": 20, "key": "i24news", "module": "tv", "name": "i24news", "primary": {"backupN": null, "channel_id": "ch_i24news", "detail": "HTTP 200", "image": "i24news.png", "index": 20, "kind": "primary", "module": "tv", "name": "i24news", "now_playing": "חדר החדשות", "refresh": null, "resolved_link": "https://i24newshebrew-cdn.encoders.immergo.tv/master.m3u8", "status": "ok", "tvgID": "i24news"}, "status": "ok"}, {"accessibility": null, "backups": [], "index": 21, "key": "i24news en", "module": "tv", "name": "i24news en", "primary": {"backupN": null, "channel_id": "ch_i24newsen", "detail": "HTTP 200", "image": "i24news.png", "index": 21, "kind": "primary", "module": "tv", "name": "i24news en", "now_playing": "חדר החדשות", "refresh": null, "resolved_link": "https://i24newsenglish-cdn.encoders.immergo.tv/master.m3u8", "status": "ok", "tvgID": "i24news"}, "status": "ok"}, {"accessibility": null, "backups": [], "index": 22, "key": "i24news fr", "module": "tv", "name": "i24news fr", "primary": {"backupN": null, "channel_id": "ch_i24newsfr", "detail": "HTTP 200", "image": "i24news.png", "index": 22, "kind": "primary", "module": "tv", "name": "i24news fr", "now_playing": "חדר החדשות", "refresh": null, "resolved_link": "https://i24newsfrench-cdn.encoders.immergo.tv/master.m3u8", "status": "ok", "tvgID": "i24news"}, "status": "ok"}, {"accessibility": null, "backups": [], "index": 23, "key": "i24news ar", "module": "tv", "name": "i24news ar", "primary": {"backupN": null, "channel_id": "ch_i24newsar", "detail": "HTTP 200", "image": "i24news.png", "index": 23, "kind": "primary", "module": "tv", "name": "i24news ar", "now_playing": "חדר החדשות", "refresh": null, "resolved_link": "https://i24newsarabic-cdn.encoders.immergo.tv/master.m3u8", "status": "ok", "tvgID": "i24news"}, "status": "ok"}, {"accessibility": null, "backups": [], "index": 24, "key": "ערוץ 16", "module": "tv", "name": "ערוץ 16", "primary": {"backupN": null, "channel_id": "ch_16tv", "detail": "HTTP 200", "image": "16tv.jpg", "index": 24, "kind": "primary", "module": "tv", "name": "ערוץ 16", "now_playing": "כמו של סבתא", "refresh": null, "resolved_link": "https://ch16israel-cdn.encoders.immergo.tv/2/streamPlaylist.m3u8", "status": "ok", "tvgID": "16tv"}, "status": "ok"}, {"accessibility": null, "backups": [], "index": 25, "key": "13 ערוץ הקומדיות", "module": "reshet", "name": "13 ערוץ הקומדיות", "primary": {"backupN": null, "channel_id": "ch_13comedy", "detail": "HTTP 200", "image": "13comedy.jpg", "index": 25, "kind": "primary", "module": "reshet", "name": "13 ערוץ הקומדיות", "now_playing": "המתנחל עם חנוך דאום", "refresh": null, "resolved_link": "https://d15ds134q59udk.cloudfront.net/out/v1/fbba879221d045598540ee783b140fe2/index.m3u8", "status": "ok", "tvgID": "13comedy"}, "status": "ok"}, {"accessibility": null, "backups": [], "index": 26, "key": "ערוץ הנופש", "module": "reshet", "name": "ערוץ הנופש", "primary": {"backupN": null, "channel_id": "ch_13nofesh", "detail": "HTTP 200", "image": "13nofesh.jpg", "index": 26, "kind": "primary", "module": "reshet", "name": "ערוץ הנופש", "now_playing": "קרוז המיליון", "refresh": null, "resolved_link": "https://d1yd8hohnldm33.cloudfront.net/out/v1/19dee23c2cc24f689bd4e1288661ee0c/index.m3u8", "status": "ok", "tvgID": "13nofesh"}, "status": "ok"}, {"accessibility": null, "backups": [], "index": 27, "key": "ערוץ הריאליטי", "module": "reshet", "name": "ערוץ הריאליטי", "primary": {"backupN": null, "channel_id": "ch_13reality", "detail": "HTTP 200", "image": "13reality.jpg", "index": 27, "kind": "primary", "module": "reshet", "name": "ערוץ הריאליטי", "now_playing": "The Voice 4 23", "refresh": null, "resolved_link": "https://d2dffl3588mvfk.cloudfront.net/out/v1/d8e15050ca4148aab0ee387a5e2eb46b/index.m3u8", "status": "ok", "tvgID": "13reality"}, "status": "ok"}, {"accessibility": null, "backups": [], "index": 28, "key": "ערוץ ארץ נהדרת", "module": "keshet", "name": "ערוץ ארץ נהדרת", "primary": {"backupN": null, "channel_id": "ch_erets", "detail": "entitlements ticket issued, manifest check: HTTP 200", "image": "erets.jpg", "index": 28, "kind": "primary", "module": "keshet", "name": "ערוץ ארץ נהדרת", "now_playing": null, "refresh": {"cdn": "AKAMAI", "host": "https://mako-streaming.akamaized.net", "kind": "keshet", "path": "/free/hls/live/2111419/erets/index.m3u8?b-in-range=0-1800"}, "resolved_link": "https://mako-streaming.akamaized.net/free/hls/live/2111419/erets/index.m3u8?b-in-range=0-1800&hdnea=st%3D1785911688%7Eexp%3D1785912588%7Eacl%3D%2F*%7Ehmac%3D8b3cea10c94da8544a59a59b5eba9a5a3ee38205a579300f92abf4f2b96e9fb3", "status": "ok", "tvgID": ""}, "status": "ok"}, {"accessibility": null, "backups": [], "index": 29, "key": "ערוץ סברי מרנן", "module": "keshet", "name": "ערוץ סברי מרנן", "primary": {"backupN": null, "channel_id": "ch_savri", "detail": "entitlements ticket issued, manifest check: HTTP 200", "image": "savri.jpg", "index": 29, "kind": "primary", "module": "keshet", "name": "ערוץ סברי מרנן", "now_playing": null, "refresh": {"cdn": "AKAMAI", "host": "https://mako-streaming.akamaized.net", "kind": "keshet", "path": "/free/hls/live/2111419/savri/index.m3u8?b-in-range=0-1800"}, "resolved_link": "https://mako-streaming.akamaized.net/free/hls/live/2111419/savri/index.m3u8?b-in-range=0-1800&hdnea=st%3D1785911688%7Eexp%3D1785912588%7Eacl%3D%2F*%7Ehmac%3D8b3cea10c94da8544a59a59b5eba9a5a3ee38205a579300f92abf4f2b96e9fb3", "status": "ok", "tvgID": ""}, "status": "ok"}]}</script>
@@ -421,6 +535,8 @@
   var LS_A11Y = "idanplus.accessibility.v1";
   var LS_PAGE = "idanplus.lastPage.v1";
   var LS_UI = "idanplus.ui.v1";
+  var LS_THEME = "idanplus.theme.v1";
+  var LS_MANUAL_SOURCE = "idanplus.manualSource.v1";
 
   function lsGet(key, fallback) {
     try { var raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : fallback; }
@@ -430,8 +546,38 @@
     try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {}
   }
 
+  // ---------- theme picker (ported from govapiportal's src/theme.js) ----------
+  // Three looks (יום/לילה/זברה - clouds/fashion/zebra, see the :root[data-theme=...]
+  // blocks in <style> above). An explicit pick always sets data-theme (even
+  // "clouds") so it pins the palette regardless of OS color-scheme - a page
+  // with no saved choice has no attribute and just follows prefers-color-scheme.
+  // The pre-paint half of this (applying a saved choice before first render)
+  // is the small inline <script> right after </style>.
+  function currentTheme() {
+    return document.documentElement.getAttribute("data-theme") || "clouds";
+  }
+  function initThemePicker(root) {
+    if (!root) return;
+    var sync = function () {
+      var active = currentTheme();
+      root.querySelectorAll("button[data-theme]").forEach(function (b) {
+        b.setAttribute("aria-pressed", String(b.getAttribute("data-theme") === active));
+      });
+    };
+    root.querySelectorAll("button[data-theme]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        var choice = b.getAttribute("data-theme");
+        document.documentElement.setAttribute("data-theme", choice);
+        lsSet(LS_THEME, choice);
+        sync();
+      });
+    });
+    sync();
+  }
+
   var saved = lsGet(LS_SAVED, { tv: [], radio: [] });
   var a11yOn = lsGet(LS_A11Y, { tv: [], radio: [] });
+  var manualSource = lsGet(LS_MANUAL_SOURCE, { tv: {}, radio: {} }); // page -> { groupKey: candidateId }
   var ui = lsGet(LS_UI, {
     tv: { filter: "ok", search: "" },
     radio: { filter: "ok", search: "" }
@@ -440,7 +586,8 @@
   var state = {
     page: lsGet(LS_PAGE, "tv"),
     selected: new Set(),
-    smartPicks: {}   // groupKey -> { candidateId, label, testing }
+    // groupKey -> { testing, results: [{id,label,ms}] sorted fastest-first, bestId }
+    smartPicks: {}
   };
   if (state.page !== "tv" && state.page !== "radio") state.page = "tv";
 
@@ -451,6 +598,7 @@
     } catch (e) { return iso; }
   }
   document.getElementById("generated-at").textContent = fmtGeneratedAt(DATA.generatedAt);
+  initThemePicker(document.getElementById("themePick"));
 
   function escapeHtml(s) {
     return String(s == null ? "" : s).replace(/[&<>"']/g, function (m) {
@@ -753,17 +901,81 @@
     });
   }
 
+  // How long a stall (buffering "waiting" state) can persist, after already
+  // dropping to the lowest available quality, before giving up on this
+  // candidate entirely and falling through to the next one.
+  var STALL_GIVEUP_MS = 9000;
+
   /**
    * Wires one <video> element to one HLS source, generic enough to serve
-   * both the visible player and a hidden background recording. `onLevel` is
-   * called on every hls.js quality-level switch (used by the recording
-   * quality monitor below) - undefined/no-op for the visible player, which
-   * doesn't need it.
-   * Returns the Hls instance (so the caller can destroy() it later), or
-   * `null` for native HLS (nothing to tear down beyond the <video> itself),
-   * or `undefined` if this browser can play neither.
+   * both the visible player and a hidden background recording.
+   *
+   * Handles buffering stalls the same way everywhere it's used: on a
+   * "waiting" event, step hls.js DOWN one quality level first (bandwidth
+   * contention is the single most common live-stream stall cause) rather
+   * than immediately giving up on the whole source; only falls through to
+   * `onFatal` (source abandoned, caller moves to its next candidate) if the
+   * stall is still ongoing STALL_GIVEUP_MS later even at the lowest level,
+   * or if hls.js reports an outright fatal error, or (native HLS only,
+   * where there is no quality ladder to step down) if any stall persists
+   * that long at all.
+   *
+   * callbacks:
+   *   onReady()          - fires once, playable (MANIFEST_PARSED / loadedmetadata)
+   *   onFatal()           - this source is abandoned; caller should try its next one
+   *   onLevel(level)      - hls.js quality-level changed (ours or hls.js's own ABR)
+   *   onWaiting()          - a "waiting" event fired, before this function's own
+   *                         recovery logic runs - callers may use this for their
+   *                         own bookkeeping (e.g. the recording quality monitor)
+   *   onPlayBlocked()      - videoEl.play() was rejected (autoplay policy) -
+   *                         playback is technically "ready" but not actually
+   *                         moving; the caller decides what, if anything, to
+   *                         show for that
+   *
+   * Returns the Hls instance (so the caller can destroy() it later), `null`
+   * for native HLS (nothing to tear down beyond the <video> itself), or
+   * `undefined` if this browser can play neither.
    */
-  function attachStream(videoEl, link, onReady, onFatal, onLevel) {
+  function attachStream(videoEl, link, callbacks) {
+    var onReady = callbacks.onReady || function () {};
+    var onFatal = callbacks.onFatal || function () {};
+    var onLevel = callbacks.onLevel;
+    var onWaiting = callbacks.onWaiting;
+    var onPlayBlocked = callbacks.onPlayBlocked;
+
+    var hls = null; // set below when hls.js is the backend; stays null for native
+    var stallTimer = null;
+    var steppedDownForThisStall = false;
+
+    function clearStall() {
+      steppedDownForThisStall = false;
+      if (stallTimer) { clearTimeout(stallTimer); stallTimer = null; }
+    }
+
+    videoEl.addEventListener("waiting", function () {
+      if (onWaiting) onWaiting();
+      if (!steppedDownForThisStall && hls && hls.levels && hls.levels.length > 1) {
+        var order = hls.levels.map(function (lvl, i) { return i; })
+          .sort(function (a, b) { return hls.levels[a].bitrate - hls.levels[b].bitrate; });
+        var cur = hls.currentLevel;
+        var pos = cur < 0 ? order.length - 1 : order.indexOf(cur); // currentLevel -1 = auto, treat as "at the top"
+        if (pos > 0) {
+          hls.currentLevel = order[pos - 1];
+          steppedDownForThisStall = true;
+          if (onLevel) onLevel(order[pos - 1]);
+        }
+      }
+      if (stallTimer) clearTimeout(stallTimer);
+      stallTimer = setTimeout(function () { stallTimer = null; onFatal(); }, STALL_GIVEUP_MS);
+    });
+    videoEl.addEventListener("playing", clearStall);
+
+    function attemptPlay() {
+      videoEl.play().catch(function () {
+        if (onPlayBlocked) onPlayBlocked();
+      });
+    }
+
     if (videoEl.canPlayType("application/vnd.apple.mpegurl")) {
       videoEl.src = link;
       videoEl.addEventListener("loadedmetadata", function once() {
@@ -772,14 +984,14 @@
       videoEl.addEventListener("error", function once() {
         videoEl.removeEventListener("error", once); onFatal();
       }, { once: true });
-      videoEl.play().catch(function () {});
+      attemptPlay();
       return null;
     }
     if (window.Hls && window.Hls.isSupported()) {
-      var hls = new window.Hls({ maxBufferLength: 20 });
+      hls = new window.Hls({ maxBufferLength: 20 });
       hls.on(window.Hls.Events.MANIFEST_PARSED, function () {
         onReady();
-        videoEl.play().catch(function () {});
+        attemptPlay();
       });
       hls.on(window.Hls.Events.ERROR, function (event, data) {
         if (data.fatal) onFatal();
@@ -793,11 +1005,13 @@
   }
 
   function startPlayback(link, tryNext) {
-    var hls = attachStream(
-      playerVideo, link,
-      function onReady() { setPlayerStatus(""); },
-      tryNext
-    );
+    var hls = attachStream(playerVideo, link, {
+      onReady: function () { setPlayerStatus(""); },
+      onFatal: tryNext,
+      onPlayBlocked: function () {
+        setPlayerStatus("השידור נטען - לחצו ▶ בנגן כדי להתחיל (הדפדפן חוסם הפעלה אוטומטית).");
+      },
+    });
     if (hls === undefined) { setPlayerStatus("הדפדפן הזה אינו תומך בניגון שידורי HLS."); return; }
     currentHls = hls;
   }
@@ -851,7 +1065,7 @@
   // Radio has no curated order defined, so plain arrows there fall back to
   // the full-list mode.
   var CURATED_ORDER = {
-    tv: ["כאן 11", "קשת 12", "רשת 13", "כאן חינוכית 23", "מכאן 33", "כנסת 99", "ערוץ 9", "עכשיו 14", "ערוץ 16"],
+    tv: ["כאן 11", "קשת 12", "רשת 13", "כאן חינוכית 23", "מכאן 33", "כנסת 99", "ערוץ 9", "ערוץ 16"],
   };
 
   function switchChannel(delta, mode) {
@@ -1018,9 +1232,23 @@
       freshenLink(candidates[attempt]).then(function (link) {
         if (!recordings[id]) return; // stopped/cancelled meanwhile
         if (rec.hls) { rec.hls.destroy(); rec.hls = null; }
-        rec.hls = attachStream(video, link, onReady, tryNext, function onLevel(level) {
-          rec.downgrades.push({ t: Date.now(), level: level });
-          checkQuality();
+        rec.hls = attachStream(video, link, {
+          onReady: onReady,
+          onFatal: tryNext,
+          onLevel: function (level) {
+            rec.downgrades.push({ t: Date.now(), level: level });
+            checkQuality();
+          },
+          onWaiting: function () {
+            rec.stalls.push(Date.now());
+            checkQuality();
+          },
+          // No visible controls on this hidden element for a person to
+          // press - retry once, shortly, rather than leave the recording
+          // silently frozen on a blocked autoplay.
+          onPlayBlocked: function () {
+            setTimeout(function () { if (recordings[id]) video.play().catch(function () {}); }, 500);
+          },
         }) || null;
       });
     }
@@ -1028,10 +1256,9 @@
       if (!recordings[id] || rec.recorder) return; // already started, or stopped meanwhile
       startCapture();
     }
-    video.addEventListener("waiting", function () {
-      rec.stalls.push(Date.now());
-      checkQuality();
-    });
+    // Stall bookkeeping (rec.stalls) now happens via attachStream's own
+    // onWaiting callback above, not a second listener here - avoids
+    // double-counting the same stall.
     load();
 
     function startCapture() {

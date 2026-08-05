@@ -103,6 +103,13 @@
 
   .app { direction: rtl; max-width: 980px; margin: 0 auto; padding: 0 20px 120px; }
 
+  .site-footer {
+    max-width: 980px; margin: 32px auto 0; padding: 16px 20px;
+    border-top: 1px solid var(--border); text-align: center;
+  }
+  .site-footer a { color: var(--text-dim); font-size: 12px; text-decoration: none; }
+  .site-footer a:hover { color: var(--accent); text-decoration: underline; }
+
   /* ---------- header.site: ported from govapiportal ---------- */
   header.site {
     border-radius: 18px; margin: 16px 0 20px;
@@ -507,6 +514,10 @@
       </div>
     </div>
   </div>
+
+  <footer class="site-footer">
+    <a href="https://github.com/Fishenzon/repo.git" target="_blank" rel="noopener">מקור הנתונים: Fishenzon/repo ↗</a>
+  </footer>
 </div>
 
 <script type="application/json" id="channel-data">__CHANNEL_DATA_JSON__</script>
@@ -888,17 +899,81 @@
     });
   }
 
+  // How long a stall (buffering "waiting" state) can persist, after already
+  // dropping to the lowest available quality, before giving up on this
+  // candidate entirely and falling through to the next one.
+  var STALL_GIVEUP_MS = 9000;
+
   /**
    * Wires one <video> element to one HLS source, generic enough to serve
-   * both the visible player and a hidden background recording. `onLevel` is
-   * called on every hls.js quality-level switch (used by the recording
-   * quality monitor below) - undefined/no-op for the visible player, which
-   * doesn't need it.
-   * Returns the Hls instance (so the caller can destroy() it later), or
-   * `null` for native HLS (nothing to tear down beyond the <video> itself),
-   * or `undefined` if this browser can play neither.
+   * both the visible player and a hidden background recording.
+   *
+   * Handles buffering stalls the same way everywhere it's used: on a
+   * "waiting" event, step hls.js DOWN one quality level first (bandwidth
+   * contention is the single most common live-stream stall cause) rather
+   * than immediately giving up on the whole source; only falls through to
+   * `onFatal` (source abandoned, caller moves to its next candidate) if the
+   * stall is still ongoing STALL_GIVEUP_MS later even at the lowest level,
+   * or if hls.js reports an outright fatal error, or (native HLS only,
+   * where there is no quality ladder to step down) if any stall persists
+   * that long at all.
+   *
+   * callbacks:
+   *   onReady()          - fires once, playable (MANIFEST_PARSED / loadedmetadata)
+   *   onFatal()           - this source is abandoned; caller should try its next one
+   *   onLevel(level)      - hls.js quality-level changed (ours or hls.js's own ABR)
+   *   onWaiting()          - a "waiting" event fired, before this function's own
+   *                         recovery logic runs - callers may use this for their
+   *                         own bookkeeping (e.g. the recording quality monitor)
+   *   onPlayBlocked()      - videoEl.play() was rejected (autoplay policy) -
+   *                         playback is technically "ready" but not actually
+   *                         moving; the caller decides what, if anything, to
+   *                         show for that
+   *
+   * Returns the Hls instance (so the caller can destroy() it later), `null`
+   * for native HLS (nothing to tear down beyond the <video> itself), or
+   * `undefined` if this browser can play neither.
    */
-  function attachStream(videoEl, link, onReady, onFatal, onLevel) {
+  function attachStream(videoEl, link, callbacks) {
+    var onReady = callbacks.onReady || function () {};
+    var onFatal = callbacks.onFatal || function () {};
+    var onLevel = callbacks.onLevel;
+    var onWaiting = callbacks.onWaiting;
+    var onPlayBlocked = callbacks.onPlayBlocked;
+
+    var hls = null; // set below when hls.js is the backend; stays null for native
+    var stallTimer = null;
+    var steppedDownForThisStall = false;
+
+    function clearStall() {
+      steppedDownForThisStall = false;
+      if (stallTimer) { clearTimeout(stallTimer); stallTimer = null; }
+    }
+
+    videoEl.addEventListener("waiting", function () {
+      if (onWaiting) onWaiting();
+      if (!steppedDownForThisStall && hls && hls.levels && hls.levels.length > 1) {
+        var order = hls.levels.map(function (lvl, i) { return i; })
+          .sort(function (a, b) { return hls.levels[a].bitrate - hls.levels[b].bitrate; });
+        var cur = hls.currentLevel;
+        var pos = cur < 0 ? order.length - 1 : order.indexOf(cur); // currentLevel -1 = auto, treat as "at the top"
+        if (pos > 0) {
+          hls.currentLevel = order[pos - 1];
+          steppedDownForThisStall = true;
+          if (onLevel) onLevel(order[pos - 1]);
+        }
+      }
+      if (stallTimer) clearTimeout(stallTimer);
+      stallTimer = setTimeout(function () { stallTimer = null; onFatal(); }, STALL_GIVEUP_MS);
+    });
+    videoEl.addEventListener("playing", clearStall);
+
+    function attemptPlay() {
+      videoEl.play().catch(function () {
+        if (onPlayBlocked) onPlayBlocked();
+      });
+    }
+
     if (videoEl.canPlayType("application/vnd.apple.mpegurl")) {
       videoEl.src = link;
       videoEl.addEventListener("loadedmetadata", function once() {
@@ -907,14 +982,14 @@
       videoEl.addEventListener("error", function once() {
         videoEl.removeEventListener("error", once); onFatal();
       }, { once: true });
-      videoEl.play().catch(function () {});
+      attemptPlay();
       return null;
     }
     if (window.Hls && window.Hls.isSupported()) {
-      var hls = new window.Hls({ maxBufferLength: 20 });
+      hls = new window.Hls({ maxBufferLength: 20 });
       hls.on(window.Hls.Events.MANIFEST_PARSED, function () {
         onReady();
-        videoEl.play().catch(function () {});
+        attemptPlay();
       });
       hls.on(window.Hls.Events.ERROR, function (event, data) {
         if (data.fatal) onFatal();
@@ -928,11 +1003,13 @@
   }
 
   function startPlayback(link, tryNext) {
-    var hls = attachStream(
-      playerVideo, link,
-      function onReady() { setPlayerStatus(""); },
-      tryNext
-    );
+    var hls = attachStream(playerVideo, link, {
+      onReady: function () { setPlayerStatus(""); },
+      onFatal: tryNext,
+      onPlayBlocked: function () {
+        setPlayerStatus("השידור נטען - לחצו ▶ בנגן כדי להתחיל (הדפדפן חוסם הפעלה אוטומטית).");
+      },
+    });
     if (hls === undefined) { setPlayerStatus("הדפדפן הזה אינו תומך בניגון שידורי HLS."); return; }
     currentHls = hls;
   }
@@ -1153,9 +1230,23 @@
       freshenLink(candidates[attempt]).then(function (link) {
         if (!recordings[id]) return; // stopped/cancelled meanwhile
         if (rec.hls) { rec.hls.destroy(); rec.hls = null; }
-        rec.hls = attachStream(video, link, onReady, tryNext, function onLevel(level) {
-          rec.downgrades.push({ t: Date.now(), level: level });
-          checkQuality();
+        rec.hls = attachStream(video, link, {
+          onReady: onReady,
+          onFatal: tryNext,
+          onLevel: function (level) {
+            rec.downgrades.push({ t: Date.now(), level: level });
+            checkQuality();
+          },
+          onWaiting: function () {
+            rec.stalls.push(Date.now());
+            checkQuality();
+          },
+          // No visible controls on this hidden element for a person to
+          // press - retry once, shortly, rather than leave the recording
+          // silently frozen on a blocked autoplay.
+          onPlayBlocked: function () {
+            setTimeout(function () { if (recordings[id]) video.play().catch(function () {}); }, 500);
+          },
         }) || null;
       });
     }
@@ -1163,10 +1254,9 @@
       if (!recordings[id] || rec.recorder) return; // already started, or stopped meanwhile
       startCapture();
     }
-    video.addEventListener("waiting", function () {
-      rec.stalls.push(Date.now());
-      checkQuality();
-    });
+    // Stall bookkeeping (rec.stalls) now happens via attachStream's own
+    // onWaiting callback above, not a second listener here - avoids
+    // double-counting the same stall.
     load();
 
     function startCapture() {
