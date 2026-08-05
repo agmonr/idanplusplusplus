@@ -335,6 +335,12 @@
     animation: spin .7s linear infinite; pointer-events: none;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
+  .row-thumb-mute-badge {
+    position: absolute; bottom: 6px; inset-inline-start: 6px; width: 22px; height: 22px;
+    border-radius: 50%; background: rgba(0,0,0,.55); color: #fff;
+    display: flex; align-items: center; justify-content: center; font-size: 12px;
+    pointer-events: none;
+  }
   /* A per-broadcaster colored monogram badge (own design, not a copy of any
      real network logo) - shown until the live single-frame preview above
      loads in, then hidden. Color comes from --badge-color (set inline per
@@ -1184,7 +1190,7 @@
   // whole point is getting picture up as quickly as possible.
   var HOVER_HLS_CONFIG = { maxBufferLength: 4, startLevel: 0, capLevelToPlayerSize: false };
   var HOVER_HLS_CONFIG_FAST = { maxBufferLength: 2, maxMaxBufferLength: 2, startLevel: 0, capLevelToPlayerSize: false, backBufferLength: 0 };
-  var hoverPreview = { timer: null, key: null, video: null, hls: null, spinner: null };
+  var hoverPreview = { timer: null, key: null, video: null, hls: null, spinner: null, thumb: null, muteBadge: null };
   // Header mute button (id="preview-mute-btn") toggles this - applies to
   // every preview (hover/long-press/scroll-stop) and persists across visits.
   var previewMuted = lsGet(LS_PREVIEW_MUTED, false);
@@ -1197,6 +1203,7 @@
   function cancelHoverPreview() {
     if (hoverPreview.timer) { clearTimeout(hoverPreview.timer); hoverPreview.timer = null; }
     if (hoverPreview.spinner) { hoverPreview.spinner.remove(); hoverPreview.spinner = null; }
+    if (hoverPreview.muteBadge) { hoverPreview.muteBadge.remove(); hoverPreview.muteBadge = null; }
     if (hoverPreview.video) {
       if (hoverPreview.hls) hoverPreview.hls.destroy();
       hoverPreview.video.pause();
@@ -1204,12 +1211,31 @@
       hoverPreview.video = null;
       hoverPreview.hls = null;
       hoverPreview.key = null;
+      hoverPreview.thumb = null;
+    }
+  }
+
+  // Shown over the live preview video itself whenever previewMuted is on -
+  // a per-card visual cue, not just the header button's own icon, so it's
+  // obvious at a glance why a given card's preview has no sound.
+  function syncPreviewMuteBadge() {
+    if (!hoverPreview.thumb) return;
+    if (previewMuted && !hoverPreview.muteBadge) {
+      var badge = document.createElement("div");
+      badge.className = "row-thumb-mute-badge";
+      badge.textContent = "🔇";
+      hoverPreview.thumb.appendChild(badge);
+      hoverPreview.muteBadge = badge;
+    } else if (!previewMuted && hoverPreview.muteBadge) {
+      hoverPreview.muteBadge.remove();
+      hoverPreview.muteBadge = null;
     }
   }
 
   function startHoverPreview(group, thumb, opts) {
     opts = opts || {};
     hoverPreview.key = group.key;
+    hoverPreview.thumb = thumb;
     var candidate = activeCandidate(group);
     if (!candidate || !candidate.link) return;
 
@@ -1217,6 +1243,7 @@
     spinner.className = "row-thumb-spinner";
     thumb.appendChild(spinner);
     hoverPreview.spinner = spinner;
+    syncPreviewMuteBadge();
 
     freshenLink(candidate).then(function (link) {
       // The mouse may well have left (or landed on a different card)
@@ -2657,6 +2684,7 @@
       // Apply immediately to whatever preview is playing right now, rather
       // than only taking effect the next time one starts.
       if (hoverPreview.video) hoverPreview.video.muted = previewMuted;
+      syncPreviewMuteBadge();
     });
   })();
 
