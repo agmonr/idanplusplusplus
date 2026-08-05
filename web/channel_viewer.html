@@ -1,3 +1,5 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>מדריך הערוצים — עידן+</title>
 <style>
   /*
@@ -134,7 +136,16 @@
     background: rgba(255,255,255,.15); color: #eafbe7; border: 1px solid rgba(255,255,255,.35);
   }
   .theme-pick button[aria-pressed="true"] { background: #fff; color: #1b5e34; border-color: #fff; font-weight: 700; }
-  @media (max-width: 640px) { .theme-pick .theme-btn-label { display: none; } }
+  @media (max-width: 640px) {
+    .theme-pick .theme-btn-label { display: none; }
+    /* The header (title/attribution/theme picker) and the in-player
+       keyboard-shortcut legend both assume a keyboard and screen real
+       estate a phone doesn't have - drop both to get straight to the
+       channel grid, and to what's actually usable there (touch, not
+       shortcuts). */
+    header.site { display: none; }
+    .player-legend { display: none; }
+  }
 
   /* Fashion (night): a flat panel reads better than a bright forest gradient
      on a near-black page. Zebra: solid black with a striped band along the
@@ -169,12 +180,25 @@
   }
   .meta { font-size: 12px; color: var(--text-dim); }
 
+  /* "Keep only טלוויזיה/רדיו in the header" - the stats row and the
+     search/filter/recordings/saved controls stay in the DOM (a large
+     amount of JS reads from them directly with no null-guards - renderStats,
+     renderFilters, updateRecUI, updateSavedCount, the search listener) but
+     are hidden rather than removed, so nothing downstream breaks. */
+  .stats, .controls { display: none; }
+
   .pagetabs { display: flex; gap: 6px; margin-top: 14px; }
   .pagetab {
     border: 1px solid var(--border); background: var(--surface); color: var(--text-dim);
     border-radius: 10px; padding: 8px 18px; font-size: 13.5px; font-weight: 700; cursor: pointer;
   }
   .pagetab[aria-selected="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .attribution-link {
+    margin-inline-start: auto; align-self: center;
+    font-size: 12px; font-weight: 400; color: var(--text-dim);
+    background: none; border: none; text-decoration: none;
+  }
+  .attribution-link:hover { color: var(--accent); text-decoration: underline; }
 
   .stats { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
   .stat {
@@ -228,6 +252,12 @@
     background: var(--danger-soft); border: 1px solid var(--danger); color: var(--text);
     font-size: 13px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
   }
+  /* Bug fixed here: an author rule setting display:flex unconditionally
+     beats the browser's own [hidden]{display:none} rule regardless of
+     selector specificity or source order (different, lower-priority
+     cascade origin) - so the empty quality-warning banner was rendering as
+     a full-width red box with nothing in it even while genuinely hidden. */
+  .rec-banner[hidden] { display: none; }
   .rec-banner strong { color: var(--danger); }
   .rec-banner .rb-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-inline-start: auto; }
   .rec-banner button {
@@ -354,6 +384,19 @@
   .row-top { display: flex; align-items: center; gap: 6px; }
   .row-name { font-weight: 700; font-size: 13.5px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .row-name.is-broken-text { color: var(--danger); }
+  /* Program name next to the channel name - mobile only, where there's no
+     room for the source-response-time pills below to double as context
+     about what's actually airing right now. */
+  .row-now-playing {
+    display: none; font-size: 11px; font-weight: 400; color: var(--text-dim);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: none; max-width: 45%;
+  }
+  @media (max-width: 640px) {
+    .row-now-playing { display: block; }
+    /* "מקליט" recording dot on card - dropped on mobile (both tv/radio
+       pages), matching the header recordings button already being hidden. */
+    .row-rec-dot { display: none; }
+  }
   .row-sub { font-size: 11px; color: var(--text-dim); min-height: 1.3em; }
   .row-sub .pulse {
     display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: var(--text-dim);
@@ -462,6 +505,21 @@
   .player-osd.is-shown { opacity: 1; transform: translateY(0); }
   .osd-name { font-size: 15px; font-weight: 800; text-wrap: balance; }
   .osd-program { font-size: 12px; opacity: .85; margin-top: 2px; }
+
+  /* Brief on-screen confirmation for volume/mute changes (↑/↓, M, the mute
+     button) - the kind of feedback a TV remote gives, since there's
+     otherwise no visual sign a keypress did anything until you notice the
+     mute icon changed. */
+  .volume-osd {
+    position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%) scale(.9);
+    display: flex; align-items: center; gap: 10px;
+    background: rgba(0,0,0,.65); backdrop-filter: blur(6px); border-radius: 999px;
+    padding: 8px 16px; color: #fff; opacity: 0; pointer-events: none;
+    transition: opacity .18s ease, transform .18s ease;
+  }
+  .volume-osd.is-shown { opacity: 1; transform: translateX(-50%) scale(1); }
+  .volume-osd-bar { width: 90px; height: 4px; border-radius: 999px; background: rgba(255,255,255,.25); overflow: hidden; }
+  .volume-osd-fill { height: 100%; background: #fff; border-radius: 999px; transition: width .12s ease; }
   .player-foot { display: flex; align-items: center; gap: 10px; padding: 10px 16px; font-size: 12px; color: var(--text-dim); flex-wrap: wrap; }
   .player-foot .p-source { direction: ltr; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
   .player-legend {
@@ -488,23 +546,14 @@
 </script>
 
 <div class="app" dir="rtl" lang="he">
-  <header class="site">
-    <div class="wrap">
-      <h1>מדריך הערוצים — עידן+</h1>
-      <span class="site-by">כלי נלווה לתוסף Kodi עידן+<span class="site-disclaimer">קישורי השידור עלולים להשתנות או להיות שגויים</span><a href="https://agmonr.github.io/govapiportal/apps.html" target="_blank" rel="noopener">← חזרה לכל האפליקציות</a></span>
-      <div class="theme-pick" id="themePick" role="group" aria-label="ערכת נושא">
-        <button type="button" data-theme="clouds">☀️<span class="theme-btn-label"> יום</span></button>
-        <button type="button" data-theme="fashion">🌙<span class="theme-btn-label"> לילה</span></button>
-        <button type="button" data-theme="zebra">🦓<span class="theme-btn-label"> זברה</span></button>
-      </div>
-      <span class="meta">עודכן <span class="mono" id="generated-at" dir="ltr"></span></span>
-    </div>
-  </header>
-
+  <!-- header.site (title/attribution/theme-picker) removed for now - a
+       replacement is planned separately. themePick/generated-at no longer
+       exist in the DOM; the script guards every reference to them. -->
   <header class="topbar">
     <div class="pagetabs" role="tablist" aria-label="בחירת עמוד">
       <button class="pagetab" data-page="tv" role="tab">טלוויזיה</button>
       <button class="pagetab" data-page="radio" role="tab">רדיו</button>
+      <a class="attribution-link" href="https://hod-hasharon.org/" target="_blank" rel="noopener">רם אגמון</a>
     </div>
 
     <div class="stats" id="stats"></div>
@@ -580,6 +629,10 @@
         <div class="player-osd" id="player-osd">
           <div class="osd-name" id="osd-name"></div>
           <div class="osd-program" id="osd-program"></div>
+        </div>
+        <div class="volume-osd" id="volume-osd">
+          <span id="volume-osd-icon">🔊</span>
+          <div class="volume-osd-bar"><div class="volume-osd-fill" id="volume-osd-fill"></div></div>
         </div>
       </div>
       <div class="player-foot">
@@ -704,7 +757,8 @@
       return d.toLocaleString("he-IL", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
     } catch (e) { return iso; }
   }
-  document.getElementById("generated-at").textContent = fmtGeneratedAt(DATA.generatedAt);
+  var generatedAtEl = document.getElementById("generated-at");
+  if (generatedAtEl) generatedAtEl.textContent = fmtGeneratedAt(DATA.generatedAt);
   initThemePicker(document.getElementById("themePick"));
 
   // Firefox's captureStream()/MediaRecorder combination for this kind of
@@ -859,7 +913,28 @@
   var PREVIEW_CONCURRENCY = 1;
   var PREVIEW_STAGGER_MS = 600;
   var PREVIEW_CAPTURE_TIMEOUT_MS = 6000;
-  var PREVIEW_REFRESH_MS = 60000;
+  // A captured preview is considered "fresh" for 10 minutes - reused
+  // straight from sessionStorage (no network) within that window, even
+  // across a page reload within the same tab session; past it, the
+  // periodic sweep below silently re-captures it in the background.
+  var PREVIEW_FRESH_MS = 10 * 60 * 1000;
+  var PREVIEW_REFRESH_MS = PREVIEW_FRESH_MS;
+
+  function previewStorageKey(cacheKey) { return "idanplus.preview." + cacheKey; }
+  function loadPreviewFromStorage(cacheKey) {
+    try {
+      var raw = sessionStorage.getItem(previewStorageKey(cacheKey));
+      if (!raw) return null;
+      var entry = JSON.parse(raw);
+      if (!entry || !entry.dataUrl || typeof entry.capturedAt !== "number") return null;
+      return entry;
+    } catch (e) { return null; } // private mode, quota, or corrupted entry - just re-capture as normal
+  }
+  function savePreviewToStorage(cacheKey, dataUrl) {
+    try {
+      sessionStorage.setItem(previewStorageKey(cacheKey), JSON.stringify({ dataUrl: dataUrl, capturedAt: Date.now() }));
+    } catch (e) { /* quota exceeded (data URLs add up) or storage unavailable - in-memory cache still works for this render */ }
+  }
 
   var previewObserver = (typeof IntersectionObserver !== "undefined")
     ? new IntersectionObserver(function (entries) {
@@ -874,11 +949,28 @@
     : null;
 
   function observePreviews(container) {
-    if (!previewObserver || state.page !== "tv") return;
+    if (state.page !== "tv") return;
     container.querySelectorAll('[data-role="thumb"]').forEach(function (thumb) {
       var row = thumb.closest(".row");
       var key = row.getAttribute("data-key");
-      if (previewRequested["tv::" + key]) return; // already have (or are fetching) a copy - the 60s refresh loop handles keeping it current
+      var cacheKey = "tv::" + key;
+      if (previewRequested[cacheKey]) return; // already have (or are fetching) a copy - the periodic sweep below handles keeping it current
+
+      // A fresh copy may already be sitting in sessionStorage from earlier
+      // in this tab session (even before this reload) - use it immediately,
+      // no network needed, and skip the IntersectionObserver entirely for
+      // this card.
+      if (!previewCache[cacheKey]) {
+        var stored = loadPreviewFromStorage(cacheKey);
+        if (stored && Date.now() - stored.capturedAt < PREVIEW_FRESH_MS) {
+          previewCache[cacheKey] = stored.dataUrl;
+          previewRequested[cacheKey] = true;
+          applyPreviewToDom("tv", key, stored.dataUrl);
+          return;
+        }
+      }
+
+      if (!previewObserver) return;
       thumb.setAttribute("data-preview-key", key);
       previewObserver.observe(thumb);
     });
@@ -970,6 +1062,7 @@
           canvas.getContext("2d").drawImage(video, 0, 0, canvas.width, canvas.height);
           var dataUrl = canvas.toDataURL("image/jpeg", 0.6);
           previewCache[cacheKey] = dataUrl;
+          savePreviewToStorage(cacheKey, dataUrl);
           clearTimeout(guard);
           applyPreviewToDom(page, group.key, dataUrl);
         } catch (ex) { /* tainted canvas or decode failure - just leave the placeholder icon */ }
@@ -1070,6 +1163,53 @@
         // rendition is plenty and keeps hovering across the grid cheap.
         hlsConfig: { maxBufferLength: 4, startLevel: 0, capLevelToPlayerSize: false },
       }) || null;
+    });
+  }
+
+  // Touch equivalent of hover: a short tap opens the full player (the
+  // existing "click" listener already does that - taps fire a synthetic
+  // click same as a mouse would), a LONG press instead starts the same live
+  // preview hovering does on desktop. The tricky part is telling them apart
+  // and stopping a long-press from ALSO opening the player once the finger
+  // lifts (browsers fire a synthetic click ~after touchend unless it's
+  // prevented) - and not mistaking a scroll gesture (finger moves) for a
+  // long press.
+  var LONG_PRESS_MS = 450;
+  var LONG_PRESS_MOVE_TOLERANCE = 10;
+  function wireLongPress(thumb, group) {
+    var timer = null;
+    var longPressed = false;
+    var startX = 0, startY = 0;
+
+    thumb.addEventListener("touchstart", function (e) {
+      longPressed = false;
+      var t = e.touches[0];
+      startX = t.clientX; startY = t.clientY;
+      timer = setTimeout(function () {
+        longPressed = true;
+        startHoverPreview(group, thumb); // long-press already IS the confirmed intent - no debounce needed
+      }, LONG_PRESS_MS);
+    }, { passive: true });
+
+    thumb.addEventListener("touchmove", function (e) {
+      var t = e.touches[0];
+      if (Math.abs(t.clientX - startX) > LONG_PRESS_MOVE_TOLERANCE || Math.abs(t.clientY - startY) > LONG_PRESS_MOVE_TOLERANCE) {
+        clearTimeout(timer); // scrolling, not pressing - don't let a long press fire mid-scroll
+      }
+    }, { passive: true });
+
+    thumb.addEventListener("touchend", function (e) {
+      clearTimeout(timer);
+      if (longPressed) {
+        e.preventDefault(); // suppress the synthetic click - releasing a long-press should NOT also open the player
+        cancelHoverPreview();
+      }
+      // else: a genuine short tap - let the click listener open the player as usual
+    });
+
+    thumb.addEventListener("touchcancel", function () {
+      clearTimeout(timer);
+      if (longPressed) cancelHoverPreview();
     });
   }
 
@@ -1182,6 +1322,7 @@
           '<div class="row-top">' +
             '<input type="checkbox" class="pickbox" aria-label="בחר את ' + escapeHtml(group.name) + '"' + (isSel ? " checked" : "") + (isBroken ? " disabled" : "") + " />" +
             '<div class="row-name' + (isBroken ? " is-broken-text" : "") + '">' + escapeHtml(group.name) + "</div>" +
+            (group.primary.now_playing ? '<span class="row-now-playing">' + escapeHtml(group.primary.now_playing) + "</span>" : "") +
           "</div>" +
           '<div class="row-sub" data-role="sub">' + rowSubHtml(group) + "</div>" +
         "</div>" +
@@ -1233,6 +1374,7 @@
         if (state.page === "tv") {
           thumb.addEventListener("mouseenter", function () { scheduleHoverPreview(group, thumb); });
           thumb.addEventListener("mouseleave", cancelHoverPreview);
+          wireLongPress(thumb, group);
         }
       }
       wireSourcePicks(row, group);
@@ -1570,6 +1712,7 @@
   }
 
   var playingKey = null;
+  var playingPage = null; // the page the CURRENT playingKey belongs to - state.page can change (page-tab switch) before closePlayer() runs, so this can't just be read from state.page there
   var osdTimer = null;
   var osdEl = document.getElementById("player-osd");
 
@@ -1585,14 +1728,34 @@
     osdTimer = setTimeout(function () { osdEl.classList.remove("is-shown"); }, 3200);
   }
 
+  // On mobile especially, the phone's own back gesture/button should close
+  // the player (like any other app's fullscreen view) instead of leaving
+  // the page entirely - one history entry gets pushed when the player
+  // TRANSITIONS from closed to open (not on every channel switch while
+  // already open, or repeatedly switching channels would eat multiple
+  // back-presses before the player finally closes), and a popstate while
+  // it's open closes it instead of doing nothing and letting the browser
+  // navigate away underneath it.
+  var closingViaHistory = false;
+  window.addEventListener("popstate", function () {
+    if (playerOverlay.classList.contains("is-open")) {
+      closingViaHistory = true;
+      closePlayer();
+      closingViaHistory = false;
+    }
+  });
+
   function openPlayer(group) {
+    var wasOpen = playerOverlay.classList.contains("is-open");
     playingKey = group.key;
+    playingPage = state.page;
     document.getElementById("player-title").textContent = group.name;
     updateRecIndicatorInModal();
     showOsd(group);
     playerCandidates = playerCandidatesFor(group);
     playerAttempt = 0;
     playerOverlay.classList.add("is-open");
+    if (!wasOpen) history.pushState({ idanplusPlayer: true }, "");
     if (!playerCandidates.length) {
       setPlayerStatus("אין מקור זמין לערוץ הזה כרגע.");
       return;
@@ -1601,9 +1764,35 @@
   }
 
   function closePlayer() {
+    var wasWatching = playingKey;
+    var wasPage = playingPage; // NOT state.page - a page-tab switch already reassigns that before this runs
     playingKey = null;
     playerOverlay.classList.remove("is-open");
     teardownPlayer();
+    // Closed via the X/Escape/click-outside (not via the back button
+    // itself, which already consumed this entry through popstate) - pop
+    // the history entry we pushed on open so it doesn't linger for a LATER
+    // back-press to hit for no visible reason.
+    if (!closingViaHistory && history.state && history.state.idanplusPlayer) history.back();
+
+    // Refresh that channel's own thumbnail right away rather than waiting
+    // for the periodic sweep - what's airing may well have changed during
+    // however long it was just being watched, and the cached snapshot is
+    // stale the moment playback stops.
+    if (wasPage === "tv" && wasWatching) {
+      var watchedGroup = PAGES.tv.filter(function (g) { return g.key === wasWatching; })[0];
+      if (watchedGroup && watchedGroup.status !== "broken") {
+        // enqueuePreview keys its cache entry off state.page, which may
+        // already be pointing at a different page than the one this
+        // channel was actually watched on (see wasPage above) - same
+        // temporary-swap pattern used by activeCandidate/capturePreview.
+        var curPage = state.page;
+        state.page = "tv";
+        delete previewRequested["tv::" + wasWatching];
+        enqueuePreview(watchedGroup);
+        state.page = curPage;
+      }
+    }
   }
 
   // Three ↑/↓ surfing modes, cheapest/most-curated first:
@@ -1618,7 +1807,7 @@
   // Radio has no curated order defined, so plain arrows there fall back to
   // the full-list mode.
   var CURATED_ORDER = {
-    tv: ["כאן 11", "קשת 12", "רשת 13", "כאן חינוכית 23", "מכאן 33", "כנסת 99", "ערוץ 9"],
+    tv: ["כאן 11", "קשת 12", "רשת 13", "כאן חינוכית 23", "מכאן 33", "עכשיו 14", "כנסת 99", "ערוץ 9"],
   };
 
   function switchChannel(delta, mode) {
@@ -1649,7 +1838,28 @@
   // mute button and for adjustVolume()/the M shortcut - one listener keeps
   // this button's icon accurate no matter which of those changed it.
   playerVideo.addEventListener("volumechange", syncMuteButton);
-  muteToggleBtn.addEventListener("click", function () { playerVideo.muted = !playerVideo.muted; });
+  playerVideo.addEventListener("dblclick", toggleFullscreen);
+  muteToggleBtn.addEventListener("click", function () {
+    playerVideo.muted = !playerVideo.muted;
+    showVolumeOsd();
+  });
+
+  // Brief on-screen confirmation, shown ONLY for actual user-initiated
+  // volume/mute actions (this function's callers below) - NOT hooked to the
+  // generic 'volumechange' event, which also fires during ordinary channel
+  // switches (attemptPlay forces muted=true for the play() call, then
+  // settles back) and would otherwise pop up on every switch for no reason.
+  var volumeOsdEl = document.getElementById("volume-osd");
+  var volumeOsdTimer = null;
+  function showVolumeOsd() {
+    var muted = playerVideo.muted || playerVideo.volume === 0;
+    var pct = muted ? 0 : Math.round(playerVideo.volume * 100);
+    document.getElementById("volume-osd-icon").textContent = muted ? "🔇" : pct < 50 ? "🔉" : "🔊";
+    document.getElementById("volume-osd-fill").style.width = pct + "%";
+    volumeOsdEl.classList.add("is-shown");
+    clearTimeout(volumeOsdTimer);
+    volumeOsdTimer = setTimeout(function () { volumeOsdEl.classList.remove("is-shown"); }, 1200);
+  }
 
   document.getElementById("close-player").addEventListener("click", closePlayer);
   playerOverlay.addEventListener("click", function (e) { if (e.target === playerOverlay) closePlayer(); });
@@ -1675,7 +1885,7 @@
     else if (e.key === "r" || e.key === "R") { e.preventDefault(); toggleRecordingCurrent(); }
     else if (e.key === "Enter") { e.preventDefault(); toggleFullscreen(); }
     else if (e.key === "p" || e.key === "P") { e.preventDefault(); togglePause(); }
-    else if (e.key === "m" || e.key === "M") { e.preventDefault(); playerVideo.muted = !playerVideo.muted; }
+    else if (e.key === "m" || e.key === "M") { e.preventDefault(); playerVideo.muted = !playerVideo.muted; showVolumeOsd(); }
   });
 
   function togglePause() {
@@ -1689,6 +1899,7 @@
     // raising a volume nobody can hear yet.
     if (delta > 0 && playerVideo.muted) playerVideo.muted = false;
     playerVideo.volume = Math.min(1, Math.max(0, playerVideo.volume + delta));
+    showVolumeOsd();
   }
 
   function toggleFullscreen() {
