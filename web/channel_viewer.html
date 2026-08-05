@@ -2090,9 +2090,14 @@
   // Opening a channel already goes straight to fullscreen on its own (see
   // enterFullscreen() in openPlayer), and native <video controls> are gone
   // (mute/pause/fullscreen all have their own dedicated controls/shortcuts
-  // already) - so a single tap/click anywhere on the video itself now just
-  // closes the channel and returns to the list.
-  playerVideo.addEventListener("click", closePlayer);
+  // already). Mobile: a tap on the video closes the channel and returns to
+  // the list. Desktop: a click toggles fullscreen instead - Escape (see the
+  // player keydown handler below) is the close action there, matching how
+  // fullscreen video normally behaves on a desktop OS.
+  playerVideo.addEventListener("click", function () {
+    if (window.matchMedia("(max-width: 640px)").matches) closePlayer();
+    else toggleFullscreen();
+  });
   muteToggleBtn.addEventListener("click", function () {
     playerVideo.muted = !playerVideo.muted;
     showVolumeOsd();
