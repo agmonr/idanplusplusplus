@@ -255,6 +255,11 @@
     outline: 2px solid var(--accent); outline-offset: 2px;
   }
   .chipset { display: flex; gap: 6px; }
+  /* תקינים/הכל/לא זמינים status filter - removed, only working channels
+     ever show now (see matches(), hardcoded to "ok"). Hidden rather than
+     deleted from the DOM, same reasoning as the other hidden-not-removed
+     controls elsewhere in this file - renderFilters() still writes to it. */
+  #status-filter { display: none; }
   .chip {
     border: 1px solid var(--border); background: var(--surface); color: var(--text-dim);
     border-radius: 999px; padding: 7px 13px; font-size: 12.5px; cursor: pointer;
@@ -596,6 +601,11 @@
   }
   .radio-bar button:hover { filter: brightness(1.12); }
   .radio-bar button:active { box-shadow: inset 0 2px 4px rgba(0,0,0,.7); transform: translateY(1px); }
+  /* ⏮/⏭ are drawn pointing the LTR way - mirrored so "prev" (further right
+     in this RTL bar) points right and "next" points left, matching the
+     direction each button actually moves through the (RTL) station list. */
+  .flip-icon { transform: scaleX(-1); }
+  .radio-bar .flip-icon:active { transform: scaleX(-1) translateY(1px); }
   body.has-radio-bar .list { padding-bottom: 130px; }
 
   .player-overlay {
@@ -776,6 +786,8 @@
       <span class="winamp-slider-label">איזון</span>
       <input type="range" id="radio-bar-balance" class="winamp-slider" min="-100" max="100" value="0" aria-label="איזון שמע" />
       <span class="winamp-spacer"></span>
+      <button type="button" class="flip-icon" id="radio-bar-prev" aria-label="ערוץ קודם">⏮</button>
+      <button type="button" class="flip-icon" id="radio-bar-next" aria-label="ערוץ הבא">⏭</button>
       <button type="button" id="radio-bar-mute" aria-label="השתקה">🔊</button>
       <button type="button" id="radio-bar-close" aria-label="עצירה">✕</button>
     </div>
@@ -1663,7 +1675,9 @@
   }
 
   function matches(g) {
-    var f = pageUi().filter;
+    // Always "ok" - the תקינים/הכל/לא זמינים status filter chips are gone,
+    // per request only working channels should ever show in the grid.
+    var f = "ok";
     if (f !== "all" && g.status !== f) return false;
     if (state.page === "radio" && pageUi().savedOnly && saved.radio.indexOf(g.key) === -1) return false;
     var q = (pageUi().search || "").trim().toLowerCase();
@@ -2596,6 +2610,31 @@
   }
 
   document.getElementById("radio-bar-close").addEventListener("click", closeRadioBar);
+  // Respects whatever's currently visible on the radio page: matches()
+  // already accounts for the מועדפי רדיו filter (ui.radio.savedOnly), so
+  // prev/next cycle through just your favorites when that filter is on,
+  // or every radio station when it's off - same filter the grid itself is
+  // showing, no separate logic needed here.
+  function switchRadioChannel(delta) {
+    var list = groups().filter(matches).filter(function (g) { return g.status !== "broken"; });
+    if (!list.length) return;
+    var idx = list.findIndex(function (g) { return g.key === playingKey; });
+    var next = idx === -1 ? 0 : (idx + delta + list.length) % list.length;
+    openRadioBar(list[next]);
+    // Anticipates another press in the same direction (channel-surfing is
+    // usually more than one press) - warms the DNS/TCP/TLS connection to
+    // that next station's host so IT starts faster too, if/when the user
+    // actually gets there. Deliberately just a throwaway network request,
+    // not a real hidden media pipeline like the analysis video already
+    // running - one more full HLS/video pipeline on top of the main
+    // player and the analysis one would risk the exact "too many
+    // concurrent pipelines" freeze this project hit before.
+    var afterNext = list[(next + delta + list.length) % list.length];
+    var candidate = afterNext && activeCandidate(afterNext);
+    if (candidate && candidate.link) fetch(candidate.link, { mode: "no-cors", cache: "no-store" }).catch(function () {});
+  }
+  document.getElementById("radio-bar-prev").addEventListener("click", function () { switchRadioChannel(-1); });
+  document.getElementById("radio-bar-next").addEventListener("click", function () { switchRadioChannel(1); });
   function syncRadioMuteButton() {
     document.getElementById("radio-bar-mute").textContent = (playerVideo.muted || playerVideo.volume === 0) ? "🔇" : "🔊";
   }
@@ -2666,13 +2705,22 @@
   // player keydown handler below) is the close action there, matching how
   // fullscreen video normally behaves on a desktop OS.
   //
-  // "Mobile" here means touch input (pointer: coarse), NOT a max-width
-  // check - the player forces landscape orientation on open (see
-  // enterFullscreen()), and a phone in landscape is almost always WIDER
-  // than any reasonable mobile breakpoint, so a width-based check would
-  // (and did) silently misclassify every actual phone as "desktop" the
-  // whole time the player is open.
-  var isCoarsePointer = window.matchMedia("(pointer: coarse)").matches;
+  // "Mobile" here means an actual mobile OS, NOT a max-width check (the
+  // player forces landscape orientation on open - see enterFullscreen() -
+  // and a phone in landscape is almost always WIDER than any reasonable
+  // mobile breakpoint, so a width-based check would, and did, silently
+  // misclassify every actual phone as "desktop" the whole time the player
+  // is open) and NOT pointer:coarse either - confirmed live: plenty of
+  // Windows laptops report pointer:coarse simply because they HAVE a
+  // touchscreen, even while the person is exclusively using a mouse, which
+  // made the player auto-fullscreen there exactly like on a phone. User-
+  // agent OS sniffing is blunter but actually matches what's being asked -
+  // "is this a phone/tablet" - regardless of what input hardware happens
+  // to be attached. iPadOS deliberately reports as "Macintosh" in its UA
+  // (Apple's own compatibility shim), so it needs the extra touch-points
+  // check to still be caught.
+  var isCoarsePointer = /Android|iPhone|iPad|iPod|Mobi/i.test(navigator.userAgent) ||
+    (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent));
   playerVideo.addEventListener("click", function () {
     if (isCoarsePointer) closePlayer();
     else toggleFullscreen();
