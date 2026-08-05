@@ -138,13 +138,11 @@
   .theme-pick button[aria-pressed="true"] { background: #fff; color: #1b5e34; border-color: #fff; font-weight: 700; }
   @media (max-width: 640px) {
     .theme-pick .theme-btn-label { display: none; }
-    /* The header (title/attribution/theme picker) and the in-player
-       keyboard-shortcut legend both assume a keyboard and screen real
-       estate a phone doesn't have - drop both to get straight to the
-       channel grid, and to what's actually usable there (touch, not
-       shortcuts). */
+    /* header.site is already gone from the DOM entirely (kept here only
+       because removing the rule too isn't worth the churn); the in-player
+       keyboard-shortcut legend is now hidden on ALL screen sizes, see the
+       base .player-legend rule above. */
     header.site { display: none; }
-    .player-legend { display: none; }
   }
 
   /* Fashion (night): a flat panel reads better than a bright forest gradient
@@ -177,7 +175,13 @@
     backdrop-filter: blur(10px);
     border-bottom: 1px solid var(--border);
     padding: 16px 0 14px; margin-bottom: 20px;
+    transition: transform .22s ease;
   }
+  /* Slid off-screen while scrolled past the 3rd channel - it's sticky, so
+     the space below flows continuously beneath it already; translating it
+     away just reveals what's already there, no layout jump. Brought back
+     only by scrolling all the way back to the top, see updateTopbarVisibility(). */
+  .topbar.is-hidden { transform: translateY(-100%); }
   .meta { font-size: 12px; color: var(--text-dim); }
 
   .pagetabs { display: flex; gap: 6px; margin-top: 14px; }
@@ -523,8 +527,10 @@
   .player-foot { display: flex; align-items: center; gap: 10px; padding: 10px 16px; font-size: 12px; color: var(--text-dim); flex-wrap: wrap; }
   .player-foot .p-source { direction: ltr; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
   .player-legend {
-    display: flex; flex-wrap: wrap; gap: 6px 16px; padding: 0 16px 12px; font-size: 11.5px;
-    color: var(--text-dim);
+    /* Dropped everywhere, not just mobile - opening a channel now goes
+       straight to fullscreen (see enterFullscreen() in openPlayer), where
+       this legend was never shown anyway. */
+    display: none;
   }
   .player-legend span { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
   .player-legend kbd {
@@ -664,7 +670,14 @@
 (function () {
   "use strict";
   var DATA = JSON.parse(document.getElementById("channel-data").textContent);
-  var PAGES = { tv: DATA.tv, radio: DATA.radio };
+  // Dropped by request - kept as a name filter (rather than editing the
+  // scraped data file) so a future regen of channels_status.json doesn't
+  // silently bring it back.
+  var EXCLUDED_CHANNEL_NAMES = ["ספורט 5 אתר"];
+  function dropExcluded(list) {
+    return list.filter(function (g) { return EXCLUDED_CHANNEL_NAMES.indexOf(g.name) === -1; });
+  }
+  var PAGES = { tv: dropExcluded(DATA.tv), radio: dropExcluded(DATA.radio) };
   var PAGE_LABEL = { tv: "טלוויזיה", radio: "רדיו" };
 
   // Small colored monogram badge per data source module - an own-design
@@ -1754,6 +1767,7 @@
     playerAttempt = 0;
     playerOverlay.classList.add("is-open");
     if (!wasOpen) history.pushState({ idanplusPlayer: true }, "");
+    enterFullscreen(); // choosing a channel goes straight to fullscreen - called synchronously from a click/keydown gesture, as the Fullscreen API requires
     if (!playerCandidates.length) {
       setPlayerStatus("אין מקור זמין לערוץ הזה כרגע.");
       return;
@@ -1900,10 +1914,15 @@
     showVolumeOsd();
   }
 
-  function toggleFullscreen() {
-    if (document.fullscreenElement) { document.exitFullscreen(); return; }
+  function enterFullscreen() {
+    if (document.fullscreenElement) return; // already there (e.g. switching channels mid-watch) - no need to re-request
     var wrap = playerVideo.closest(".player-video-wrap");
     (wrap.requestFullscreen ? wrap : playerVideo).requestFullscreen().catch(function () {});
+  }
+
+  function toggleFullscreen() {
+    if (document.fullscreenElement) { document.exitFullscreen(); return; }
+    enterFullscreen();
   }
 
   // A bigger screen deserves better quality than whatever ABR had settled on
@@ -2499,6 +2518,67 @@
     });
   }
   wireGridKeyboardNav();
+
+  // ---------- topbar auto-hide on scroll ----------
+  // Hidden once scrolled past the 3rd channel card, brought back only by
+  // scrolling all the way back to the top of the list (not just scrolling
+  // up a bit) - see the .topbar.is-hidden CSS transform.
+  var topbarEl = document.querySelector(".topbar");
+  var TOPBAR_HIDE_AFTER_INDEX = 2; // 0-indexed - hide once past the 3rd row
+  function updateTopbarVisibility() {
+    if (!topbarEl) return;
+    if (window.scrollY <= 1) { topbarEl.classList.remove("is-hidden"); return; }
+    var rows = document.querySelectorAll("#list .row");
+    var thresholdRow = rows[TOPBAR_HIDE_AFTER_INDEX];
+    if (!thresholdRow) return;
+    var thresholdY = thresholdRow.getBoundingClientRect().top + window.scrollY;
+    if (window.scrollY > thresholdY) topbarEl.classList.add("is-hidden");
+  }
+  (function wireTopbarAutoHide() {
+    var ticking = false;
+    window.addEventListener("scroll", function () {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(function () { updateTopbarVisibility(); ticking = false; });
+    }, { passive: true });
+  })();
+
+  // ---------- live preview on the centered card once scrolling settles ----------
+  // Reuses the same hover-preview machinery as mouse-hover/long-press - just
+  // triggered by "stopped scrolling for 2s" instead, targeting whichever
+  // card is nearest the vertical center of the viewport.
+  var SCROLL_STOP_MS = 2000;
+  var scrollStopTimer = null;
+  function centeredThumb() {
+    var thumbs = Array.prototype.slice.call(document.querySelectorAll('#list [data-role="thumb"]'));
+    var centerY = window.innerHeight / 2;
+    var best = null, bestDist = Infinity;
+    thumbs.forEach(function (t) {
+      var rect = t.getBoundingClientRect();
+      if (rect.bottom < 0 || rect.top > window.innerHeight) return; // off-screen - not a candidate
+      var mid = rect.top + rect.height / 2;
+      var dist = Math.abs(mid - centerY);
+      if (dist < bestDist) { bestDist = dist; best = t; }
+    });
+    return best;
+  }
+  function previewCenteredChannel() {
+    if (playerOverlay.classList.contains("is-open")) return;
+    var thumb = centeredThumb();
+    if (!thumb) return;
+    var row = thumb.closest(".row");
+    var key = row && row.getAttribute("data-key");
+    var group = key && groups().filter(function (g) { return g.key === key; })[0];
+    if (!group) return;
+    startHoverPreview(group, thumb);
+  }
+  (function wireScrollStopPreview() {
+    window.addEventListener("scroll", function () {
+      if (scrollStopTimer) clearTimeout(scrollStopTimer);
+      cancelHoverPreview(); // scrolling away from whatever was centered - stop showing it until settled again
+      scrollStopTimer = setTimeout(previewCenteredChannel, SCROLL_STOP_MS);
+    }, { passive: true });
+  })();
 
   fullRender();
 })();
