@@ -545,12 +545,7 @@
   .player-head h2 { font-size: 15px; margin: 0; font-weight: 700; }
   .player-head button { background: none; border: none; color: var(--text-dim); font-size: 20px; cursor: pointer; line-height: 1; }
   .player-video-wrap { position: relative; background: #000; aspect-ratio: 16 / 9; }
-  /* Covers both cases: the video-wrap itself being the fullscreen element,
-     and the whole page/<html> being fullscreen with the wrap just a
-     descendant of it (see enterFullscreen() - it now prefers fullscreening
-     the whole browser, not just this element, when that's available). */
-  :fullscreen .player-video-wrap, .player-video-wrap:fullscreen,
-  :-webkit-full-screen .player-video-wrap, .player-video-wrap:-webkit-full-screen {
+  .player-video-wrap:fullscreen, .player-video-wrap:-webkit-full-screen {
     aspect-ratio: auto; width: 100vw; height: 100vh;
   }
   .player-video-wrap video {
@@ -2261,15 +2256,19 @@
 
   function enterFullscreen() {
     if (document.fullscreenElement) return; // already there (e.g. switching channels mid-watch) - no need to re-request
+    // Fullscreens the video's own box specifically (NOT document.
+    // documentElement/the whole page) - the browser's Fullscreen API
+    // isolates whichever element is fullscreen, rendering only it (nothing
+    // else from the page, e.g. the modal's header/footer chrome around this
+    // box, is painted at all) and stretching it to genuinely fill the
+    // screen. Fullscreening the whole document instead was tried and
+    // reverted - .player-video-wrap stayed nested inside that header/footer
+    // chrome instead of being isolated, so forcing it to 100vw/100vh
+    // squeezed/stretched it against real content instead of getting a
+    // clean frame, breaking the aspect ratio on desktop.
     var wrap = playerVideo.closest(".player-video-wrap");
-    var wrapTarget = wrap && wrap.requestFullscreen ? wrap : playerVideo;
-    // Prefer fullscreening the whole page/browser, not just the video's own
-    // box - hides every last bit of browser chrome, not only what's around
-    // the video. Falls back to just the video wrap when that's blocked
-    // (e.g. an embedding iframe without the fullscreen permission).
-    var root = document.documentElement;
-    var target = root && root.requestFullscreen ? root : wrapTarget;
-    var afterEnter = function () {
+    var target = wrap && wrap.requestFullscreen ? wrap : playerVideo;
+    target.requestFullscreen().then(function () {
       // "Flip it on the side" - landscape suits a horizontal broadcast far
       // better than the portrait a phone opens in by default. Most browsers
       // only allow locking orientation while an element is actually
@@ -2277,11 +2276,7 @@
       if (window.screen && screen.orientation && screen.orientation.lock) {
         screen.orientation.lock("landscape").catch(function () {});
       }
-    };
-    target.requestFullscreen().then(afterEnter).catch(function () {
-      if (target === wrapTarget) return; // already tried the fallback target - nothing left to try
-      wrapTarget.requestFullscreen().then(afterEnter).catch(function () {});
-    });
+    }).catch(function () {});
   }
 
   function toggleFullscreen() {
