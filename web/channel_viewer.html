@@ -294,6 +294,24 @@
   .rec-banner .rb-dismiss { border-color: var(--border); color: var(--text-dim); }
   .rec-banner .rb-dismiss:hover { background: var(--surface-2); color: var(--text); }
 
+  /* First-run mobile onboarding - shown once (localStorage-gated, see
+     wireOnboardingBanner() in the script below), explaining the touch
+     gestures (tap to open/close, swipe to switch) before anyone has to
+     discover them by accident. */
+  .onboarding-banner {
+    max-width: 980px; margin: 0 auto 14px; padding: 14px 16px; border-radius: 10px;
+    background: var(--accent-soft); border: 1px solid var(--accent);
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  }
+  .onboarding-banner[hidden] { display: none; }
+  .onboarding-banner .ob-text { flex: 1 1 220px; min-width: 0; }
+  .onboarding-banner .ob-title { font-size: 15px; font-weight: 800; color: var(--accent); margin-bottom: 3px; }
+  .onboarding-banner .ob-detail { font-size: 12.5px; color: var(--text-dim); }
+  .onboarding-banner button {
+    border: 1px solid var(--accent); background: var(--accent); color: #fff;
+    border-radius: 8px; padding: 7px 16px; font-size: 12.5px; font-weight: 700; cursor: pointer; flex: none;
+  }
+
   .row-rec-dot { flex: none; }
   .rec-item {
     display: flex; align-items: center; gap: 10px; padding: 9px 8px; border-radius: 9px;
@@ -624,6 +642,14 @@
     </div>
   </header>
 
+  <div class="onboarding-banner" id="onboarding-banner" hidden>
+    <div class="ob-text">
+      <div class="ob-title">ממציאים את הטלויזיה מחדש</div>
+      <div class="ob-detail">לחיצה על שידור נכנסת אליו, יציאה יוצאת, החלקה שמאלה וימינה גם עובדות</div>
+    </div>
+    <button type="button" id="onboarding-dismiss">הבנתי</button>
+  </div>
+
   <div class="rec-banner" id="rec-banner" hidden></div>
 
   <main class="list" id="list"></main>
@@ -840,6 +866,7 @@
   var LS_THEME = "idanplus.theme.v1";
   var LS_MANUAL_SOURCE = "idanplus.manualSource.v1";
   var LS_PREVIEW_MUTED = "idanplus.previewMuted.v1";
+  var LS_ONBOARDING_SEEN = "idanplus.onboardingSeen.v1";
 
   function lsGet(key, fallback) {
     try { var raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : fallback; }
@@ -1984,6 +2011,12 @@
   function openPlayer(group) {
     var wasOpen = playerOverlay.classList.contains("is-open");
     if (!wasOpen) scrollYBeforePlayer = window.scrollY;
+    // A live grid preview (hover/long-press/scroll-stop) has its own,
+    // separate <video> and audio - opening the actual player doesn't touch
+    // it on its own, so without this its sound would keep playing in the
+    // background, audibly bleeding through underneath whatever was just
+    // opened.
+    cancelHoverPreview();
     playingKey = group.key;
     playingPage = state.page;
     document.getElementById("player-title").textContent = group.name;
@@ -2857,6 +2890,18 @@
       // than only taking effect the next time one starts.
       if (hoverPreview.video) hoverPreview.video.muted = previewMuted;
       syncPreviewMuteBadge();
+    });
+  })();
+
+  // ---------- first-run mobile onboarding banner ----------
+  (function wireOnboardingBanner() {
+    var banner = document.getElementById("onboarding-banner");
+    if (!banner) return;
+    if (!isCoarsePointer || lsGet(LS_ONBOARDING_SEEN, false)) return;
+    banner.hidden = false;
+    document.getElementById("onboarding-dismiss").addEventListener("click", function () {
+      banner.hidden = true;
+      lsSet(LS_ONBOARDING_SEEN, true);
     });
   })();
 
