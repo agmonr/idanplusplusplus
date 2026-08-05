@@ -568,19 +568,37 @@
   }
   .player-overlay.is-open { display: flex; }
   .player-panel {
+    position: relative;
     background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
     width: min(880px, 100%); box-shadow: var(--shadow); direction: rtl; overflow: hidden;
-    /* Native resize handle, width only - height stays derived from the
-       video's own 16:9 aspect-ratio (.player-video-wrap) rather than being
-       independently draggable, which would just leave blank space rather
-       than actually resizing the video. */
-    resize: horizontal; min-width: 320px; max-width: 100vw;
+    /* Width only - height stays derived from the video's own 16:9
+       aspect-ratio (.player-video-wrap) rather than being independently
+       resizable, which would just leave blank space rather than actually
+       resizing the video. min/max also enforced in JS (wirePlayerResize)
+       since that sets an inline width directly. */
+    min-width: 320px; max-width: 100vw;
   }
   /* Draggable via the head bar (see wirePlayerPanelDrag) - once a drag has
      actually happened, position switches to fixed left/top (JS-controlled)
      so it sticks; until then it just sits at the overlay's normal centered
      position, unaffected. */
   .player-panel.is-dragged { position: fixed; margin: 0; }
+  /* Custom resize handle (see wirePlayerResize) - replaced the native CSS
+     `resize: horizontal` here: confirmed live it was nearly impossible to
+     actually grab (a razor-thin native OS grip with no visible affordance,
+     doubly awkward under dir:rtl where its corner placement is inconsistent
+     across browsers). This is a real, visible, always-in-the-same-corner
+     handle instead. */
+  .player-resize-handle {
+    position: absolute; left: 4px; bottom: 4px; width: 20px; height: 20px;
+    cursor: nesw-resize; z-index: 2; border-radius: 5px;
+    /* A repeating-linear-gradient already tiles across the whole box on its
+       own - no background-size/position/repeat needed (adding those
+       earlier actually clipped the stripes down to one tiny corner patch). */
+    background: repeating-linear-gradient(135deg, var(--text-dim) 0 2px, transparent 2px 6px);
+    opacity: .55;
+  }
+  .player-resize-handle:hover, .player-resize-handle.is-active { opacity: 1; background-color: var(--surface-2); }
   .player-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--border); cursor: move; }
   .player-head h2 { font-size: 15px; margin: 0; font-weight: 700; }
   .player-head button { background: none; border: none; color: var(--text-dim); font-size: 20px; cursor: pointer; line-height: 1; }
@@ -778,6 +796,7 @@
         <span><kbd>Enter</kbd> מסך מלא</span>
         <span><kbd>Esc</kbd> סגירה</span>
       </div>
+      <div class="player-resize-handle" id="player-resize-handle" aria-hidden="true"></div>
     </div>
   </div>
 
@@ -2677,6 +2696,54 @@
     window.addEventListener("mousemove", onMove);
     window.addEventListener("mouseup", onUp);
     head.addEventListener("touchstart", onDown, { passive: false });
+    window.addEventListener("touchmove", onMove, { passive: false });
+    window.addEventListener("touchend", onUp);
+  })();
+
+  // Custom resize handle, not the native CSS `resize` property - see the
+  // .player-resize-handle comment above for why. Handle sits at the panel's
+  // bottom-left corner, so moving the pointer further LEFT (away from the
+  // panel) grows it, and further RIGHT (toward the panel) shrinks it.
+  (function wirePlayerResize() {
+    var panel = document.querySelector(".player-panel");
+    var handle = document.getElementById("player-resize-handle");
+    var resizing = false, startX = 0, startWidth = 0;
+    // Width is applied at most once per animation frame, not on every raw
+    // mousemove - a fast drag can fire mousemove far more often than the
+    // screen actually repaints, and writing panel.style.width that often
+    // forces a synchronous layout of the live, mid-decode <video> element
+    // on every single one of those. Confirmed live: that layout thrashing
+    // was enough to stall/glitch playback for a moment and make it sound
+    // like the audio briefly repeated itself. rAF-batching to "one width
+    // write per frame, using the latest pointer position" is the standard
+    // fix for this class of drag-resize-over-expensive-content problem.
+    var rafPending = false, pendingWidth = null;
+    function applyPendingWidth() {
+      rafPending = false;
+      if (pendingWidth != null) panel.style.width = pendingWidth + "px";
+    }
+    function onDown(e) {
+      resizing = true;
+      handle.classList.add("is-active");
+      var p = e.touches ? e.touches[0] : e;
+      startX = p.clientX;
+      startWidth = panel.getBoundingClientRect().width;
+      e.preventDefault();
+      e.stopPropagation(); // don't also let this bubble into wirePlayerPanelDrag's overlay-level listeners
+    }
+    function onMove(e) {
+      if (!resizing) return;
+      var p = e.touches ? e.touches[0] : e;
+      var dx = startX - p.clientX;
+      var min = 320, max = window.innerWidth - 32;
+      pendingWidth = Math.min(max, Math.max(min, startWidth + dx));
+      if (!rafPending) { rafPending = true; requestAnimationFrame(applyPendingWidth); }
+    }
+    function onUp() { resizing = false; handle.classList.remove("is-active"); }
+    handle.addEventListener("mousedown", onDown);
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    handle.addEventListener("touchstart", onDown, { passive: false });
     window.addEventListener("touchmove", onMove, { passive: false });
     window.addEventListener("touchend", onUp);
   })();
