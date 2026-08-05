@@ -2024,7 +2024,12 @@
     playerAttempt = 0;
     playerOverlay.classList.add("is-open");
     if (!wasOpen) history.pushState({ idanplusPlayer: true }, "");
-    enterFullscreen(); // choosing a channel goes straight to fullscreen - called synchronously from a click/keydown gesture, as the Fullscreen API requires
+    // Mobile: choosing a channel goes straight to fullscreen (+ landscape,
+    // see enterFullscreen()) - called synchronously from a click/keydown
+    // gesture, as the Fullscreen API requires. Desktop: opens windowed
+    // instead - a click on the video toggles fullscreen from there (see the
+    // playerVideo click listener below), same as any other desktop video.
+    if (isCoarsePointer) enterFullscreen();
     if (!playerCandidates.length) {
       setPlayerStatus("אין מקור זמין לערוץ הזה כרגע.");
       return;
