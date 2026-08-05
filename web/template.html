@@ -1259,14 +1259,12 @@
   // A quick static snapshot (above) is one thing; hovering longer gets an
   // actual short LIVE peek - real picture, not just a frozen frame - so
   // someone can tell what's actually airing right now without fully
-  // opening the player - real picture AND a hint of audio, everywhere this
-  // is used (mouse hover, touch long-press, scroll-stop). Debounced so a
-  // mouse just passing over the grid doesn't spin up a stream for every
-  // card it crosses, and only ever one at a time (starting a new one
-  // always tears down whatever was previously playing) to keep this from
-  // stacking up.
+  // opening the player, at the same volume the player itself uses.
+  // Debounced so a mouse just passing over the grid doesn't spin up a
+  // stream for every card it crosses, and only ever one at a time
+  // (starting a new one always tears down whatever was previously playing)
+  // to keep this from stacking up.
   var HOVER_PREVIEW_DELAY_MS = 400;
-  var HOVER_PREVIEW_VOLUME = 0.15; // weak - a hint of audio, not a second audio source
   // Same lightweight profile as the snapshot capture - this is a preview
   // peek, not the main viewing experience, so the lowest rendition is
   // plenty and keeps hovering across the grid cheap. The "fast" variant
@@ -1370,7 +1368,10 @@
         },
         onFatal: function () { if (hoverPreview.video === video) cancelHoverPreview(); },
         settleMuted: previewMuted,
-        settleVolume: HOVER_PREVIEW_VOLUME,
+        // Same volume as the actual player, not some separately-tuned
+        // "weak hint of audio" level - a preview should sound like the
+        // real stream, just muted independently via previewMuted above.
+        settleVolume: playerVideo.volume,
         hlsConfig: opts.fast ? HOVER_HLS_CONFIG_FAST : HOVER_HLS_CONFIG,
       }) || null;
     });
@@ -2092,8 +2093,16 @@
   // the list. Desktop: a click toggles fullscreen instead - Escape (see the
   // player keydown handler below) is the close action there, matching how
   // fullscreen video normally behaves on a desktop OS.
+  //
+  // "Mobile" here means touch input (pointer: coarse), NOT a max-width
+  // check - the player forces landscape orientation on open (see
+  // enterFullscreen()), and a phone in landscape is almost always WIDER
+  // than any reasonable mobile breakpoint, so a width-based check would
+  // (and did) silently misclassify every actual phone as "desktop" the
+  // whole time the player is open.
+  var isCoarsePointer = window.matchMedia("(pointer: coarse)").matches;
   playerVideo.addEventListener("click", function () {
-    if (window.matchMedia("(max-width: 640px)").matches) closePlayer();
+    if (isCoarsePointer) closePlayer();
     else toggleFullscreen();
   });
 
@@ -2101,14 +2110,15 @@
   // next, left for previous. Only fires on a clearly horizontal drag (small
   // vertical drift tolerated, otherwise it'd fight a vertical scroll/drag);
   // preventDefault on touchend once a swipe fires so the tap-to-close click
-  // above doesn't also happen right after.
+  // above doesn't also happen right after. No pointer-type gate needed here
+  // (unlike the click handler above) - touchstart itself only ever fires
+  // from actual touch input.
   (function wirePlayerSwipe() {
     var SWIPE_MIN_DISTANCE = 50;
     var SWIPE_MAX_VERTICAL = 60;
     var startX = 0, startY = 0, tracking = false, swiped = false;
 
     playerVideo.addEventListener("touchstart", function (e) {
-      if (!window.matchMedia("(max-width: 640px)").matches) return;
       var t = e.touches[0];
       startX = t.clientX; startY = t.clientY;
       tracking = true; swiped = false;
@@ -2941,12 +2951,24 @@
     var key = row && row.getAttribute("data-key");
     var group = key && groups().filter(function (g) { return g.key === key; })[0];
     if (!group) return;
+    // Still the same channel that was already showing/loading - leave it
+    // running rather than tearing it down and restarting from scratch.
+    if (hoverPreview.key === group.key && (hoverPreview.video || hoverPreview.spinner)) return;
+    cancelHoverPreview();
     startHoverPreview(group, thumb, { fast: true });
   }
   (function wireScrollStopPreview() {
     window.addEventListener("scroll", function () {
+      // Cancel right away ONLY if the card actually previewing has
+      // scrolled out of view - otherwise leave it running. Previously this
+      // cancelled on every single scroll event unconditionally, which made
+      // the preview flicker off during any scroll (most visible on
+      // Firefox) even when the same card was still on screen the whole time.
+      if (hoverPreview.thumb) {
+        var r = hoverPreview.thumb.getBoundingClientRect();
+        if (r.bottom < 0 || r.top > window.innerHeight) cancelHoverPreview();
+      }
       if (scrollLoadTimer) clearTimeout(scrollLoadTimer);
-      cancelHoverPreview(); // scrolling away from whatever was centered - stop loading/showing it until settled again
       scrollLoadTimer = setTimeout(previewCenteredChannel, SCROLL_LOAD_MS);
     }, { passive: true });
   })();
