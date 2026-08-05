@@ -700,7 +700,30 @@
   function dropExcluded(list) {
     return list.filter(function (g) { return EXCLUDED_CHANNEL_NAMES.indexOf(g.name) === -1; });
   }
-  var PAGES = { tv: dropExcluded(DATA.tv), radio: dropExcluded(DATA.radio) };
+  // Default TV grid order (by request, reordered from the scraped order) -
+  // any channel not listed here (e.g. a new one from a future data regen)
+  // just falls back to its natural place at the end, in scraped order.
+  var TV_ORDER = [
+    "כאן 11", "קשת 12", "רשת 13", "כלכלה 10", "כאן חינוכית 23", "כנסת 99",
+    "ערוץ 24 החדש", "מכאן 33", "האח הגדול 26", "עכשיו 14", "קבלה 66",
+    "הידברות 97", "Ynet Live", "100FM רדיוס", "Первое Радио 89.1FM", "ערוץ 9",
+    "קבלה - רוסית", "מוסיוף", "i24news", "i24news en", "i24news fr", "i24news ar",
+    "ערוץ 16", "13 ערוץ הקומדיות", "ערוץ הנופש", "ערוץ הריאליטי",
+    "ערוץ ארץ נהדרת", "ערוץ סברי מרנן"
+  ];
+  function applyOrder(list, order) {
+    var byName = {};
+    list.forEach(function (g) { byName[g.name] = g; });
+    var orderedNames = {};
+    var ordered = order.map(function (name) { return byName[name]; }).filter(function (g) {
+      if (!g) return false;
+      orderedNames[g.name] = true;
+      return true;
+    });
+    var rest = list.filter(function (g) { return !orderedNames[g.name]; });
+    return ordered.concat(rest);
+  }
+  var PAGES = { tv: applyOrder(dropExcluded(DATA.tv), TV_ORDER), radio: dropExcluded(DATA.radio) };
   var PAGE_LABEL = { tv: "טלוויזיה", radio: "רדיו" };
 
   // Small colored monogram badge per data source module - an own-design
