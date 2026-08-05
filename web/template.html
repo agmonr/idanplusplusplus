@@ -275,13 +275,32 @@
     display: flex; align-items: center; justify-content: center; overflow: hidden;
     cursor: pointer;
   }
+  /* Keyboard grid navigation (arrow keys, see wireGridKeyboardNav in the
+     script below) moves real DOM focus between cards, so a clearly visible
+     ring matters here - it's the only indicator of where you are. */
+  .row-thumb:focus-visible {
+    outline: 3px solid var(--accent); outline-offset: -3px;
+  }
   .row-thumb img {
     width: 100%; height: 100%; object-fit: cover; display: block;
     opacity: 0; transition: opacity .3s ease;
   }
   .row-thumb img.is-loaded { opacity: 1; }
+  .row-thumb .hover-video {
+    position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
+    opacity: 0; transition: opacity .25s ease; background: #000;
+  }
+  .row-thumb .hover-video.is-shown { opacity: 1; }
+  /* A per-broadcaster colored monogram badge (own design, not a copy of any
+     real network logo) - shown until the live single-frame preview above
+     loads in, then hidden. Color comes from --badge-color (set inline per
+     card, see moduleBadge() in the script below) so this one rule serves
+     every module. */
   .row-thumb-placeholder {
-    font-size: 26px; color: var(--text-dim); opacity: .5;
+    width: 52px; height: 52px; border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--badge-color, var(--text-dim)); color: #fff;
+    font-size: 15px; font-weight: 800; letter-spacing: .01em;
   }
   .row-thumb-play {
     position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
@@ -568,13 +587,13 @@
         <span class="mono p-source" id="player-source" dir="ltr"></span>
       </div>
       <div class="player-legend" dir="ltr">
-        <span><kbd>↑</kbd><kbd>↓</kbd> ערוצים מומלצים</span>
-        <span><kbd>Ctrl</kbd>+<kbd>↑</kbd><kbd>↓</kbd> מועדפים ★</span>
-        <span><kbd>Shift</kbd>+<kbd>↑</kbd><kbd>↓</kbd> כל הערוצים</span>
+        <span><kbd>←</kbd><kbd>→</kbd> ערוצים מומלצים</span>
+        <span><kbd>Ctrl</kbd>+<kbd>←</kbd><kbd>→</kbd> מועדפים ★</span>
+        <span><kbd>Shift</kbd>+<kbd>←</kbd><kbd>→</kbd> כל הערוצים</span>
         <span id="legend-record"><kbd>R</kbd> הקלטה</span>
         <span><kbd>P</kbd> השהיה</span>
         <span><kbd>M</kbd> השתקה</span>
-        <span><kbd>Alt</kbd>+<kbd>↑</kbd><kbd>↓</kbd> עוצמת קול</span>
+        <span><kbd>↑</kbd><kbd>↓</kbd> עוצמת קול</span>
         <span><kbd>Enter</kbd> מסך מלא</span>
         <span><kbd>Esc</kbd> סגירה</span>
       </div>
@@ -594,6 +613,28 @@
   var DATA = JSON.parse(document.getElementById("channel-data").textContent);
   var PAGES = { tv: DATA.tv, radio: DATA.radio };
   var PAGE_LABEL = { tv: "טלוויזיה", radio: "רדיו" };
+
+  // Small colored monogram badge per data source module - an own-design
+  // placeholder (a color + a short label, not any network's real artwork),
+  // shown in the thumbnail until that channel's live preview frame loads.
+  // Distinguishes at a glance which broadcaster's API a channel comes from,
+  // even before any snapshot exists yet.
+  var MODULE_BADGE = {
+    kan: { color: "#0f7a6b", label: "כאן" },
+    keshet: { color: "#7a1f1f", label: "12" },
+    reshet: { color: "#1f4e7a", label: "13" },
+    "14tv": { color: "#8a5a12", label: "14" },
+    hidabroot: { color: "#5a3d8a", label: "97" },
+    sport5: { color: "#1f7a3d", label: "S5" },
+    tv: { color: "#4a5568", label: "TV" },
+    radio: { color: "#946b1f", label: "רדיו" },
+    glz: { color: "#1f6b7a", label: "גלז" },
+    "99fm": { color: "#8a2f5a", label: "99" },
+    "100fm": { color: "#2f5a8a", label: "100" },
+    "1064fm": { color: "#5a8a2f", label: "106" },
+  };
+  var DEFAULT_BADGE = { color: "#5b6f56", label: "TV" };
+  function moduleBadge(module) { return MODULE_BADGE[module] || DEFAULT_BADGE; }
 
   var LS_SAVED = "idanplus.saved.v1";
   var LS_A11Y = "idanplus.accessibility.v1";
@@ -727,23 +768,32 @@
     if (playingKey === group.key) openPlayer(group); // currently watching this one - apply the switch immediately
   }
 
-  function activeLink(group) {
+  // Returns the full candidate object (link + refresh descriptor), not just
+  // the link string - callers that are actually about to fetch/play need
+  // the refresh descriptor too (see freshenLink) or they'll silently use
+  // whatever ticket was baked in at data-generation time, which for
+  // keshet/mako channels expires in ~15 minutes.
+  function activeCandidate(group) {
     var isA11y = a11yOn[state.page].indexOf(group.key) !== -1;
     if (isA11y && group.accessibility && group.accessibility.resolved_link) {
-      return group.accessibility.resolved_link;
+      return { link: group.accessibility.resolved_link, refresh: group.accessibility.refresh };
     }
     var candidates = candidatesOf(group);
     var manualId = manualPickId(group);
     if (manualId) {
       var manual = candidates.filter(function (c) { return c.id === manualId; })[0];
-      if (manual) return manual.link;
+      if (manual) return manual;
     }
     var pick = state.smartPicks[group.key];
     if (pick && pick.bestId) {
       var best = candidates.filter(function (c) { return c.id === pick.bestId; })[0];
-      if (best) return best.link;
+      if (best) return best;
     }
-    return candidates.length ? candidates[0].link : (group.primary.resolved_link || null);
+    return candidates.length ? candidates[0] : (group.primary.resolved_link ? { link: group.primary.resolved_link, refresh: group.primary.refresh } : null);
+  }
+  function activeLink(group) {
+    var c = activeCandidate(group);
+    return c ? c.link : null;
   }
 
   // ---------- latency-based "smart" stream selection ----------
@@ -798,8 +848,16 @@
   var previewRequested = {};  // "page::key" -> true once captured or in flight (never retried automatically)
   var previewQueue = [];
   var previewInFlight = 0;
-  var PREVIEW_CONCURRENCY = 2;
-  var PREVIEW_CAPTURE_TIMEOUT_MS = 8000;
+  // Fully serial (1 at a time), not "a couple at a time" - a whole grid of
+  // cards scrolling into view together used to enqueue most of them almost
+  // simultaneously, and even 2-at-once real HLS pipelines (manifest fetch +
+  // decode) was enough sustained load to visibly freeze the page. One at a
+  // time plus PREVIEW_STAGGER_MS between captures keeps this to a background
+  // trickle instead of a burst.
+  var PREVIEW_CONCURRENCY = 1;
+  var PREVIEW_STAGGER_MS = 600;
+  var PREVIEW_CAPTURE_TIMEOUT_MS = 6000;
+  var PREVIEW_REFRESH_MS = 60000;
 
   var previewObserver = (typeof IntersectionObserver !== "undefined")
     ? new IntersectionObserver(function (entries) {
@@ -818,7 +876,7 @@
     container.querySelectorAll('[data-role="thumb"]').forEach(function (thumb) {
       var row = thumb.closest(".row");
       var key = row.getAttribute("data-key");
-      if (previewCache["tv::" + key] || previewRequested["tv::" + key]) return;
+      if (previewRequested["tv::" + key]) return; // already have (or are fetching) a copy - the 60s refresh loop handles keeping it current
       thumb.setAttribute("data-preview-key", key);
       previewObserver.observe(thumb);
     });
@@ -826,34 +884,64 @@
 
   function enqueuePreview(group) {
     var cacheKey = state.page + "::" + group.key;
-    if (previewRequested[cacheKey]) return;
+    if (previewQueue.some(function (j) { return j.group.key === group.key && j.page === state.page; })) return;
     previewRequested[cacheKey] = true;
     previewQueue.push({ group: group, page: state.page });
     pumpPreviewQueue();
   }
 
   function pumpPreviewQueue() {
-    while (previewInFlight < PREVIEW_CONCURRENCY && previewQueue.length) {
-      var job = previewQueue.shift();
-      previewInFlight += 1;
-      capturePreview(job.group, job.page).finally(function () {
-        previewInFlight -= 1;
-        pumpPreviewQueue();
-      });
-    }
+    if (previewInFlight >= PREVIEW_CONCURRENCY || !previewQueue.length) return;
+    var job = previewQueue.shift();
+    previewInFlight += 1;
+    capturePreview(job.group, job.page).finally(function () {
+      previewInFlight -= 1;
+      setTimeout(pumpPreviewQueue, PREVIEW_STAGGER_MS);
+    });
   }
+
+  // Periodic refresh: re-capture whatever's currently visible so thumbnails
+  // don't go permanently stale after the initial snapshot. Skips entirely
+  // while the tab isn't in the foreground - no point spending bandwidth/CPU
+  // updating pictures nobody's looking at.
+  setInterval(function () {
+    if (document.hidden || state.page !== "tv") return;
+    document.querySelectorAll('#list [data-role="thumb"]').forEach(function (thumb) {
+      var row = thumb.closest(".row");
+      var key = row.getAttribute("data-key");
+      var group = groups().filter(function (g) { return g.key === key; })[0];
+      if (!group || group.status === "broken") return;
+      var rect = thumb.getBoundingClientRect();
+      var isVisible = rect.bottom > 0 && rect.top < (window.innerHeight || document.documentElement.clientHeight);
+      if (!isVisible) return;
+      delete previewRequested["tv::" + key]; // allow this one specific re-capture through
+      enqueuePreview(group);
+    });
+  }, PREVIEW_REFRESH_MS);
 
   function capturePreview(group, page) {
     var cacheKey = page + "::" + group.key;
-    var candidates = (function () {
+    var candidate = (function () {
       var prevPage = state.page;
       state.page = page;
-      var link = activeLink(group);
+      var c = activeCandidate(group);
       state.page = prevPage;
-      return link;
+      return c;
     })();
-    if (!candidates) return Promise.resolve();
+    if (!candidate || !candidate.link) return Promise.resolve();
 
+    // Bug fixed here: this used to hand the RAW baked-in link straight to
+    // attachStream, skipping the same ticket-refresh the player does before
+    // playing - fine for most sources, but keshet/mako channels' link
+    // carries an auth ticket that expires ~15 min after the data was last
+    // generated, so their previews silently failed once that window passed
+    // while regular playback (which does call freshenLink) kept working.
+    return freshenLink(candidate).then(function (freshLink) {
+      return capturePreviewFrom(group, page, cacheKey, freshLink);
+    });
+  }
+
+  function capturePreviewFrom(group, page, cacheKey, link) {
     return new Promise(function (resolve) {
       var video = document.createElement("video");
       video.muted = true; video.playsInline = true;
@@ -893,11 +981,19 @@
         setTimeout(grabFrame, 400);
       }, { once: true });
 
-      hls = attachStream(video, candidates, {
+      hls = attachStream(video, link, {
         onReady: function () {}, // handled via loadeddata above, which fires regardless of backend
         onFatal: finish,
         settleMuted: true,
         settleVolume: 0,
+        // A 320px-wide thumbnail never needs anything above the lowest
+        // rendition - the default player-grade config (20s buffer, ABR
+        // picking a size-appropriate-for-a-full-player level) was pulling
+        // full-resolution segments just to throw away all but one frame.
+        // Multiplied across a whole grid of cards visible at once, that was
+        // enough concurrent bandwidth+decode load to visibly freeze the
+        // page - this keeps every preview capture cheap.
+        hlsConfig: { maxBufferLength: 2, startLevel: 0, capLevelToPlayerSize: false },
       });
       if (hls === undefined) finish();
     });
@@ -914,6 +1010,65 @@
       img.classList.add("is-loaded");
       if (placeholder) placeholder.style.display = "none";
     }
+  }
+
+  // ---------- hover preview (live, low-volume, low-quality) ----------
+  // A quick static snapshot (above) is one thing; hovering longer gets an
+  // actual short LIVE peek - real picture and a hint of audio, not just a
+  // frozen frame - so someone can tell what's actually airing right now
+  // without fully opening the player. Debounced so a mouse just passing
+  // over the grid doesn't spin up a stream for every card it crosses, and
+  // only ever one at a time (starting a new one always tears down
+  // whatever was previously playing) to keep this from stacking up.
+  var HOVER_PREVIEW_DELAY_MS = 400;
+  var HOVER_PREVIEW_VOLUME = 0.18; // was 0.15, +20%
+  var hoverPreview = { timer: null, key: null, video: null, hls: null };
+
+  function scheduleHoverPreview(group, thumb) {
+    cancelHoverPreview();
+    hoverPreview.timer = setTimeout(function () { startHoverPreview(group, thumb); }, HOVER_PREVIEW_DELAY_MS);
+  }
+
+  function cancelHoverPreview() {
+    if (hoverPreview.timer) { clearTimeout(hoverPreview.timer); hoverPreview.timer = null; }
+    if (hoverPreview.video) {
+      if (hoverPreview.hls) hoverPreview.hls.destroy();
+      hoverPreview.video.pause();
+      hoverPreview.video.remove();
+      hoverPreview.video = null;
+      hoverPreview.hls = null;
+      hoverPreview.key = null;
+    }
+  }
+
+  function startHoverPreview(group, thumb) {
+    hoverPreview.key = group.key;
+    var candidate = activeCandidate(group);
+    if (!candidate || !candidate.link) return;
+
+    freshenLink(candidate).then(function (link) {
+      // The mouse may well have left (or landed on a different card)
+      // during that fetch - only proceed if this is still the card being
+      // hovered.
+      if (hoverPreview.key !== group.key) return;
+
+      var video = document.createElement("video");
+      video.className = "hover-video";
+      video.playsInline = true;
+      thumb.appendChild(video);
+      hoverPreview.video = video;
+
+      hoverPreview.hls = attachStream(video, link, {
+        onReady: function () { video.classList.add("is-shown"); },
+        onFatal: function () { if (hoverPreview.video === video) cancelHoverPreview(); },
+        settleMuted: false,
+        settleVolume: HOVER_PREVIEW_VOLUME,
+        // Same lightweight profile as the snapshot capture above - this is
+        // a preview peek, not the main viewing experience, so the lowest
+        // rendition is plenty and keeps hovering across the grid cheap.
+        hlsConfig: { maxBufferLength: 4, startLevel: 0, capLevelToPlayerSize: false },
+      }) || null;
+    });
   }
 
   // ---------- rendering ----------
@@ -1013,11 +1168,8 @@
     return (
       '<div class="row' + (isSel ? " is-selected" : "") + (isBroken ? " is-broken" : "") + '" data-key="' + escapeHtml(group.key) + '">' +
         '<div class="row-thumb" data-role="thumb" tabindex="0" role="button" aria-label="נגן את ' + escapeHtml(group.name) + '">' +
-          '<div class="row-thumb-placeholder" data-role="placeholder">' + (state.page === "radio" ? "📻" : "📺") + "</div>" +
+          '<div class="row-thumb-placeholder" data-role="placeholder" style="--badge-color:' + moduleBadge(group.module).color + '">' + escapeHtml(moduleBadge(group.module).label) + "</div>" +
           '<img data-role="thumb-img" alt=""' + (cached ? ' class="is-loaded" src="' + cached + '"' : "") + " />" +
-          '<div class="row-thumb-badge">' +
-            (state.page === "tv" && !isBroken ? '<span class="row-thumb-live"><span class="rec-dot" aria-hidden="true"></span>חי</span>' : "") +
-          "</div>" +
           '<div class="row-thumb-corner">' +
             '<button type="button" class="starbtn' + (isSaved ? " is-saved" : "") + '" aria-label="שמור" aria-pressed="' + isSaved + '">' + (isSaved ? "★" : "☆") + "</button>" +
             (hasA11y ? '<button type="button" class="a11ybtn" aria-pressed="' + isA11yOn + '">ליקוי שמיעה</button>' : "") +
@@ -1076,6 +1228,10 @@
         thumb.addEventListener("keydown", function (e) {
           if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openPlayer(group); }
         });
+        if (state.page === "tv") {
+          thumb.addEventListener("mouseenter", function () { scheduleHoverPreview(group, thumb); });
+          thumb.addEventListener("mouseleave", cancelHoverPreview);
+        }
       }
       wireSourcePicks(row, group);
     });
@@ -1161,13 +1317,21 @@
 
   function teardownPlayer() {
     if (currentHls) { currentHls.destroy(); currentHls = null; }
+    // Invalidate whatever attachStream() call is currently attached, even
+    // if no new one follows immediately (e.g. a plain closePlayer()) - this
+    // is what videoEl.load() below is about to abort a pending play() for,
+    // and without bumping the generation here too, that stale rejection
+    // would still pass the "am I current?" check and fire its callback.
+    playerVideo._streamGen = (playerVideo._streamGen || 0) + 1;
     playerVideo.removeAttribute("src");
     playerVideo.load();
   }
 
+  var lastPlaybackFailure = null; // {type, detail} from the most recent onFatal - shown if every candidate is exhausted
   function playCandidate() {
     if (playerAttempt >= playerCandidates.length) {
-      setPlayerStatus("לא ניתן להפעיל אף אחד מהמקורות הזמינים כרגע. נסו לרענן את העמוד או לבחור ערוץ אחר.");
+      var reason = lastPlaybackFailure ? " [" + lastPlaybackFailure.type + (lastPlaybackFailure.detail ? ": " + lastPlaybackFailure.detail : "") + "]" : "";
+      setPlayerStatus("לא ניתן להפעיל אף אחד מהמקורות הזמינים כרגע." + reason + " נסו לרענן את העמוד או לבחור ערוץ אחר.");
       return;
     }
     var candidate = playerCandidates[playerAttempt];
@@ -1177,8 +1341,9 @@
     setPlayerStatus(candidate.refresh ? "מרענן הרשאת שידור…" : "טוען שידור…");
     teardownPlayer();
 
-    var tryNext = function () {
+    var tryNext = function (reason) {
       if (playerAttempt !== myAttempt) return;
+      if (reason) lastPlaybackFailure = reason;
       playerAttempt += 1;
       playCandidate();
     };
@@ -1226,6 +1391,22 @@
    * `undefined` if this browser can play neither.
    */
   function attachStream(videoEl, link, callbacks) {
+    // Every call on the SAME <video> element bumps a generation counter
+    // stashed on the element itself, and every one of this call's own
+    // async callbacks (play().then/catch, hls.js events, timers) checks it
+    // before doing anything. This is the fix for a real, confirmed bug:
+    // moving to the next fallback candidate calls teardownPlayer(), which
+    // does videoEl.load() - that ABORTS a still-pending play() promise from
+    // the PREVIOUS (now-abandoned) candidate's attachStream() call, and
+    // without this guard that stale promise's own .catch() fires anyway,
+    // showing "browser blocks autoplay" (a real AbortError, just from the
+    // wrong candidate) over whatever the CURRENT candidate is actually
+    // doing - confirmed via live console: "AbortError: The play() request
+    // was interrupted by a new load request."
+    videoEl._streamGen = (videoEl._streamGen || 0) + 1;
+    var myGen = videoEl._streamGen;
+    function stale() { return videoEl._streamGen !== myGen; }
+
     var onReady = callbacks.onReady || function () {};
     var onFatal = callbacks.onFatal || function () {};
     var onLevel = callbacks.onLevel;
@@ -1248,6 +1429,7 @@
     }
 
     videoEl.addEventListener("waiting", function () {
+      if (stale()) return;
       if (onWaiting) onWaiting();
       if (!steppedDownForThisStall && hls && hls.levels && hls.levels.length > 1) {
         var order = hls.levels.map(function (lvl, i) { return i; })
@@ -1260,8 +1442,21 @@
           if (onLevel) onLevel(order[pos - 1]);
         }
       }
-      if (stallTimer) clearTimeout(stallTimer);
-      stallTimer = setTimeout(function () { stallTimer = null; onFatal(); }, STALL_GIVEUP_MS);
+      // Bug fixed here: this used to clearTimeout+restart the give-up timer
+      // on EVERY "waiting" event, so a stream that kept re-buffering in
+      // short bursts (waiting fires again before the 9s mark) reset the
+      // clock each time and NEVER actually reached it - playback just sat
+      // frozen forever instead of ever falling through to the next
+      // candidate. Now the timer is started once per stall episode (on the
+      // first "waiting") and left alone; only a real "playing" event
+      // (actual recovery) cancels it, so total-time-stuck is what's
+      // measured, not time-since-most-recent-hiccup.
+      if (!stallTimer) {
+        stallTimer = setTimeout(function () {
+          stallTimer = null;
+          if (!stale()) onFatal({ type: "stall", detail: "stuck " + STALL_GIVEUP_MS + "ms" });
+        }, STALL_GIVEUP_MS);
+      }
     });
     videoEl.addEventListener("playing", clearStall);
 
@@ -1279,49 +1474,94 @@
       var wasMuted = videoEl.muted;
       videoEl.muted = true;
       videoEl.play().then(function () {
+        if (stale()) return; // a newer candidate has since torn this element down - don't unmute out from under it
         videoEl.muted = settleMuted;
         videoEl.volume = settleVolume;
-      }).catch(function () {
+      }).catch(function (err) {
+        // The expected, harmless case: this candidate got superseded (moved
+        // to the next one, or the player closed) while its play() was still
+        // pending, which the browser reports as an AbortError. That's not a
+        // real playback failure for the candidate that's actually current
+        // now - only report a rejection that happened on our own watch.
+        if (stale()) return;
         videoEl.muted = wasMuted;
-        if (onPlayBlocked) onPlayBlocked();
+        // Bug fixed here: EVERY rejection used to be treated as "browser is
+        // blocking autoplay, ask the viewer to click play" - but confirmed
+        // live, a genuinely broken source (e.g. NotSupportedError - no
+        // playable data ever got attached) rejects the SAME way, and no
+        // amount of clicking play helps that. NotAllowedError is the one
+        // Chrome/Firefox actually use for a real autoplay-policy block;
+        // anything else is a real failure and should fall through to the
+        // next candidate (or the "couldn't play any source" message once
+        // they're all exhausted) instead of stalling on a dead-end prompt.
+        if (err && err.name === "NotAllowedError") {
+          if (onPlayBlocked) onPlayBlocked(err);
+        } else {
+          onFatal({ type: "play", detail: err && err.name ? err.name + (err.message ? ": " + err.message : "") : "" });
+        }
       });
     }
 
-    if (videoEl.canPlayType("application/vnd.apple.mpegurl")) {
-      videoEl.src = link;
-      videoEl.addEventListener("loadedmetadata", function once() {
-        videoEl.removeEventListener("loadedmetadata", once); onReady();
-      });
-      videoEl.addEventListener("error", function once() {
-        videoEl.removeEventListener("error", once); onFatal();
-      }, { once: true });
-      attemptPlay();
-      return null;
-    }
+    // hls.js is checked FIRST now, native HLS second - and native only when
+    // canPlayType returns EXACTLY "probably", not just any truthy value.
+    // Bug fixed here, confirmed live: canPlayType can return "maybe" (a
+    // speculative "might work") for this MIME type in some Chrome builds/
+    // configurations, which the old `if (canPlayType(...))` treated as
+    // truthy and took as "use native playback" - but Chrome has no actual
+    // native HLS demuxer, so videoEl.src = <raw .m3u8> immediately failed
+    // with MEDIA_ERR_SRC_NOT_SUPPORTED (confirmed via the exact "native:
+    // code 4" error shown live). "probably" is Safari's real, honest
+    // answer for this MIME type; nothing else should be trusted to mean
+    // genuine native support.
     if (window.Hls && window.Hls.isSupported()) {
-      hls = new window.Hls({ maxBufferLength: 20 });
+      hls = new window.Hls(callbacks.hlsConfig || { maxBufferLength: 20 });
       hls.on(window.Hls.Events.MANIFEST_PARSED, function () {
+        if (stale()) return;
         onReady();
         attemptPlay();
       });
       hls.on(window.Hls.Events.ERROR, function (event, data) {
-        if (data.fatal) onFatal();
+        if (data.fatal && !stale()) onFatal({ type: "hls", detail: data.type + (data.details ? ": " + data.details : "") });
       });
-      if (onLevel) hls.on(window.Hls.Events.LEVEL_SWITCHED, function (event, data) { onLevel(data.level); });
+      if (onLevel) hls.on(window.Hls.Events.LEVEL_SWITCHED, function (event, data) { if (!stale()) onLevel(data.level); });
       hls.loadSource(link);
       hls.attachMedia(videoEl);
       return hls;
+    }
+    if (videoEl.canPlayType("application/vnd.apple.mpegurl") === "probably") {
+      videoEl.src = link;
+      videoEl.addEventListener("loadedmetadata", function once() {
+        videoEl.removeEventListener("loadedmetadata", once);
+        if (!stale()) onReady();
+      });
+      videoEl.addEventListener("error", function once() {
+        videoEl.removeEventListener("error", once);
+        if (!stale()) onFatal({ type: "native", detail: videoEl.error ? "code " + videoEl.error.code : "" });
+      }, { once: true });
+      attemptPlay();
+      return null;
     }
     return undefined;
   }
 
   function startPlayback(link, tryNext) {
+    // Carry the mute state AND volume level forward across channel switches
+    // instead of resetting on every switch - attachStream's own defaults
+    // (settleMuted:false, settleVolume:1) used to silently override
+    // whatever the viewer had actually set, every single time. Read BEFORE
+    // attachStream runs (attemptPlay forces muted=true only for the play()
+    // call itself, then settles to whatever we pass here).
+    var wantMuted = playerVideo.muted;
+    var wantVolume = playerVideo.volume;
     var hls = attachStream(playerVideo, link, {
       onReady: function () { setPlayerStatus(""); },
       onFatal: tryNext,
-      onPlayBlocked: function () {
-        setPlayerStatus("השידור נטען - לחצו ▶ בנגן כדי להתחיל (הדפדפן חוסם הפעלה אוטומטית).");
+      onPlayBlocked: function (err) {
+        var detail = err && err.name ? " [" + err.name + (err.message ? ": " + err.message : "") + "]" : "";
+        setPlayerStatus("השידור נטען - לחצו ▶ בנגן כדי להתחיל (הדפדפן חוסם הפעלה אוטומטית)." + detail);
       },
+      settleMuted: wantMuted,
+      settleVolume: wantVolume,
     });
     if (hls === undefined) { setPlayerStatus("הדפדפן הזה אינו תומך בניגון שידורי HLS."); return; }
     currentHls = hls;
@@ -1418,14 +1658,18 @@
     // they still move the caret/selection there as expected.
     var tag = document.activeElement && document.activeElement.tagName;
     if (tag === "INPUT" || tag === "TEXTAREA") return;
-    if (e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
+    if (e.key === "ArrowUp" || e.key === "ArrowDown") {
       e.preventDefault();
       adjustVolume(e.key === "ArrowUp" ? 0.1 : -0.1);
       return;
     }
+    // Left/Right (with the same Ctrl/Shift modifier set channel-switching
+    // used to put on Up/Down) now do the channel switching - RTL layout, so
+    // "next" in reading order is visually to the LEFT: Right = previous,
+    // Left = next, matching the same convention the main-page grid nav uses.
     var navMode = e.shiftKey ? "full" : (e.ctrlKey || e.metaKey) ? "saved" : "curated";
-    if (e.key === "ArrowDown") { e.preventDefault(); switchChannel(1, navMode); }
-    else if (e.key === "ArrowUp") { e.preventDefault(); switchChannel(-1, navMode); }
+    if (e.key === "ArrowLeft") { e.preventDefault(); switchChannel(1, navMode); }
+    else if (e.key === "ArrowRight") { e.preventDefault(); switchChannel(-1, navMode); }
     else if (e.key === "r" || e.key === "R") { e.preventDefault(); toggleRecordingCurrent(); }
     else if (e.key === "Enter") { e.preventDefault(); toggleFullscreen(); }
     else if (e.key === "p" || e.key === "P") { e.preventDefault(); togglePause(); }
@@ -1486,6 +1730,14 @@
 
   function recId(page, key) { return page + "::" + key; }
   function activeRecordingCount() { return Object.keys(recordings).length; }
+  // Only counts recordings that have actually produced real data - an
+  // attempt that's still connecting (or stuck/failing before ever
+  // confirming) shouldn't light up "מקליט" over nothing. The header badge,
+  // player badge, and row dot color all key off this; the recordings PANEL
+  // (once opened) still lists pending attempts too, as "מתחיל…".
+  function confirmedRecordingCount() {
+    return Object.keys(recordings).filter(function (id) { return recordings[id].confirmed; }).length;
+  }
 
   function recordingSupport() {
     var v = document.createElement("video");
@@ -1707,15 +1959,16 @@
 
   function updateRecIndicatorInModal() {
     var id = recId(state.page, playingKey);
-    document.getElementById("player-rec-badge").hidden = !recordings[id];
+    document.getElementById("player-rec-badge").hidden = !(recordings[id] && recordings[id].confirmed);
   }
 
   function updateRecUI() {
-    var n = activeRecordingCount();
+    var confirmedIds = Object.keys(recordings).filter(function (id) { return recordings[id].confirmed; });
+    var n = confirmedIds.length;
     var btn = document.getElementById("open-recordings");
     btn.hidden = n === 0;
     document.getElementById("rec-count").textContent = n;
-    var names = Object.keys(recordings).map(function (id) { return recordings[id].group.name; });
+    var names = confirmedIds.map(function (id) { return recordings[id].group.name; });
     // Names right on the button when there's room for them (1-2 recordings);
     // beyond that it'd overflow the header, so fall back to a plain count -
     // the full list is always in the title tooltip and in the panel either way.
@@ -1729,12 +1982,16 @@
     document.querySelectorAll(".row-rec-dot").forEach(function (el) { el.remove(); });
     Object.keys(recordings).forEach(function (id) {
       var rec = recordings[id];
-      if (rec.page !== state.page) return;
+      // Only a genuinely confirmed (real data captured) recording gets a
+      // dot on the main page - a still-connecting/never-panned-out attempt
+      // showed one too before, which read as "recording" when nothing was
+      // actually being recorded yet.
+      if (rec.page !== state.page || !rec.confirmed) return;
       var row = document.querySelector('.row[data-key="' + CSS.escape(rec.group.key) + '"]');
       if (row && !row.querySelector(".row-rec-dot")) {
         var dot = document.createElement("span");
-        dot.className = "rec-dot row-rec-dot" + (rec.confirmed ? "" : " is-pending");
-        dot.title = rec.confirmed ? "מקליט" : "מתחיל הקלטה…";
+        dot.className = "rec-dot row-rec-dot";
+        dot.title = "מקליט";
         row.querySelector(".starbtn").insertAdjacentElement("afterend", dot);
       }
     });
@@ -1995,6 +2252,42 @@
     renderList();
     updateSavedCount();
   }
+
+  // ---------- main-page grid keyboard navigation ----------
+  // Arrow keys move real DOM focus between channel cards (Enter/Space to
+  // play is already wired per-card - see the thumb keydown handler in
+  // renderList). Only active when the player is closed and no text field
+  // has focus - the player has its own ↑/↓ channel-surf handling once open.
+  function wireGridKeyboardNav() {
+    document.addEventListener("keydown", function (e) {
+      if (playerOverlay.classList.contains("is-open")) return;
+      var tag = document.activeElement && document.activeElement.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA") return;
+      if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].indexOf(e.key) === -1) return;
+
+      var cards = Array.prototype.slice.call(document.querySelectorAll('#list [data-role="thumb"]'));
+      if (!cards.length) return;
+      e.preventDefault();
+
+      var cur = cards.indexOf(document.activeElement);
+      if (cur === -1) { cards[0].focus(); return; }
+
+      var listEl = document.getElementById("list");
+      var columns = (getComputedStyle(listEl).gridTemplateColumns.match(/\d/g) ? getComputedStyle(listEl).gridTemplateColumns.trim().split(/\s+/).length : 1);
+
+      var next = cur;
+      if (e.key === "ArrowDown") next = cur + columns;
+      else if (e.key === "ArrowUp") next = cur - columns;
+      // RTL grid: DOM order flows visually right-to-left within a row, so
+      // "next card" (further along in DOM order) sits to the reader's LEFT.
+      else if (e.key === "ArrowLeft") next = cur + 1;
+      else if (e.key === "ArrowRight") next = cur - 1;
+
+      next = Math.max(0, Math.min(cards.length - 1, next));
+      cards[next].focus();
+    });
+  }
+  wireGridKeyboardNav();
 
   fullRender();
 })();
