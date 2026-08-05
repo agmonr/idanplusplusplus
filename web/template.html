@@ -1,6 +1,19 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>מתחברים מחדש לטלויזה — עידן+</title>
+<!-- Link-preview tags (WhatsApp/Facebook/Twitter etc.) - these crawlers
+     fetch og:image as a real HTTP request, so it has to be an actual hosted
+     file (web/og-image.png, deployed alongside this page by the Pages
+     workflow), not a data: URI - unlike the favicon below, which every
+     browser loads from this same document and so can be inlined. -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="עידן+ — כל הערוצים בלייב, במקום אחד">
+<meta property="og:description" content="טלוויזיה ורדיו ישראליים, צפייה חיה בלחיצה אחת - בלי התקנה.">
+<meta property="og:image" content="https://agmonr.github.io/idanplusplusplus/og-image.png">
+<meta property="og:url" content="https://agmonr.github.io/idanplusplusplus/">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" type="image/png" href="data:image/png;base64,__FAVICON_B64__">
+<link rel="apple-touch-icon" href="data:image/png;base64,__FAVICON_B64__">
 <style>
   /*
    * Palette ported from govapiportal (agmonr.github.io/govapiportal) so this
@@ -588,6 +601,7 @@
       <button class="pagetab" data-page="tv" role="tab">טלוויזיה</button>
       <button class="pagetab" data-page="radio" role="tab">רדיו</button>
       <button type="button" class="preview-mute-btn" id="preview-mute-btn" aria-pressed="false" title="השתקת תצוגה מקדימה">🔊</button>
+      <button type="button" class="preview-mute-btn" id="share-btn" title="שיתוף">📤</button>
       <a class="attribution-link" href="https://hod-hasharon.org/" target="_blank" rel="noopener">רם אגמון</a>
     </div>
 
@@ -2685,6 +2699,25 @@
       // than only taking effect the next time one starts.
       if (hoverPreview.video) hoverPreview.video.muted = previewMuted;
       syncPreviewMuteBadge();
+    });
+  })();
+
+  // ---------- header share button ----------
+  // Native share sheet where available (which lists WhatsApp itself among
+  // its targets on a phone) - falls back to a direct wa.me share link
+  // (opens WhatsApp with the text/link pre-filled) on browsers without it,
+  // e.g. desktop.
+  (function wireShareButton() {
+    var btn = document.getElementById("share-btn");
+    if (!btn) return;
+    btn.addEventListener("click", function () {
+      var shareText = "עידן+ - כל הערוצים בלייב, במקום אחד";
+      var shareUrl = location.href;
+      if (navigator.share) {
+        navigator.share({ title: document.title, text: shareText, url: shareUrl }).catch(function () {});
+      } else {
+        window.open("https://wa.me/?text=" + encodeURIComponent(shareText + " " + shareUrl), "_blank", "noopener");
+      }
     });
   })();
 

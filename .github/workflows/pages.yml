@@ -32,12 +32,17 @@ jobs:
       # + the build step documented in web/template.html) - this workflow doesn't
       # regenerate it, just publishes what's already in the repo. A copy named
       # index.html is added so the site's ROOT url shows the viewer directly,
-      # without anyone needing to know the exact filename.
+      # without anyone needing to know the exact filename. og-image.png is
+      # the WhatsApp/Facebook/Twitter link-preview image referenced by the
+      # og:image meta tag in template.html - those crawlers fetch it as a
+      # real HTTP request, so it has to be deployed as an actual file here,
+      # not embedded in the HTML like the favicon is.
       - name: Prepare Pages site
         run: |
           mkdir -p _site
           cp web/channel_viewer.html _site/index.html
           cp web/channel_viewer.html _site/channel_viewer.html
+          cp web/og-image.png _site/og-image.png
 
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
