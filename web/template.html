@@ -914,7 +914,6 @@
     <button type="button" class="cf-swatch" data-family="red" title="אדום">🟥</button>
     <button type="button" class="cf-swatch" data-family="orange" title="כתום">🟧</button>
     <button type="button" class="cf-swatch" data-family="yellow" title="צהוב">🟨</button>
-    <button type="button" class="cf-swatch" data-family="lightgreen" title="ירוק בהיר">🟢</button>
     <button type="button" class="cf-swatch" data-family="green" title="ירוק">🟩</button>
     <button type="button" class="cf-swatch" data-family="blue" title="כחול">🟦</button>
     <button type="button" class="cf-swatch" data-family="purple" title="סגול">🟪</button>
@@ -1143,7 +1142,6 @@
     t = typeof t === "number" ? t : 0;
     var wave = Math.sin(2 * Math.PI * t);
     if (family === "green") return hslToHex(103 + wave * 47, 55, 44 + wave * 8); // yellow (56) <-> green (150), looping
-    if (family === "lightgreen") return hslToHex(100 + wave * 20, 50, 68 + wave * 10); // pale spring-green sweep, looping
     if (family === "yellow") return hslToHex(50 + wave * 20, 70, 50 + wave * 10); // gold/amber sweep, looping
     if (family === "red") return hslToHex(15 + wave * 15, 70, 46 + wave * 10); // red/orange sweep, looping
     if (family === "blue") return hslToHex(215 + wave * 25, 65, 48 + wave * 10); // azure/navy sweep, looping
@@ -3993,33 +3991,51 @@
       if (-e.deltaY > 0 && atListTop()) scrollToListBottom();
     }, { passive: true });
 
-    // Touch: dragging down on the header itself (not just anywhere on the
-    // list while scrolled to the top) far enough reloads the page
-    // (classic pull-to-refresh) instead of looping - pulling the header
-    // down specifically IS the refresh gesture here, not a way to cycle
-    // back to the last stations (that's still reachable normally, by
-    // scrolling all the way down). Attached to the header element itself,
-    // not window, so a drag starting lower on the list never counts, even
-    // once already scrolled to the top - touchmove/touchend for the same
-    // touch still target this element regardless of where the finger
-    // physically ends up, so this alone is enough to gate the whole
-    // gesture by where it STARTED.
+    // Touch: two different gestures depending on where the drag STARTED -
+    // touchmove/touchend for a given touch always keep targeting its
+    // original element regardless of where the finger physically ends up,
+    // so attaching touchstart to two different elements is enough to tell
+    // them apart for the whole gesture.
+    //
+    // - Starting on the header itself: pull-to-refresh (reloads the page).
+    //   Pulling the header down specifically IS the refresh gesture here.
+    // - Starting anywhere on the list (while already at the top): loops
+    //   to the bottom, same as the wheel/trackpad case above - pulling
+    //   the STATION LIST down brings in the last stations, it doesn't
+    //   refresh anything.
     var PULL_REFRESH_PX = 80;
-    var touchStartY = null;
+    var LIST_PULL_LOOP_PX = 60;
+    var headerTouchStartY = null;
+    var listTouchStartY = null;
     var headerEl = document.querySelector(".topbar");
+    var listEl = document.getElementById("list");
     if (headerEl) {
       headerEl.addEventListener("touchstart", function (e) {
-        touchStartY = (isMobileRadioActive() && atListTop()) ? e.touches[0].clientY : null;
+        headerTouchStartY = (isMobileRadioActive() && atListTop()) ? e.touches[0].clientY : null;
+      }, { passive: true });
+    }
+    if (listEl) {
+      listEl.addEventListener("touchstart", function (e) {
+        listTouchStartY = (isMobileRadioActive() && atListTop()) ? e.touches[0].clientY : null;
       }, { passive: true });
     }
     window.addEventListener("touchmove", function (e) {
-      if (touchStartY === null || !isMobileRadioActive()) return;
-      if (e.touches[0].clientY - touchStartY > PULL_REFRESH_PX && atListTop()) {
-        touchStartY = null;
-        location.reload();
+      if (!isMobileRadioActive()) return;
+      if (headerTouchStartY !== null) {
+        if (e.touches[0].clientY - headerTouchStartY > PULL_REFRESH_PX && atListTop()) {
+          headerTouchStartY = null;
+          location.reload();
+        }
+        return;
+      }
+      if (listTouchStartY !== null) {
+        if (e.touches[0].clientY - listTouchStartY > LIST_PULL_LOOP_PX && atListTop()) {
+          listTouchStartY = null;
+          scrollToListBottom();
+        }
       }
     }, { passive: true });
-    window.addEventListener("touchend", function () { touchStartY = null; }, { passive: true });
+    window.addEventListener("touchend", function () { headerTouchStartY = null; listTouchStartY = null; }, { passive: true });
   })();
 
   // ---------- mobile hamburger menu ----------
