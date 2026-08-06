@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-06T13:40:02",
+  "generatedAt": "2026-08-06T13:52:06",
   "radio": [
     {
       "accessibility": null,
@@ -914,7 +914,7 @@
           "kind": "keshet",
           "path": "/k12cc/index.m3u8?b-in-range=0-1800"
         },
-        "resolved_link": "https://d2249b6f08tjt0.cloudfront.net/k12cc/index.m3u8?b-in-range=0-1800&token=eyJhbGciOiJIUzI1NiJ9.eyJwYXRoIjoiXC9rMTJjY1wvaW5kZXgubTN1OD9iLWluLXJhbmdlPTAtMTgwMCIsInRpbWVzdGFtcCI6MTc4NjAxMjcwMjk5MH0.6RVg6xCXmLdLNsiLIJU8GxANQRSfSoj3RYFBhL4DprU",
+        "resolved_link": "https://d2249b6f08tjt0.cloudfront.net/k12cc/index.m3u8?b-in-range=0-1800&token=eyJhbGciOiJIUzI1NiJ9.eyJwYXRoIjoiXC9rMTJjY1wvaW5kZXgubTN1OD9iLWluLXJhbmdlPTAtMTgwMCIsInRpbWVzdGFtcCI6MTc4NjAxMzQ3MzI1NX0._wcGrGc4DYmW4RFmeHqPHLNDze-wped79dFx6s87wgw",
         "status": "ok",
         "tvgID": "12"
       },
@@ -935,7 +935,7 @@
             "kind": "keshet",
             "path": "/stream/hls/live/2033791/k12n12wad/index.m3u8"
           },
-          "resolved_link": "https://mako-streaming.akamaized.net/stream/hls/live/2033791/k12n12wad/index.m3u8?hdnea=st%3D1786012581%7Eexp%3D1786013481%7Eacl%3D%2F*%7Ehmac%3D5f2275f466753c119d6625c3f4ba8d2a748c32af972b4d5e8ad8e84121395b84",
+          "resolved_link": "https://mako-streaming.akamaized.net/stream/hls/live/2033791/k12n12wad/index.m3u8?hdnea=st%3D1786013352%7Eexp%3D1786014252%7Eacl%3D%2F*%7Ehmac%3D3499ca2dd1a429718fd6abc4a81bf9cec2ce9112ab69781fcb528f6f586fdb90",
           "status": "ok",
           "tvgID": "12"
         },
@@ -955,7 +955,7 @@
             "kind": "keshet",
             "path": "/stream/hls/live/2033791/k12dvr/index.m3u8"
           },
-          "resolved_link": "https://mako-streaming.akamaized.net/stream/hls/live/2033791/k12dvr/index.m3u8?hdnea=st%3D1786012582%7Eexp%3D1786013482%7Eacl%3D%2F*%7Ehmac%3D39f5083aaea49530d832d949acfdcdafda01a6182ebe1136aa00186ce43df325",
+          "resolved_link": "https://mako-streaming.akamaized.net/stream/hls/live/2033791/k12dvr/index.m3u8?hdnea=st%3D1786013352%7Eexp%3D1786014252%7Eacl%3D%2F*%7Ehmac%3D3499ca2dd1a429718fd6abc4a81bf9cec2ce9112ab69781fcb528f6f586fdb90",
           "status": "ok",
           "tvgID": "12"
         },
@@ -975,7 +975,7 @@
             "kind": "keshet",
             "path": "/n12/hls/live/20000821/k12rh/index.m3u8"
           },
-          "resolved_link": "https://mako-streaming.akamaized.net/n12/hls/live/20000821/k12rh/index.m3u8?hdnea=st%3D1786012582%7Eexp%3D1786013482%7Eacl%3D%2F*%7Ehmac%3D39f5083aaea49530d832d949acfdcdafda01a6182ebe1136aa00186ce43df325",
+          "resolved_link": "https://mako-streaming.akamaized.net/n12/hls/live/20000821/k12rh/index.m3u8?hdnea=st%3D1786013352%7Eexp%3D1786014252%7Eacl%3D%2F*%7Ehmac%3D3499ca2dd1a429718fd6abc4a81bf9cec2ce9112ab69781fcb528f6f586fdb90",
           "status": "ok",
           "tvgID": "12"
         }
@@ -1000,7 +1000,7 @@
           "kind": "keshet",
           "path": "/stream/hls/live/2033791/k12/index.m3u8"
         },
-        "resolved_link": "https://mako-streaming.akamaized.net/stream/hls/live/2033791/k12/index.m3u8?hdnea=st%3D1786012581%7Eexp%3D1786013481%7Eacl%3D%2F*%7Ehmac%3D5f2275f466753c119d6625c3f4ba8d2a748c32af972b4d5e8ad8e84121395b84",
+        "resolved_link": "https://mako-streaming.akamaized.net/stream/hls/live/2033791/k12/index.m3u8?hdnea=st%3D1786013351%7Eexp%3D1786014251%7Eacl%3D%2F*%7Ehmac%3D6fc4772369e7e6159bfc881668a087d053d2f9a7bb12113b6b0c555aed64269e",
         "status": "ok",
         "tvgID": "12"
       },
@@ -1166,7 +1166,7 @@
           "kind": "backup",
           "module": "tv",
           "name": "כאן חינוכית 23 - גיבוי",
-          "now_playing": "חדש! הדרדסים 3 - 49. לוקרישיה משתלטת",
+          "now_playing": "היכון הכן טוס 2 - 10. בכח הרוח",
           "refresh": null,
           "resolved_link": "https://r.il.cdn-redge.media/livedash/oil/kancdn-live/live/kan_edu/live.livx?dvr=14400000",
           "status": "ok",
@@ -1186,7 +1186,7 @@
         "kind": "primary",
         "module": "kan",
         "name": "כאן חינוכית 23",
-        "now_playing": "חדש! הדרדסים 3 - 49. לוקרישיה משתלטת",
+        "now_playing": "היכון הכן טוס 2 - 10. בכח הרוח",
         "refresh": null,
         "resolved_link": "https://r.il.cdn-redge.media/livehls/oil/kancdn-live/live/kan_edu/live.livx/playlist.m3u8?dvr=21600000",
         "status": "ok",
@@ -1217,7 +1217,7 @@
           "kind": "keshet",
           "path": "/direct/hls/live/2035340/ch24live/index.m3u8?as=1"
         },
-        "resolved_link": "https://mako-streaming.akamaized.net/direct/hls/live/2035340/ch24live/index.m3u8?as=1&hdnea=st%3D1786012587%7Eexp%3D1786013487%7Eacl%3D%2F*%7Ehmac%3De56709aca2f80a4ba6e1d9435e7f1067b4146389874f1a5c283fc73e4ada35b7",
+        "resolved_link": "https://mako-streaming.akamaized.net/direct/hls/live/2035340/ch24live/index.m3u8?as=1&hdnea=st%3D1786013368%7Eexp%3D1786014268%7Eacl%3D%2F*%7Ehmac%3D4d7ed7d7c26228ba2ae310e8e40e4c27b5451e3d86147ca716dbb98eb909cefb",
         "status": "ok",
         "tvgID": "24"
       },
@@ -1319,7 +1319,7 @@
         "kind": "primary",
         "module": "tv",
         "name": "קבלה 66",
-        "now_playing": "המסע אל הנקודה שבלב",
+        "now_playing": "העולם",
         "refresh": null,
         "resolved_link": "https://edge2.il.kab.tv/live/tv66-heb-high/playlist.m3u8",
         "status": "ok",
@@ -1772,7 +1772,7 @@
           "kind": "keshet",
           "path": "/free/hls/live/2111419/erets/index.m3u8?b-in-range=0-1800"
         },
-        "resolved_link": "https://mako-streaming.akamaized.net/free/hls/live/2111419/erets/index.m3u8?b-in-range=0-1800&hdnea=st%3D1786012593%7Eexp%3D1786013493%7Eacl%3D%2F*%7Ehmac%3D0210205990edabdd153100993d7d1732cdc24eca62bb5c677f636406f588e54d",
+        "resolved_link": "https://mako-streaming.akamaized.net/free/hls/live/2111419/erets/index.m3u8?b-in-range=0-1800&hdnea=st%3D1786013384%7Eexp%3D1786014284%7Eacl%3D%2F*%7Ehmac%3Dd8aeb51edd4baca022423fe08c41de0ad8ef41952fbb768e3cf575e885f31868",
         "status": "ok",
         "tvgID": ""
       },
@@ -1801,7 +1801,7 @@
           "kind": "keshet",
           "path": "/free/hls/live/2111419/savri/index.m3u8?b-in-range=0-1800"
         },
-        "resolved_link": "https://mako-streaming.akamaized.net/free/hls/live/2111419/savri/index.m3u8?b-in-range=0-1800&hdnea=st%3D1786012594%7Eexp%3D1786013494%7Eacl%3D%2F*%7Ehmac%3Dc1c260d3c86f050556a7c7c0185c17622ca49a88da14d7a441496438a7243e67",
+        "resolved_link": "https://mako-streaming.akamaized.net/free/hls/live/2111419/savri/index.m3u8?b-in-range=0-1800&hdnea=st%3D1786013385%7Eexp%3D1786014285%7Eacl%3D%2F*%7Ehmac%3D98ecb5b3a57054569b1beb19f61cf4855f62a87306c4ea2a1ab5594951870931",
         "status": "ok",
         "tvgID": ""
       },

@@ -37,6 +37,8 @@ import re
 import sys
 import time
 import zipfile
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 import requests
 
@@ -348,8 +350,90 @@ def epg_mako():
     return {"12": schedule}
 
 
+KAN_SCHEDULE_URL = "https://www.kan.org.il/umbraco/surface/LoadBroadcastSchedule/LoadSchedule"
+# kan.org.il's tv-guide widget covers these 10 - found by clicking through
+# each channel icon and reading the resulting channelId out of the network
+# request; no known kan.org.il entry for כאן ילדים (kankids.org.il has its
+# own separate guide, not investigated) or כאן مكان (Arabic, ditto).
+KAN_CHANNEL_IDS = {
+    "11": 4444,       # כאן 11
+    "23": 4471,       # כאן חינוכית 23
+    "33": 4532,       # מכאן 33
+    "88": 4504,       # כאן 88
+    "bet": 4483,      # כאן ב (כאן חדשות ברשת ב')
+    "gimel": 4490,    # כאן גימל
+    "culture": 4497,  # כאן תרבות
+    "music": 4518,    # כאן קול המוזיקה
+    "moreshet": 4511,  # כאן מורשת
+    "reka": 4525,     # כאן Reka
+}
+# Each schedule item's HTML block appears twice (a mobile <p>/<h3> pair and
+# a desktop <span>/<h3> pair with identical values) - the non-greedy .*?
+# after "results-item" stops at the FIRST date/title pair it finds, so one
+# regex match = one program, not two.
+KAN_ITEM_RE = re.compile(r'class="results-item.*?data-date-utc="([^"]+)".*?program-title">([^<]*)', re.S)
+# Despite the "-utc" name, these timestamps are already Israel local time -
+# confirmed empirically (a primetime drama listed at 21:40, not the 00:40
+# it would be if genuinely UTC in August/IDT).
+KAN_TZ = ZoneInfo("Asia/Jerusalem")
+
+
+def _parse_kan_schedule(html):
+    items = []
+    for m in KAN_ITEM_RE.finditer(html):
+        name = m.group(2).strip()
+        if not name:
+            continue
+        dt = datetime.strptime(m.group(1), "%d.%m.%Y %H:%M:%S").replace(tzinfo=KAN_TZ)
+        items.append({"name": name, "start": dt.timestamp()})
+    # Defensive de-dupe of the mobile/desktop pair in case the regex above
+    # ever catches both instead of just the first (undocumented, scraped
+    # markup - shape could shift).
+    deduped = []
+    for item in items:
+        if deduped and deduped[-1]["start"] == item["start"] and deduped[-1]["name"] == item["name"]:
+            continue
+        deduped.append(item)
+    # No explicit duration in this markup - each program's end is simply
+    # the next program's start. The last item in the response has no next
+    # item to derive an end from, so it gets an arbitrary 1-hour fallback
+    # (only matters right at the edge of whatever range the response
+    # covers, and only for a channel that happens to be airing that exact
+    # last-listed program at run time).
+    for i, item in enumerate(deduped):
+        item["end"] = deduped[i + 1]["start"] if i + 1 < len(deduped) else item["start"] + 3600
+    return deduped
+
+
+def epg_kan():
+    """One request per channel (10 total) - see KAN_CHANNEL_IDS. Paced with
+    a delay between requests: kan.org.il sits behind Cloudflare, and a
+    rapid burst of requests during development tripped a temporary block
+    (a "Attention Required" challenge page instead of the real schedule
+    HTML) even though isolated single requests - and requests from an
+    actual browser - worked fine. Each channel's failure is caught
+    individually so one bad/blocked channel doesn't lose the other 9."""
+    schedule = {}
+    for tvg_id, channel_id in KAN_CHANNEL_IDS.items():
+        try:
+            resp = session.get(KAN_SCHEDULE_URL, params={"channelId": channel_id, "currentPageId": 1517}, timeout=TIMEOUT)
+            resp.raise_for_status()
+            programs = _parse_kan_schedule(resp.text)
+            if programs:
+                schedule[tvg_id] = programs
+            else:
+                log("  EPG[kan/{0}]: parsed 0 programs (page shape may have changed, or a blocked/challenge response)".format(tvg_id))
+        except Exception as ex:  # noqa: BLE001 - one channel's failure shouldn't lose the others
+            log("  EPG[kan/{0}] failed: {1}".format(tvg_id, ex))
+        time.sleep(1.5)
+    if not schedule:
+        raise ValueError("kan EPG: every channel failed")
+    return schedule
+
+
 EPG_RESOLVERS = {
     "mako": epg_mako,
+    "kan": epg_kan,
 }
 
 
