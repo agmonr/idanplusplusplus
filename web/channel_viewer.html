@@ -222,6 +222,15 @@
     display: flex; align-items: center; gap: 7px;
   }
   .pagetab[aria-selected="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+  /* Small star badge - this tab's favorites-only view is on (see
+     wirePagetabFavsLongPress), independent of aria-selected so it's
+     visible even on the tab you're not currently viewing. */
+  .pagetab.is-favs-only { position: relative; }
+  .pagetab.is-favs-only::after {
+    content: "★"; position: absolute; top: -6px; inset-inline-end: -6px;
+    font-size: 11px; line-height: 1; color: #ffd25c;
+    background: var(--surface); border-radius: 50%; padding: 1px;
+  }
   .pagetab-icon { display: none; }
   /* Mobile: the TV/radio tabs become icon-only (an old antenna-TV and an
      old transistor radio, own line-art rather than the flat modern 📺
@@ -256,19 +265,60 @@
      radio-vs-tv hidden state the same way it already does for
      radio-favs-btn/preview-mute-btn. */
   .radio-color-family {
-    align-self: center; border: 1px solid var(--border); background: var(--surface);
-    color: var(--text); font-size: 13px; font-weight: 600; border-radius: 8px;
-    cursor: pointer;
-    /* Sized to the swatch emoji itself, not a normal <select> box - the
-       native arrow/padding otherwise makes this control much wider than
-       the one character it's actually showing. Still a real <select>
-       underneath (click opens the native option list), just visually
-       shrunk to match its closed-state content. */
-    -webkit-appearance: none; appearance: none;
-    width: 30px; height: 30px; padding: 0; text-align: center; text-align-last: center;
+    align-self: center;
+    border: 1px solid var(--border); background: var(--surface);
+    color: var(--text); font-size: 15px; border-radius: 8px; cursor: pointer;
+    width: 30px; height: 30px; padding: 0; display: flex; align-items: center; justify-content: center;
   }
+  .radio-color-family[aria-expanded="true"] { border-color: var(--accent); }
   @media (min-width: 641px) {
     .radio-color-family { display: none !important; }
+  }
+  /* 4-wide swatch table (see the HTML comment on #radio-color-family-grid
+     for the rainbow ordering) - a popup under the button rather than a
+     native <select>, so the whole palette is visible at once instead of a
+     one-at-a-time native option list. */
+  .color-family-grid {
+    /* top/inset-inline-end set inline by JS (wireRadioColorFamily) from
+       #radio-color-family-btn's own actual position, since this is no
+       longer a normal-flow sibling of that button - see its own HTML
+       comment for why (escaping .topbar's overflow:hidden). */
+    position: fixed; z-index: 25;
+    display: grid; grid-template-columns: repeat(4, 34px); gap: 4px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+    padding: 6px; box-shadow: var(--shadow);
+  }
+  /* The unconditional display:grid above otherwise beats the browser's own
+     [hidden]{display:none} default (author CSS wins over UA CSS at equal
+     specificity) - toggling the hidden ATTRIBUTE alone would silently do
+     nothing without this. */
+  .color-family-grid[hidden] { display: none; }
+  .cf-swatch {
+    width: 34px; height: 34px; border: 1px solid var(--border); background: var(--bg);
+    border-radius: 7px; font-size: 15px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+  }
+  .cf-swatch.is-active { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+  /* Grayscale swatch: one box with a real black-to-white gradient, not two
+     separate ⬛⬜ emoji side by side - actually shows what the family looks
+     like instead of just implying "black and white" as two flat chips. */
+  .cf-swatch-gray { padding: 0; }
+  .cf-gray-gradient {
+    display: block; width: 100%; height: 100%; border-radius: 6px;
+    background: linear-gradient(135deg, #0a0a0a, #ffffff);
+  }
+  #radio-color-family-swatch .cf-gray-gradient { width: 18px; height: 18px; border-radius: 4px; }
+  /* Manual stop, next to the color-family swatch - shown only while a
+     station is actually playing (see body.has-radio-bar below), since
+     scrolling deliberately does NOT stop playback here (that was tried
+     and reverted - browsing and listening are meant to coexist). */
+  .radio-stop-btn {
+    display: none; align-self: center; border: 1px solid var(--border); background: var(--surface);
+    color: var(--danger); border-radius: 8px; cursor: pointer;
+    width: 30px; height: 30px; align-items: center; justify-content: center; padding: 0;
+  }
+  body.has-radio-bar .radio-stop-btn { display: inline-flex; }
+  @media (min-width: 641px) {
+    .radio-stop-btn { display: none !important; }
   }
   .attribution-link {
     position: absolute; top: 10px; right: 0;
@@ -524,6 +574,17 @@
   @media (max-width: 640px) {
     body.page-radio .row-main { display: none; }
     body.page-radio .row-thumb { aspect-ratio: auto; height: 60px; }
+    /* Frame around whichever card is actually playing (see
+       updateNowPlayingFrame) - the floating radio-bar alone doesn't point
+       back at WHICH card in the grid it's for, especially once the list
+       has scrolled/grown past it. */
+    body.page-radio .row.is-now-playing .row-thumb {
+      outline: 3px solid #fff; outline-offset: -3px;
+      /* --now-playing-frame-color set inline per-row by JS (see
+         familyFrameColor) - the darkest shade of that station's own color
+         within the active scheme, not a fixed accent color. */
+      box-shadow: 0 0 0 3px var(--now-playing-frame-color, var(--accent)), 0 0 14px rgba(255,255,255,.6);
+    }
     /* Shorter share-button label - mobile radio view only, everywhere else
        (desktop, or the TV page on mobile) keeps "ספר לחברים". */
     body.page-radio .share-btn-label { display: none; }
@@ -782,17 +843,12 @@
       </button>
       <button type="button" class="pagetab radio-favs-btn" id="radio-favs-btn" aria-pressed="false" hidden>מועדפי רדיו</button>
       <button type="button" class="preview-mute-btn" id="preview-mute-btn" aria-pressed="false" title="השתקת תצוגה מקדימה">🔊</button>
-      <select id="radio-color-family" class="radio-color-family" title="ערכת צבעים" hidden>
-        <option value="blue" title="כחול">🟦</option>
-        <option value="green" title="ירוק">🟩</option>
-        <option value="rainbow" title="קשת">🌈</option>
-        <option value="yellow" title="צהוב">🟨</option>
-        <option value="orange" title="כתום">🟧</option>
-        <option value="red" title="אדום">🟥</option>
-        <option value="purple" title="סגול">🟪</option>
-        <option value="gray" title="שחור-לבן">⬛⬜</option>
-        <option value="original" title="מקורי">🎨</option>
-      </select>
+      <button type="button" class="radio-color-family" id="radio-color-family-btn" title="ערכת צבעים" aria-haspopup="true" aria-expanded="false" hidden>
+        <span id="radio-color-family-swatch">🟦</span>
+      </button>
+      <button type="button" class="radio-stop-btn" id="radio-stop-btn" title="עצירה" aria-label="עצירה" hidden>
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2"/></svg>
+      </button>
       <button type="button" class="share-btn-big" id="share-btn" title="שיתוף">
         <svg class="share-icon" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="10.6" x2="15.4" y2="6.4" stroke="currentColor" stroke-width="2"/><line x1="8.6" y1="13.4" x2="15.4" y2="17.6" stroke="currentColor" stroke-width="2"/></svg>
         <span class="share-btn-label">ספר לחברים</span>
@@ -844,6 +900,27 @@
       <button class="save-action" id="bulk-save">★ שמור נבחרים</button>
       <button class="clear-action" id="bulk-clear">נקה בחירה</button>
     </div>
+  </div>
+
+  <!-- Body-level, not nested under .topbar - .topbar has overflow:hidden
+       for its own collapse animation, which would silently clip this
+       (position:fixed doesn't escape an ancestor's overflow clipping the
+       way it escapes normal layout flow). Positioned under
+       #radio-color-family-btn via JS (see wireRadioColorFamily) since it's
+       no longer a normal-flow sibling of that button. 4-wide grid
+       ("table"), swatches in rainbow order (red -> violet), then the
+       non-spectral extras (rainbow sweep/grayscale/original) after. -->
+  <div class="color-family-grid" id="radio-color-family-grid" role="listbox" aria-label="ערכת צבעים" hidden>
+    <button type="button" class="cf-swatch" data-family="red" title="אדום">🟥</button>
+    <button type="button" class="cf-swatch" data-family="orange" title="כתום">🟧</button>
+    <button type="button" class="cf-swatch" data-family="yellow" title="צהוב">🟨</button>
+    <button type="button" class="cf-swatch" data-family="lightgreen" title="ירוק בהיר">🟢</button>
+    <button type="button" class="cf-swatch" data-family="green" title="ירוק">🟩</button>
+    <button type="button" class="cf-swatch" data-family="blue" title="כחול">🟦</button>
+    <button type="button" class="cf-swatch" data-family="purple" title="סגול">🟪</button>
+    <button type="button" class="cf-swatch" data-family="rainbow" title="קשת">🌈</button>
+    <button type="button" class="cf-swatch cf-swatch-gray" data-family="gray" title="שחור-לבן"><span class="cf-gray-gradient" aria-hidden="true"></span></button>
+    <button type="button" class="cf-swatch" data-family="original" title="מקורי">🎨</button>
   </div>
 
   <div class="overlay" id="saved-overlay">
@@ -974,7 +1051,36 @@
     var rest = list.filter(function (g) { return !orderedNames[g.name]; });
     return ordered.concat(rest);
   }
-  var PAGES = { tv: applyOrder(dropExcluded(DATA.tv), TV_ORDER), radio: dropExcluded(DATA.radio) };
+  // Radio grid order (by request): כאן 88, then גלגל"צ/גלי צה"ל, pinned to
+  // the top same as applyOrder above - then every station with a parseable
+  // "NNN FM" frequency in its name, sorted ascending by that number, then
+  // everything else (no frequency in the name - other כאן sub-channels,
+  // streaming-only stations like רדיו נושמים מזרחית/רדיו שירי דיכאון,
+  // etc.) at the very end in natural/scraped order.
+  var RADIO_PRIORITY_ORDER = ["כאן 88", 'גלגל"צ', 'גלי צה"ל'];
+  function radioFrequency(name) {
+    var m = name.match(/(\d+(?:\.\d+)?)\s*FM/i);
+    return m ? parseFloat(m[1]) : null;
+  }
+  function applyRadioOrder(list) {
+    var byName = {};
+    list.forEach(function (g) { byName[g.name] = g; });
+    var pinnedNames = {};
+    var pinned = RADIO_PRIORITY_ORDER.map(function (name) { return byName[name]; }).filter(function (g) {
+      if (!g) return false;
+      pinnedNames[g.name] = true;
+      return true;
+    });
+    var rest = list.filter(function (g) { return !pinnedNames[g.name]; });
+    var withFreq = [], withoutFreq = [];
+    rest.forEach(function (g) {
+      var f = radioFrequency(g.name);
+      if (f === null) withoutFreq.push(g); else withFreq.push({ g: g, f: f });
+    });
+    withFreq.sort(function (a, b) { return a.f - b.f; });
+    return pinned.concat(withFreq.map(function (x) { return x.g; }), withoutFreq);
+  }
+  var PAGES = { tv: applyOrder(dropExcluded(DATA.tv), TV_ORDER), radio: applyRadioOrder(dropExcluded(DATA.radio)) };
   var PAGE_LABEL = { tv: "טלוויזיה", radio: "רדיו" };
 
   // Small colored monogram badge per data source module - an own-design
@@ -1041,6 +1147,7 @@
     t = typeof t === "number" ? t : 0;
     var wave = Math.sin(2 * Math.PI * t);
     if (family === "green") return hslToHex(103 + wave * 47, 55, 44 + wave * 8); // yellow (56) <-> green (150), looping
+    if (family === "lightgreen") return hslToHex(100 + wave * 20, 50, 68 + wave * 10); // pale spring-green sweep, looping
     if (family === "yellow") return hslToHex(50 + wave * 20, 70, 50 + wave * 10); // gold/amber sweep, looping
     if (family === "red") return hslToHex(15 + wave * 15, 70, 46 + wave * 10); // red/orange sweep, looping
     if (family === "blue") return hslToHex(215 + wave * 25, 65, 48 + wave * 10); // azure/navy sweep, looping
@@ -1055,6 +1162,17 @@
     // 0), no sin() trick needed the way the narrower families above need one.
     if (family === "rainbow") return hslToHex(t * 360, 65, 50);
     return moduleBadge(group.module).color;
+  }
+
+  // Now-playing frame color (see .row.is-now-playing) - the darkest shade
+  // of that SAME station's own scheme color, not a separate fixed color.
+  // For "rainbow" this still varies per station (each one keeps its own
+  // hue from the sweep, just darkened) rather than collapsing to one flat
+  // color - a "dark rainbow" rather than "rainbow, but the frame is always
+  // navy" or similar.
+  function familyFrameColor(group, t) {
+    var family = ui.radio.colorFamily || "blue";
+    return shadeColor(familyAccentColor(group, family, t), -55);
   }
 
   // Own-design "reconnecting" placeholder, in the vein of a US broadcast
@@ -1231,10 +1349,11 @@
   var a11yOn = lsGet(LS_A11Y, { tv: [], radio: [] });
   var manualSource = lsGet(LS_MANUAL_SOURCE, { tv: {}, radio: {} }); // page -> { groupKey: candidateId }
   var ui = lsGet(LS_UI, {
-    tv: { filter: "ok", search: "" },
+    tv: { filter: "ok", search: "", savedOnly: false },
     radio: { filter: "ok", search: "", savedOnly: false, colorFamily: "blue" }
   });
   if (!ui.radio.colorFamily) ui.radio.colorFamily = "blue"; // older saved ui blobs predate this field
+  if (ui.tv.savedOnly === undefined) ui.tv.savedOnly = false; // older saved ui blobs predate this field
 
   var state = {
     page: lsGet(LS_PAGE, "tv"),
@@ -1813,7 +1932,14 @@
     document.body.classList.toggle("page-radio", state.page === "radio");
     var tabs = document.querySelectorAll(".pagetab[data-page]");
     Array.prototype.forEach.call(tabs, function (btn) {
-      btn.setAttribute("aria-selected", btn.getAttribute("data-page") === state.page);
+      var tabPage = btn.getAttribute("data-page");
+      btn.setAttribute("aria-selected", tabPage === state.page);
+      // Long-press toggles this per-tab, independent of which page is
+      // currently active (see wirePagetabFavsLongPress) - shown on
+      // whichever tab it applies to, not just the selected one, so
+      // pre-toggling the OTHER page's favorites view before switching to
+      // it is still visible.
+      btn.classList.toggle("is-favs-only", !!(ui[tabPage] && ui[tabPage].savedOnly));
       btn.onclick = function () {
         state.page = btn.getAttribute("data-page");
         lsSet(LS_PAGE, state.page);
@@ -1846,13 +1972,19 @@
 
     // Mobile-radio color-family picker - hidden on TV (and hidden on
     // desktop unconditionally via the min-width media query on
-    // .radio-color-family itself). The change handler lives once in
-    // wireRadioColorFamily below, not here - this just keeps its shown
-    // value in sync with ui.radio.colorFamily on every render/page switch.
-    var colorFamilySelect = document.getElementById("radio-color-family");
-    if (colorFamilySelect) {
-      colorFamilySelect.hidden = state.page !== "radio";
-      colorFamilySelect.value = ui.radio.colorFamily || "blue";
+    // .radio-color-family itself). Open/select handling lives once in
+    // wireRadioColorFamily below, not here - this just keeps the button's
+    // own swatch and the grid's "active" mark in sync with
+    // ui.radio.colorFamily on every render/page switch.
+    var colorFamilyBtn = document.getElementById("radio-color-family-btn");
+    if (colorFamilyBtn) {
+      colorFamilyBtn.hidden = state.page !== "radio";
+      var activeFamily = ui.radio.colorFamily || "blue";
+      var activeSwatch = document.querySelector('.cf-swatch[data-family="' + activeFamily + '"]');
+      document.getElementById("radio-color-family-swatch").innerHTML = activeSwatch ? activeSwatch.innerHTML : "🟦";
+      document.querySelectorAll(".cf-swatch").forEach(function (sw) {
+        sw.classList.toggle("is-active", sw.getAttribute("data-family") === activeFamily);
+      });
     }
 
     // The preview-mute button only ever controlled grid PREVIEW audio,
@@ -1899,7 +2031,10 @@
     // per request only working channels should ever show in the grid.
     var f = "ok";
     if (f !== "all" && g.status !== f) return false;
-    if (state.page === "radio" && pageUi().savedOnly && saved.radio.indexOf(g.key) === -1) return false;
+    // Favorites-only view - toggled via the pagetab's own long-press (see
+    // wirePagetabFavsLongPress) as well as the desktop-only "מועדפי רדיו"
+    // button on radio. Generic across both pages, not radio-specific.
+    if (pageUi().savedOnly && saved[state.page].indexOf(g.key) === -1) return false;
     var q = (pageUi().search || "").trim().toLowerCase();
     if (q) return g.name.toLowerCase().indexOf(q) !== -1;
     return true;
@@ -2001,6 +2136,17 @@
   // growth, see wireInfiniteRadioScroll) can wire freshly-appended rows the
   // exact same way without duplicating this logic.
   function wireRow(row, group, index, total, sizeHint) {
+    // Mobile radio's "now playing" frame (see .row.is-now-playing) - set
+    // here too, not just from updateNowPlayingFrame(), so a row wired
+    // AFTER playback already started (e.g. a continuous-scroll copy
+    // appended while a station is playing, see appendRadioCycle) still
+    // gets it immediately instead of waiting for the next open/close.
+    var isNowPlaying = !!playingKey && group.key === playingKey;
+    row.classList.toggle("is-now-playing", isNowPlaying);
+    if (isNowPlaying) {
+      var t = total > 1 ? index / (total - 1) : 0;
+      row.style.setProperty("--now-playing-frame-color", familyFrameColor(group, t));
+    }
     var placeholder = row.querySelector('[data-role="placeholder"]');
     // index/total drive the mobile-radio color-family gradient (see
     // familyAccentColor) - a smooth sweep across the visible list instead
@@ -2027,7 +2173,21 @@
     var thumb = row.querySelector('[data-role="thumb"]');
     if (thumb && group.status !== "broken") {
       var choose = function () { if (state.page === "radio") openRadioBar(group); else openPlayer(group); };
-      thumb.addEventListener("click", choose);
+      thumb.addEventListener("click", function (e) {
+        // Mobile radio only: a short tap on the right ~40% of the card
+        // (where the station name sits, see drawChannelPlaceholder)
+        // toggles favorite instead of opening it - a bigger, easier
+        // target than the small corner star button for the same action.
+        var isMobileRadio = state.page === "radio" && window.matchMedia("(max-width: 640px)").matches;
+        if (isMobileRadio) {
+          var rect = thumb.getBoundingClientRect();
+          if ((e.clientX - rect.left) / rect.width > 0.6) {
+            toggleSaved(group);
+            return;
+          }
+        }
+        choose();
+      });
       thumb.addEventListener("keydown", function (e) {
         if (e.key === "Enter" || e.key === " ") { e.preventDefault(); choose(); }
       });
@@ -2926,13 +3086,56 @@
     window.addEventListener("touchend", onUp);
   })();
 
+  // Highlights every .row currently matching playingKey (there can be more
+  // than one - see appendRadioCycle's continuous-scroll copies) and clears
+  // it everywhere else. Called on open/close; wireRow handles rows wired
+  // afterward while a station is already playing.
+  function updateNowPlayingFrame() {
+    document.querySelectorAll(".row.is-now-playing").forEach(function (row) { row.classList.remove("is-now-playing"); });
+    if (playingKey) {
+      // index % perCycle - same reasoning as redrawAllPlaceholders: the
+      // continuous-scroll list can have several copies of the playing
+      // station on screen (see appendRadioCycle), each needs the frame
+      // color for ITS OWN position within its own cycle, not a flat
+      // running index across every copy.
+      var perCycle = groups().filter(matches).length || 1;
+      var allRows = document.querySelectorAll(".row");
+      Array.prototype.forEach.call(allRows, function (row, index) {
+        if (row.getAttribute("data-key") !== playingKey) return;
+        row.classList.add("is-now-playing");
+        var group = groups().filter(function (g) { return g.key === playingKey; })[0];
+        if (group) {
+          var t = perCycle > 1 ? (index % perCycle) / (perCycle - 1) : 0;
+          row.style.setProperty("--now-playing-frame-color", familyFrameColor(group, t));
+        }
+      });
+    }
+  }
+
+  // The OS lock-screen / notification media widget otherwise just shows
+  // this page's <title> ("מתחברים מחדש לטלויזה — עידן+") for anything
+  // playing audio in the background, with no indication of which station
+  // or what's actually on - title is the program (the more dynamic, more
+  // interesting part), artist is the station itself.
+  function updateMediaSessionMetadata(group) {
+    if (!("mediaSession" in navigator)) return;
+    var program = group.primary && group.primary.now_playing;
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: program || group.name,
+      artist: program ? group.name : "רדיו",
+    });
+    navigator.mediaSession.playbackState = "playing";
+  }
+
   function openRadioBar(group) {
     if (playerOverlay.classList.contains("is-open")) closePlayer(); // only one playback UI active at a time
     cancelHoverPreview();
     radioIsPlaying = false; // don't carry the previous station's "actually playing" state into this one
     playingKey = group.key;
+    updateNowPlayingFrame();
     playingPage = state.page;
     playingName = group.name;
+    updateMediaSessionMetadata(group);
     trackSelectChannel(group);
     document.getElementById("radio-bar-name").textContent = group.name;
     radioBar.style.setProperty("--now-playing-color", moduleBadge(group.module).color);
@@ -2971,15 +3174,21 @@
   function closeRadioBar() {
     stopConnectingBar();
     playingKey = null;
+    updateNowPlayingFrame();
     radioIsPlaying = false;
     radioBar.hidden = true;
     document.body.classList.remove("has-radio-bar");
     stopRadioVisualizer();
     stopRadioAudioAnalysis();
     teardownPlayer();
+    if ("mediaSession" in navigator) {
+      navigator.mediaSession.metadata = null;
+      navigator.mediaSession.playbackState = "none";
+    }
   }
 
   document.getElementById("radio-bar-close").addEventListener("click", closeRadioBar);
+  document.getElementById("radio-stop-btn").addEventListener("click", closeRadioBar);
   // Respects whatever's currently visible on the radio page: matches()
   // already accounts for the מועדפי רדיו filter (ui.radio.savedOnly), so
   // prev/next cycle through just your favorites when that filter is on,
@@ -3591,6 +3800,42 @@
   }
   wireGridKeyboardNav();
 
+  // ---------- pagetab long-press: toggle that page's favorites-only view ----------
+  // Long-pressing the TV or radio pagetab (icon on mobile, label on desktop)
+  // toggles ui.<page>.savedOnly (see matches()) - a touch-friendly stand-in
+  // for the desktop-only "מועדפי רדיו" button, and works on both pages, not
+  // just radio. Wired once at startup, not per-render, since the pagetab
+  // buttons themselves are static (unlike .row cards).
+  (function wirePagetabFavsLongPress() {
+    document.querySelectorAll(".pagetab[data-page]").forEach(function (btn) {
+      var page = btn.getAttribute("data-page");
+      var timer = null, longPressed = false, startX = 0, startY = 0;
+      btn.addEventListener("touchstart", function (e) {
+        longPressed = false;
+        var t = e.touches[0];
+        startX = t.clientX; startY = t.clientY;
+        timer = setTimeout(function () {
+          longPressed = true;
+          ui[page].savedOnly = !ui[page].savedOnly;
+          lsSet(LS_UI, ui);
+          if (state.page === page) { renderPageTabs(); renderList(); }
+          if (navigator.vibrate) navigator.vibrate(15);
+        }, LONG_PRESS_MS);
+      }, { passive: true });
+      btn.addEventListener("touchmove", function (e) {
+        var t = e.touches[0];
+        if (Math.abs(t.clientX - startX) > LONG_PRESS_MOVE_TOLERANCE || Math.abs(t.clientY - startY) > LONG_PRESS_MOVE_TOLERANCE) {
+          clearTimeout(timer); // scrolling, not pressing
+        }
+      }, { passive: true });
+      btn.addEventListener("touchend", function (e) {
+        clearTimeout(timer);
+        if (longPressed) e.preventDefault(); // suppress the synthetic click - don't ALSO switch/reselect the page
+      });
+      btn.addEventListener("touchcancel", function () { clearTimeout(timer); });
+    });
+  })();
+
   // ---------- header preview-mute button ----------
   (function wirePreviewMuteButton() {
     var btn = document.getElementById("preview-mute-btn");
@@ -3647,12 +3892,37 @@
     });
   }
   (function wireRadioColorFamily() {
-    var select = document.getElementById("radio-color-family");
-    if (!select) return;
-    select.addEventListener("change", function () {
-      ui.radio.colorFamily = select.value;
+    var btn = document.getElementById("radio-color-family-btn");
+    var grid = document.getElementById("radio-color-family-grid");
+    if (!btn || !grid) return;
+    function setOpen(open) {
+      if (open) {
+        // Body-level now (see the grid's own HTML comment), so its
+        // position has to be computed from the button's actual on-screen
+        // spot rather than relying on normal-flow placement next to it.
+        var rect = btn.getBoundingClientRect();
+        grid.style.top = (rect.bottom + 6) + "px";
+        grid.style.insetInlineEnd = (window.innerWidth - rect.right) + "px";
+      }
+      grid.hidden = !open;
+      btn.setAttribute("aria-expanded", String(open));
+    }
+    btn.addEventListener("click", function (e) {
+      e.stopPropagation();
+      setOpen(grid.hidden);
+    });
+    grid.addEventListener("click", function (e) {
+      var swatch = e.target.closest(".cf-swatch");
+      if (!swatch) return;
+      // Deliberately stays open on selection - picking a swatch is meant
+      // to be tried repeatedly (compare a few families in a row) without
+      // reopening the grid each time. Only the button itself (toggling
+      // it shut) closes it - see btn's own click handler above.
+      ui.radio.colorFamily = swatch.getAttribute("data-family");
       lsSet(LS_UI, ui);
+      renderPageTabs(); // syncs the button's swatch + the grid's is-active mark
       redrawAllPlaceholders();
+      updateNowPlayingFrame(); // the frame color is family-derived too (see familyFrameColor) - keep it in sync
     });
   })();
 
@@ -3727,16 +3997,25 @@
       if (-e.deltaY > 0 && atListTop()) scrollToListBottom();
     }, { passive: true });
 
-    // Touch: dragging down past the top far enough reloads the page
+    // Touch: dragging down on the header itself (not just anywhere on the
+    // list while scrolled to the top) far enough reloads the page
     // (classic pull-to-refresh) instead of looping - pulling the header
-    // down IS the refresh gesture here, not a way to cycle back to the
-    // last stations (that's still reachable normally, by scrolling all
-    // the way down).
+    // down specifically IS the refresh gesture here, not a way to cycle
+    // back to the last stations (that's still reachable normally, by
+    // scrolling all the way down). Attached to the header element itself,
+    // not window, so a drag starting lower on the list never counts, even
+    // once already scrolled to the top - touchmove/touchend for the same
+    // touch still target this element regardless of where the finger
+    // physically ends up, so this alone is enough to gate the whole
+    // gesture by where it STARTED.
     var PULL_REFRESH_PX = 80;
     var touchStartY = null;
-    window.addEventListener("touchstart", function (e) {
-      touchStartY = (isMobileRadioActive() && atListTop()) ? e.touches[0].clientY : null;
-    }, { passive: true });
+    var headerEl = document.querySelector(".topbar");
+    if (headerEl) {
+      headerEl.addEventListener("touchstart", function (e) {
+        touchStartY = (isMobileRadioActive() && atListTop()) ? e.touches[0].clientY : null;
+      }, { passive: true });
+    }
     window.addEventListener("touchmove", function (e) {
       if (touchStartY === null || !isMobileRadioActive()) return;
       if (e.touches[0].clientY - touchStartY > PULL_REFRESH_PX && atListTop()) {
