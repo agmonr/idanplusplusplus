@@ -3161,6 +3161,29 @@
     navigator.mediaSession.playbackState = "playing";
   }
 
+  // The other half of the Media Session integration above - not just
+  // TELLING the OS/lock-screen/car what's playing, but LISTENING for the
+  // transport controls it sends back (car steering-wheel buttons, a
+  // headset remote, Android Auto/CarPlay's own now-playing UI, the lock
+  // screen). These never reach the page as keyboard events - they only
+  // ever arrive through setActionHandler. playerVideo is shared between
+  // the TV modal and the radio bar, so each handler picks whichever one
+  // is actually active (radioBar visible vs the player overlay open) to
+  // decide what "next/previous" even means - a TV channel vs. a station.
+  (function wireMediaSessionActions() {
+    if (!("mediaSession" in navigator)) return;
+    navigator.mediaSession.setActionHandler("play", function () { playerVideo.play().catch(function () {}); });
+    navigator.mediaSession.setActionHandler("pause", function () { playerVideo.pause(); });
+    navigator.mediaSession.setActionHandler("previoustrack", function () {
+      if (!radioBar.hidden) switchRadioChannel(-1);
+      else if (playerOverlay.classList.contains("is-open")) switchChannel(-1, "curated");
+    });
+    navigator.mediaSession.setActionHandler("nexttrack", function () {
+      if (!radioBar.hidden) switchRadioChannel(1);
+      else if (playerOverlay.classList.contains("is-open")) switchChannel(1, "curated");
+    });
+  })();
+
   function openRadioBar(group) {
     if (playerOverlay.classList.contains("is-open")) closePlayer(); // only one playback UI active at a time
     cancelHoverPreview();
