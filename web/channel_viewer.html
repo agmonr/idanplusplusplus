@@ -243,7 +243,12 @@
     border: 1px solid var(--accent); background: var(--accent-soft); color: var(--accent);
     font-size: 13px; font-weight: 700; line-height: 1; border-radius: 8px;
     cursor: pointer; padding: 8px 14px;
+    display: inline-flex; align-items: center; gap: 6px;
   }
+  /* fill/stroke: currentColor - tracks the button's own color (theme
+     accent, or white on hover/active via .share-btn-big:hover above)
+     rather than a fixed color, so it stays in sync automatically. */
+  .share-icon { flex: none; }
   .share-btn-big:hover { background: var(--accent); color: #fff; }
   /* Mobile-radio-only color-family picker (see #radio-color-family) - hidden
      on desktop unconditionally (min-width query below) even while shown on
@@ -252,8 +257,15 @@
      radio-favs-btn/preview-mute-btn. */
   .radio-color-family {
     align-self: center; border: 1px solid var(--border); background: var(--surface);
-    color: var(--text); font-size: 12.5px; font-weight: 600; border-radius: 8px;
-    padding: 7px 8px; cursor: pointer;
+    color: var(--text); font-size: 13px; font-weight: 600; border-radius: 8px;
+    cursor: pointer;
+    /* Sized to the swatch emoji itself, not a normal <select> box - the
+       native arrow/padding otherwise makes this control much wider than
+       the one character it's actually showing. Still a real <select>
+       underneath (click opens the native option list), just visually
+       shrunk to match its closed-state content. */
+    -webkit-appearance: none; appearance: none;
+    width: 30px; height: 30px; padding: 0; text-align: center; text-align-last: center;
   }
   @media (min-width: 641px) {
     .radio-color-family { display: none !important; }
@@ -393,6 +405,15 @@
     width: 40px; height: 40px; border-radius: 50%; background: rgba(255,255,255,.92);
     color: #111; display: flex; align-items: center; justify-content: center; font-size: 15px;
   }
+  /* Underline that grows while THIS station is connecting (see
+     startConnectingBar/stopConnectingBar) - literally reflects elapsed
+     wait time, not a fixed-duration animation, so a slow connection really
+     does look slower. Width is set directly via inline style from JS. */
+  .row-connecting-bar {
+    position: absolute; bottom: 0; inset-inline-start: 0; height: 3px; width: 0%;
+    background: #fff; box-shadow: 0 0 6px rgba(255,255,255,.8);
+    transition: width .15s linear, opacity .3s ease; pointer-events: none; z-index: 2;
+  }
   .row-thumb-badge {
     position: absolute; top: 6px; inset-inline-start: 6px; display: flex; gap: 4px;
   }
@@ -449,6 +470,20 @@
     .stats, .controls { display: none; }
     /* "מועדפי רדיו" quick filter - desktop only. */
     .radio-favs-btn { display: none !important; }
+    /* Hamburger menu (see #header-menu-btn) reveals exactly this same
+       .controls block (search/filter/saved, already fully wired by JS,
+       just hidden above) rather than duplicating it - toggled open by
+       adding this class to body, same idea as body.page-radio elsewhere. */
+    body.header-menu-open .controls { display: flex; }
+  }
+  .hamburger-btn {
+    display: none; border: 1px solid var(--border); background: var(--surface); color: var(--text);
+    border-radius: 10px; width: 38px; height: 38px; align-items: center; justify-content: center;
+    cursor: pointer; flex: none;
+  }
+  .hamburger-btn[aria-expanded="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+  @media (max-width: 640px) {
+    .hamburger-btn { display: flex; }
   }
   .row-sub { font-size: 11px; color: var(--text-dim); min-height: 1.3em; }
   .row-sub .pulse {
@@ -492,7 +527,18 @@
     /* Shorter share-button label - mobile radio view only, everywhere else
        (desktop, or the TV page on mobile) keeps "ספר לחברים". */
     body.page-radio .share-btn-label { display: none; }
-    body.page-radio #share-btn::after { content: "הפץ"; }
+    body.page-radio #share-btn::after { content: "שתף"; }
+    /* A brief native "catch" at every continuous-scroll cycle seam (see
+       appendRadioCycle) - proximity snap, not mandatory, so it only
+       engages when scrolling happens to slow down near the marker instead
+       of fighting every scroll gesture. No-op everywhere scroll-snap-align
+       isn't set (i.e. everywhere but .row-cycle-gap), so this is safe to
+       declare unconditionally at this width. */
+    html { scroll-snap-type: y proximity; }
+    body.page-radio .row-cycle-gap {
+      grid-column: 1 / -1; height: 22px; scroll-snap-align: start;
+      border-top: 1px dashed var(--border);
+    }
   }
 
   .bulkbar {
@@ -723,6 +769,9 @@
        exist in the DOM; the script guards every reference to them. -->
   <header class="topbar">
     <div class="pagetabs" role="tablist" aria-label="בחירת עמוד">
+      <button type="button" class="hamburger-btn" id="header-menu-btn" aria-label="תפריט" aria-haspopup="true" aria-expanded="false">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
       <button class="pagetab" data-page="tv" role="tab" aria-label="טלוויזיה">
         <svg class="pagetab-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 8 L5 3"/><path d="M14 8 L17 3"/><rect x="3" y="8" width="18" height="12" rx="2"/><circle cx="9" cy="14" r="2.4"/><line x1="14" y1="12" x2="19" y2="12"/><line x1="14" y1="16" x2="19" y2="16"/></svg>
         <span class="pagetab-label">טלוויזיה</span>
@@ -734,11 +783,20 @@
       <button type="button" class="pagetab radio-favs-btn" id="radio-favs-btn" aria-pressed="false" hidden>מועדפי רדיו</button>
       <button type="button" class="preview-mute-btn" id="preview-mute-btn" aria-pressed="false" title="השתקת תצוגה מקדימה">🔊</button>
       <select id="radio-color-family" class="radio-color-family" title="ערכת צבעים" hidden>
+        <option value="blue" title="כחול">🟦</option>
         <option value="green" title="ירוק">🟩</option>
+        <option value="rainbow" title="קשת">🌈</option>
+        <option value="yellow" title="צהוב">🟨</option>
+        <option value="orange" title="כתום">🟧</option>
+        <option value="red" title="אדום">🟥</option>
+        <option value="purple" title="סגול">🟪</option>
         <option value="gray" title="שחור-לבן">⬛⬜</option>
         <option value="original" title="מקורי">🎨</option>
       </select>
-      <button type="button" class="share-btn-big" id="share-btn" title="שיתוף">📤 <span class="share-btn-label">ספר לחברים</span></button>
+      <button type="button" class="share-btn-big" id="share-btn" title="שיתוף">
+        <svg class="share-icon" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="10.6" x2="15.4" y2="6.4" stroke="currentColor" stroke-width="2"/><line x1="8.6" y1="13.4" x2="15.4" y2="17.6" stroke="currentColor" stroke-width="2"/></svg>
+        <span class="share-btn-label">ספר לחברים</span>
+      </button>
       <a class="attribution-link" href="https://hod-hasharon.org/" target="_blank" rel="noopener">פרויקט של רם אגמון</a>
     </div>
 
@@ -952,14 +1010,7 @@
   // Mobile radio card color families (see #radio-color-family in the
   // header) - an alternative to each station's own MODULE_BADGE color, so
   // the whole grid reads as one coherent palette instead of a dozen
-  // unrelated hues. Each station still gets its own shade within the
-  // family (varied by a cheap hash of its key) so cards stay visually
-  // distinguishable from one another.
-  function hashStr(s) {
-    var h = 0;
-    for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
-    return Math.abs(h);
-  }
+  // unrelated hues.
   // hex out, not "hsl(...)" - shadeColor() (used all over on this accent,
   // e.g. the gradient below and the radio bar's --now-playing-color) only
   // understands "#rrggbb" and silently parses anything else as black.
@@ -990,10 +1041,19 @@
     t = typeof t === "number" ? t : 0;
     var wave = Math.sin(2 * Math.PI * t);
     if (family === "green") return hslToHex(103 + wave * 47, 55, 44 + wave * 8); // yellow (56) <-> green (150), looping
-    if (family === "gray") {
-      var seed = hashStr(group.key);
-      return hslToHex(0, 0, 32 + (seed % 100) / 100 * 26);
-    }
+    if (family === "yellow") return hslToHex(50 + wave * 20, 70, 50 + wave * 10); // gold/amber sweep, looping
+    if (family === "red") return hslToHex(15 + wave * 15, 70, 46 + wave * 10); // red/orange sweep, looping
+    if (family === "blue") return hslToHex(215 + wave * 25, 65, 48 + wave * 10); // azure/navy sweep, looping
+    if (family === "orange") return hslToHex(28 + wave * 15, 80, 50 + wave * 8); // amber/orange sweep, looping
+    if (family === "purple") return hslToHex(280 + wave * 25, 55, 48 + wave * 10); // violet/magenta sweep, looping
+    // Black <-> white sweep, same wave-driven mechanism as the color
+    // families above (was a per-station hash before - random jumps between
+    // neighboring cards instead of a gradual sweep, unlike every other
+    // family here).
+    if (family === "gray") return hslToHex(0, 0, 45 + wave * 35);
+    // Full 360deg hue sweep - loops seamlessly on its own (hue 360 IS hue
+    // 0), no sin() trick needed the way the narrower families above need one.
+    if (family === "rainbow") return hslToHex(t * 360, 65, 50);
     return moduleBadge(group.module).color;
   }
 
@@ -1003,7 +1063,7 @@
   // ="placeholder"> right after insertion, replacing what used to be a
   // small centered monogram badge with a full-bleed graphic bearing the
   // channel's own Hebrew name.
-  function drawChannelPlaceholder(canvas, group, index, total) {
+  function drawChannelPlaceholder(canvas, group, index, total, sizeHint) {
     var ctx = canvas.getContext("2d");
     if (!ctx) return;
     // Match the canvas's actual on-screen box rather than a fixed 480x270 -
@@ -1011,10 +1071,18 @@
     // flatter card than TV's 16:9, and a fixed intrinsic size would just get
     // squished by the CSS width:100%/height:100% stretch instead of drawing
     // correctly proportioned for whatever shape the card actually is.
-    var rect = canvas.getBoundingClientRect();
+    // sizeHint (CSS px {width,height}), when given, skips this canvas's own
+    // getBoundingClientRect() - every card in a given grid is the same
+    // size, and calling it per-canvas forces a synchronous layout reflow
+    // EACH time. Fine once; ruinous called per-row across hundreds of rows
+    // (see the continuous-scroll section far below, which measures one
+    // sample row per batch and passes the result through wireRow instead).
+    var cssW, cssH;
+    if (sizeHint) { cssW = sizeHint.width; cssH = sizeHint.height; }
+    else { var rect = canvas.getBoundingClientRect(); cssW = rect.width; cssH = rect.height; }
     var dpr = window.devicePixelRatio || 1;
-    var w = Math.max(1, Math.round(rect.width * dpr));
-    var h = Math.max(1, Math.round(rect.height * dpr));
+    var w = Math.max(1, Math.round(cssW * dpr));
+    var h = Math.max(1, Math.round(cssH * dpr));
     if (canvas.width !== w) canvas.width = w;
     if (canvas.height !== h) canvas.height = h;
     // Mobile radio cards use a selectable color family (see
@@ -1023,7 +1091,7 @@
     // colors exactly as before.
     var isMobileRadio = state.page === "radio" && window.matchMedia("(max-width: 640px)").matches;
     var t = total > 1 ? (index || 0) / (total - 1) : 0;
-    var accent = isMobileRadio ? familyAccentColor(group, ui.radio.colorFamily || "green", t) : moduleBadge(group.module).color;
+    var accent = isMobileRadio ? familyAccentColor(group, ui.radio.colorFamily || "blue", t) : moduleBadge(group.module).color;
 
     var grad = ctx.createLinearGradient(0, 0, w, h);
     if (isMobileRadio) {
@@ -1057,20 +1125,19 @@
     var program = group.primary && group.primary.now_playing;
 
     if (isMobileRadio) {
-      // Station name is a small top-left label; the now-playing program is
-      // the dominant text, centered both ways in the card. x starts past
-      // the corner star/a11y badges (also top-left in this RTL layout, see
-      // .row-thumb-corner) so the name clears them rather than sitting
-      // underneath.
+      // Station name is a top-right label (the corner star/a11y badges sit
+      // top-left in this RTL layout, see .row-thumb-corner, so the right
+      // side is clear); the now-playing program is the dominant text,
+      // centered both ways in the card.
       var name = group.name;
-      var size = h * 0.15;
+      var size = h * 0.24;
       ctx.fillStyle = "#ffffff";
-      ctx.textAlign = "left";
+      ctx.textAlign = "right";
       do {
         ctx.font = "800 " + Math.round(size) + "px 'Segoe UI', Arial, sans-serif";
         size -= 1;
-      } while (ctx.measureText(name).width > w * 0.5 && size > h * 0.08);
-      ctx.fillText(name, w * 0.24, h * 0.16);
+      } while (ctx.measureText(name).width > w * 0.7 && size > h * 0.1);
+      ctx.fillText(name, w * 0.95, h * 0.16);
 
       if (program) {
         var psize = h * 0.32;
@@ -1165,9 +1232,9 @@
   var manualSource = lsGet(LS_MANUAL_SOURCE, { tv: {}, radio: {} }); // page -> { groupKey: candidateId }
   var ui = lsGet(LS_UI, {
     tv: { filter: "ok", search: "" },
-    radio: { filter: "ok", search: "", savedOnly: false, colorFamily: "green" }
+    radio: { filter: "ok", search: "", savedOnly: false, colorFamily: "blue" }
   });
-  if (!ui.radio.colorFamily) ui.radio.colorFamily = "green"; // older saved ui blobs predate this field
+  if (!ui.radio.colorFamily) ui.radio.colorFamily = "blue"; // older saved ui blobs predate this field
 
   var state = {
     page: lsGet(LS_PAGE, "tv"),
@@ -1759,6 +1826,7 @@
         // on every tab switch.
         if (playerOverlay.classList.contains("is-open")) closePlayer();
         fullRender();
+        updateTopbarVisibility(); // radio floats the header always - see its own guard for why
       };
     });
 
@@ -1784,7 +1852,7 @@
     var colorFamilySelect = document.getElementById("radio-color-family");
     if (colorFamilySelect) {
       colorFamilySelect.hidden = state.page !== "radio";
-      colorFamilySelect.value = ui.radio.colorFamily || "green";
+      colorFamilySelect.value = ui.radio.colorFamily || "blue";
     }
 
     // The preview-mute button only ever controlled grid PREVIEW audio,
@@ -1887,6 +1955,7 @@
             (hasA11y ? '<button type="button" class="a11ybtn" aria-pressed="' + isA11yOn + '">ליקוי שמיעה</button>' : "") +
           "</div>" +
           '<div class="row-thumb-play"><span>▶</span></div>' +
+          '<div class="row-connecting-bar" data-role="connecting-bar" aria-hidden="true"></div>' +
         "</div>" +
         '<div class="row-main">' +
           '<div class="row-top">' +
@@ -1915,10 +1984,67 @@
     });
   }
 
+  // Every .row-thumb in a given grid render is the same CSS size (uniform
+  // grid columns, fixed height on mobile radio) - measured once per batch
+  // and passed through as drawChannelPlaceholder's sizeHint, instead of
+  // every single canvas measuring its own box and forcing its own reflow.
+  function measureRowThumbSize() {
+    var sample = document.querySelector("#list .row-thumb");
+    if (!sample) return null;
+    var rect = sample.getBoundingClientRect();
+    return { width: rect.width, height: rect.height };
+  }
+
+  // Wires a single already-inserted .row element: placeholder draw, pickbox,
+  // star/a11y buttons, thumb click/keyboard/hover, source picks. Pulled out
+  // of renderList so appendRadioCycle (mobile radio's continuous-scroll
+  // growth, see wireInfiniteRadioScroll) can wire freshly-appended rows the
+  // exact same way without duplicating this logic.
+  function wireRow(row, group, index, total, sizeHint) {
+    var placeholder = row.querySelector('[data-role="placeholder"]');
+    // index/total drive the mobile-radio color-family gradient (see
+    // familyAccentColor) - a smooth sweep across the visible list instead
+    // of a per-station hash, so neighboring cards land close together.
+    // sizeHint - see drawChannelPlaceholder's own comment on it.
+    if (placeholder) drawChannelPlaceholder(placeholder, group, index, total, sizeHint);
+    var pick = row.querySelector(".pickbox");
+    if (pick) pick.addEventListener("change", function (e) { toggleSelect(group, e.target.checked); });
+    // A checkbox alone is a small target - clicking anywhere on the row's
+    // white top area (name + checkbox row) toggles it too, same as
+    // clicking the checkbox directly would.
+    var rowTop = row.querySelector(".row-top");
+    if (rowTop && pick) {
+      rowTop.addEventListener("click", function (e) {
+        if (e.target === pick || pick.disabled) return;
+        pick.checked = !pick.checked;
+        pick.dispatchEvent(new Event("change", { bubbles: true }));
+      });
+    }
+    var star = row.querySelector(".starbtn");
+    star.addEventListener("click", function (e) { e.stopPropagation(); toggleSaved(group); });
+    var a11y = row.querySelector(".a11ybtn");
+    if (a11y) a11y.addEventListener("click", function (e) { e.stopPropagation(); toggleA11y(group); });
+    var thumb = row.querySelector('[data-role="thumb"]');
+    if (thumb && group.status !== "broken") {
+      var choose = function () { if (state.page === "radio") openRadioBar(group); else openPlayer(group); };
+      thumb.addEventListener("click", choose);
+      thumb.addEventListener("keydown", function (e) {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); choose(); }
+      });
+      if (state.page === "tv") {
+        thumb.addEventListener("mouseenter", function () { scheduleHoverPreview(group, thumb); });
+        thumb.addEventListener("mouseleave", cancelHoverPreview);
+        wireLongPress(thumb, group);
+      }
+    }
+    wireSourcePicks(row, group);
+  }
+
   function renderList() {
     var visible = groups().filter(matches);
     var list = document.getElementById("list");
     var emptyState = document.getElementById("empty-state");
+    radioListExtraCycles = 0; // fresh render - any previously appended continuous-scroll copies are gone too
     if (!visible.length) {
       list.innerHTML = "";
       emptyState.hidden = false;
@@ -1927,45 +2053,11 @@
       list.innerHTML = visible.map(rowHtml).join("");
     }
     var rows = list.querySelectorAll(".row");
+    var sizeHint = measureRowThumbSize();
     Array.prototype.forEach.call(rows, function (row, index) {
       var key = row.getAttribute("data-key");
       var group = groups().filter(function (g) { return g.key === key; })[0];
-      var placeholder = row.querySelector('[data-role="placeholder"]');
-      // index/rows.length drive the mobile-radio color-family gradient (see
-      // familyAccentColor) - a smooth sweep across the visible list instead
-      // of a per-station hash, so neighboring cards land close together.
-      if (placeholder) drawChannelPlaceholder(placeholder, group, index, rows.length);
-      var pick = row.querySelector(".pickbox");
-      if (pick) pick.addEventListener("change", function (e) { toggleSelect(group, e.target.checked); });
-      // A checkbox alone is a small target - clicking anywhere on the row's
-      // white top area (name + checkbox row) toggles it too, same as
-      // clicking the checkbox directly would.
-      var rowTop = row.querySelector(".row-top");
-      if (rowTop && pick) {
-        rowTop.addEventListener("click", function (e) {
-          if (e.target === pick || pick.disabled) return;
-          pick.checked = !pick.checked;
-          pick.dispatchEvent(new Event("change", { bubbles: true }));
-        });
-      }
-      var star = row.querySelector(".starbtn");
-      star.addEventListener("click", function (e) { e.stopPropagation(); toggleSaved(group); });
-      var a11y = row.querySelector(".a11ybtn");
-      if (a11y) a11y.addEventListener("click", function (e) { e.stopPropagation(); toggleA11y(group); });
-      var thumb = row.querySelector('[data-role="thumb"]');
-      if (thumb && group.status !== "broken") {
-        var choose = function () { if (state.page === "radio") openRadioBar(group); else openPlayer(group); };
-        thumb.addEventListener("click", choose);
-        thumb.addEventListener("keydown", function (e) {
-          if (e.key === "Enter" || e.key === " ") { e.preventDefault(); choose(); }
-        });
-        if (state.page === "tv") {
-          thumb.addEventListener("mouseenter", function () { scheduleHoverPreview(group, thumb); });
-          thumb.addEventListener("mouseleave", cancelHoverPreview);
-          wireLongPress(thumb, group);
-        }
-      }
-      wireSourcePicks(row, group);
+      wireRow(row, group, index, rows.length, sizeHint);
     });
     updateBulkBar();
     visible.forEach(function (g) {
@@ -1974,6 +2066,7 @@
       }
     });
     observePreviews(list);
+    maybeGrowRadioList();
   }
 
   function toggleSelect(group, on) {
@@ -2088,6 +2181,7 @@
     if (playerAttempt >= playerCandidates.length) {
       var reason = lastPlaybackFailure ? " [" + lastPlaybackFailure.type + (lastPlaybackFailure.detail ? ": " + lastPlaybackFailure.detail : "") + "]" : "";
       setPlayerStatus("לא ניתן להפעיל אף אחד מהמקורות הזמינים כרגע." + reason + " נסו לרענן את העמוד או לבחור ערוץ אחר.");
+      stopConnectingBar(); // harmless no-op for TV opens - only openRadioBar ever starts it
       gtag('event', 'stream_play_exhausted', {
         channel_name: playingName,
         channel_key: playingKey,
@@ -2656,9 +2750,46 @@
   // below. Harmless to also listen for this on the TV modal's use of the
   // same element; the flag is simply unused there.
   var radioIsPlaying = false;
-  playerVideo.addEventListener("playing", function () { radioIsPlaying = true; });
+  playerVideo.addEventListener("playing", function () { radioIsPlaying = true; stopConnectingBar(true); });
   playerVideo.addEventListener("waiting", function () { radioIsPlaying = false; });
   playerVideo.addEventListener("pause", function () { radioIsPlaying = false; });
+
+  // Underline under the connecting station's card (see .row-connecting-bar)
+  // that grows for as long as the connection is actually taking - not a
+  // fixed-length animation, so it genuinely reflects a slow vs. fast
+  // connect. Caps short of 100% (see CONNECTING_BAR_MS) since there's no
+  // real deadline to hit 100% AT; only actual success (the "playing" event
+  // above) or a real failure completes it. Targets every row matching
+  // playingKey, not just one - the continuous-scroll mobile radio list
+  // (see appendRadioCycle) can have the same station's card on screen more
+  // than once at a time.
+  var CONNECTING_BAR_MS = 7000;
+  var connectingBarTimer = null;
+  var connectingBarStartedAt = 0;
+  function setConnectingBarWidth(pct) {
+    if (!playingKey) return;
+    document.querySelectorAll('.row[data-key="' + CSS.escape(playingKey) + '"] .row-connecting-bar').forEach(function (bar) {
+      bar.style.width = pct + "%";
+    });
+  }
+  function startConnectingBar() {
+    stopConnectingBar();
+    connectingBarStartedAt = Date.now();
+    setConnectingBarWidth(4); // an immediate small nudge - otherwise it visually stalls at 0 the instant you tap
+    connectingBarTimer = setInterval(function () {
+      var elapsed = Date.now() - connectingBarStartedAt;
+      setConnectingBarWidth(Math.min(90, (elapsed / CONNECTING_BAR_MS) * 90));
+    }, 120);
+  }
+  function stopConnectingBar(success) {
+    if (connectingBarTimer) { clearInterval(connectingBarTimer); connectingBarTimer = null; }
+    if (success) {
+      setConnectingBarWidth(100);
+      setTimeout(function () { setConnectingBarWidth(0); }, 300);
+    } else {
+      setConnectingBarWidth(0);
+    }
+  }
 
   // Waveform/oscilloscope is the default while actually playing - click
   // the display to toggle to the segmented bar spectrum instead, same idea
@@ -2812,6 +2943,10 @@
     document.body.classList.add("has-radio-bar");
     document.getElementById("radio-bar-volume").value = Math.round(playerVideo.volume * 100);
     document.getElementById("radio-bar-balance").value = 0; // visual only - see its slider's own comment
+    // playerVideo is the SAME <video> element the TV modal uses - don't
+    // carry its mute state into radio. Muting the TV shouldn't silently
+    // mute the next station you open here too.
+    playerVideo.muted = false;
     syncRadioMuteButton();
     startRadioVisualizer();
     if (!playerCandidates.length) {
@@ -2829,10 +2964,12 @@
       return;
     }
     startRadioAudioAnalysis(playerCandidates[0]);
+    startConnectingBar();
     playCandidate();
   }
 
   function closeRadioBar() {
+    stopConnectingBar();
     playingKey = null;
     radioIsPlaying = false;
     radioBar.hidden = true;
@@ -3493,12 +3630,20 @@
   // #list's innerHTML from scratch (losing scroll position, mid-flight
   // spinners, etc.) for no reason.
   function redrawAllPlaceholders() {
+    // index % perCycle, not a flat running index - the mobile radio list
+    // may have extra appendRadioCycle() copies tacked on past the real
+    // list (see the continuous-scroll section below), and each copy needs
+    // the SAME local 0..1 sweep repeated, matching how appendRadioCycle
+    // itself wires new rows, or the seam between copies stops lining up
+    // the moment the color family is switched.
+    var perCycle = groups().filter(matches).length || 1;
+    var sizeHint = measureRowThumbSize();
     var canvases = document.querySelectorAll(".row-thumb-placeholder");
     Array.prototype.forEach.call(canvases, function (canvas, index) {
       var row = canvas.closest(".row");
       var key = row && row.getAttribute("data-key");
       var group = key && groups().filter(function (g) { return g.key === key; })[0];
-      if (group) drawChannelPlaceholder(canvas, group, index, canvases.length);
+      if (group) drawChannelPlaceholder(canvas, group, index % perCycle, perCycle, sizeHint);
     });
   }
   (function wireRadioColorFamily() {
@@ -3511,45 +3656,121 @@
     });
   })();
 
-  // ---------- mobile radio: infinite-loop list scrolling ----------
-  // Scrolling further up while already at the very top of the (mobile
-  // radio) page wraps around to the bottom, showing the last stations
-  // again - and the same the other way at the bottom - so the station grid
-  // feels like a continuous loop instead of a dead-ending list. Reads real
-  // wheel/touch deltas rather than the "scroll" event, since scrollY simply
-  // clamps at 0/max with no further "scroll" events once already at an
-  // edge - "scroll" alone can't tell a stopped gesture from one still
-  // pushing past the edge.
-  (function wireInfiniteRadioScroll() {
+  // ---------- mobile radio: continuous-scroll station list ----------
+  // Scrolling DOWN never dead-ends: as the bottom of the (mobile radio)
+  // list approaches, another full copy of it is appended (see
+  // appendRadioCycle/maybeGrowRadioList) so the user just keeps scrolling
+  // into more of the same stations, repeating - no jump, no snap, truly
+  // continuous. familyAccentColor's t-per-row (index/total) is identical
+  // in every appended copy, so the color at the end of one copy already
+  // matches the color at the start of the next - the seam is invisible
+  // even though it's real duplicated content, not a loop-back trick.
+  //
+  // Scrolling UP still hard-jumps to the bottom once at the very top -
+  // prepending (the up equivalent of appendRadioCycle) would shift every
+  // existing row's scroll position out from under the user mid-gesture,
+  // a much harder problem than appending below unseen content, so the
+  // simpler jump stays for that direction only.
+  var radioListExtraCycles = 0;
+  var RADIO_LIST_MAX_EXTRA_CYCLES = 20; // a generous but real ceiling on DOM growth
+  function appendRadioCycle() {
+    if (state.page !== "radio") return;
+    if (radioListExtraCycles >= RADIO_LIST_MAX_EXTRA_CYCLES) return;
+    var visible = groups().filter(matches);
+    if (!visible.length) return;
+    var list = document.getElementById("list");
+    // Marks exactly where the list "starts over" - a small visual gap, and
+    // (via scroll-snap-align in CSS) a brief native catch/pause scrolling
+    // past it, so a repeat doesn't read as a seamless illusion of a
+    // never-ending unique list.
+    var gap = document.createElement("div");
+    gap.className = "row-cycle-gap";
+    gap.setAttribute("aria-hidden", "true");
+    list.appendChild(gap);
+    var temp = document.createElement("div");
+    temp.innerHTML = visible.map(rowHtml).join("");
+    var newRows = Array.prototype.slice.call(temp.children);
+    newRows.forEach(function (row) { list.appendChild(row); });
+    var sizeHint = measureRowThumbSize();
+    newRows.forEach(function (row, i) {
+      var key = row.getAttribute("data-key");
+      var group = visible.filter(function (g) { return g.key === key; })[0];
+      wireRow(row, group, i, visible.length, sizeHint);
+    });
+    radioListExtraCycles++;
+  }
+  function maybeGrowRadioList() {
+    if (!(state.page === "radio" && window.matchMedia("(max-width: 640px)").matches)) return;
+    var list = document.getElementById("list");
+    if (!list) return;
+    // Keeps roughly one screen-height of not-yet-seen content buffered
+    // below the viewport at all times, so the next copy is always already
+    // in the DOM well before the user actually scrolls into it.
+    if (list.getBoundingClientRect().bottom - window.innerHeight < window.innerHeight) appendRadioCycle();
+  }
+  window.addEventListener("scroll", maybeGrowRadioList, { passive: true });
+
+  (function wireRadioTopGesture() {
     function isMobileRadioActive() {
       return state.page === "radio" && window.matchMedia("(max-width: 640px)").matches
-        && !document.querySelector(".overlay.is-open"); // don't wrap while a panel's own scroll is in use
+        && !document.querySelector(".overlay.is-open"); // don't trigger while a panel's own scroll is in use
     }
-    // Bounded to the #list element itself, not the whole page - the page
-    // continues past the grid (footer/source-attribution link), and the
-    // original page-scrollY version wrapped to THAT bottom, landing on the
-    // footer instead of on the last station cards.
     function listRect() { return document.getElementById("list").getBoundingClientRect(); }
     function atListTop() { return listRect().top >= 0; }
-    function atListBottom() { return listRect().bottom <= window.innerHeight; }
-    function scrollToListTop() { window.scrollTo(0, Math.max(0, window.scrollY + listRect().top)); }
     function scrollToListBottom() { window.scrollTo(0, Math.max(0, window.scrollY + listRect().bottom - window.innerHeight)); }
-    // deltaY > 0 => gesture is scrolling further UP (toward the top);
-    // deltaY < 0 => further DOWN (toward the bottom).
-    function maybeWrap(deltaY) {
+
+    // Wheel/trackpad still loops to the bottom on scrolling up past the
+    // top - there's no natural "pull" gesture to hang a refresh off of
+    // with a wheel, unlike touch below.
+    window.addEventListener("wheel", function (e) {
       if (!isMobileRadioActive()) return;
-      if (deltaY > 0 && atListTop()) scrollToListBottom();
-      else if (deltaY < 0 && atListBottom()) scrollToListTop();
-    }
-    window.addEventListener("wheel", function (e) { maybeWrap(-e.deltaY); }, { passive: true });
-    var touchStartY = null;
-    window.addEventListener("touchstart", function (e) { touchStartY = e.touches[0].clientY; }, { passive: true });
-    window.addEventListener("touchmove", function (e) {
-      if (touchStartY === null) return;
-      var y = e.touches[0].clientY;
-      maybeWrap(y - touchStartY);
-      touchStartY = y;
+      if (-e.deltaY > 0 && atListTop()) scrollToListBottom();
     }, { passive: true });
+
+    // Touch: dragging down past the top far enough reloads the page
+    // (classic pull-to-refresh) instead of looping - pulling the header
+    // down IS the refresh gesture here, not a way to cycle back to the
+    // last stations (that's still reachable normally, by scrolling all
+    // the way down).
+    var PULL_REFRESH_PX = 80;
+    var touchStartY = null;
+    window.addEventListener("touchstart", function (e) {
+      touchStartY = (isMobileRadioActive() && atListTop()) ? e.touches[0].clientY : null;
+    }, { passive: true });
+    window.addEventListener("touchmove", function (e) {
+      if (touchStartY === null || !isMobileRadioActive()) return;
+      if (e.touches[0].clientY - touchStartY > PULL_REFRESH_PX && atListTop()) {
+        touchStartY = null;
+        location.reload();
+      }
+    }, { passive: true });
+    window.addEventListener("touchend", function () { touchStartY = null; }, { passive: true });
+  })();
+
+  // ---------- mobile hamburger menu ----------
+  // Reveals .controls (search/filter/saved - already fully wired, just
+  // CSS-hidden on mobile, see the .stats,.controls rule above) instead of
+  // building a separate duplicate menu. Same on both TV and radio - unlike
+  // the color-family picker, search/filter/saved apply equally to both.
+  (function wireHeaderMenu() {
+    var btn = document.getElementById("header-menu-btn");
+    if (!btn) return;
+    function setOpen(open) {
+      document.body.classList.toggle("header-menu-open", open);
+      btn.setAttribute("aria-expanded", String(open));
+    }
+    btn.addEventListener("click", function (e) {
+      e.stopPropagation();
+      setOpen(!document.body.classList.contains("header-menu-open"));
+    });
+    document.addEventListener("click", function (e) {
+      if (!document.body.classList.contains("header-menu-open")) return;
+      if (e.target.closest(".controls") || e.target === btn || btn.contains(e.target)) return;
+      setOpen(false);
+    });
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape") setOpen(false);
+    });
   })();
 
   // ---------- header share button ----------
@@ -3584,13 +3805,23 @@
   var TOPBAR_TIMED_HIDE_MS = 10000;
   var topbarTimedHideTimer = null;
   function scheduleTopbarTimedHide() {
-    if (topbarTimedHideTimer) clearTimeout(topbarTimedHideTimer);
+    if (topbarTimedHideTimer) { clearTimeout(topbarTimedHideTimer); topbarTimedHideTimer = null; }
+    if (state.page === "radio") return; // radio floats the header always - see updateTopbarVisibility's own guard
     topbarTimedHideTimer = setTimeout(function () {
       if (topbarEl) topbarEl.classList.add("is-hidden");
     }, TOPBAR_TIMED_HIDE_MS);
   }
   function updateTopbarVisibility() {
     if (!topbarEl) return;
+    // The header floats permanently on the radio page - no scroll-hide, no
+    // timed-hide. It's a stable landmark for the continuous-scroll list
+    // (see appendRadioCycle) rather than something that comes and goes
+    // mid-scroll.
+    if (state.page === "radio") {
+      if (topbarTimedHideTimer) { clearTimeout(topbarTimedHideTimer); topbarTimedHideTimer = null; }
+      topbarEl.classList.remove("is-hidden");
+      return;
+    }
     if (window.scrollY <= 1) {
       if (!topbarEl.classList.contains("is-hidden")) return; // already shown - don't restart its clock every scroll tick
       topbarEl.classList.remove("is-hidden");
