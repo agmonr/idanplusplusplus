@@ -19,6 +19,14 @@
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" type="image/png" href="data:image/png;base64,__FAVICON_B64__">
 <link rel="apple-touch-icon" href="data:image/png;base64,__FAVICON_B64__">
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-Q36YS96J0B"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){ dataLayer.push(arguments); }
+  gtag('js', new Date());
+  gtag('config', 'G-Q36YS96J0B');
+</script>
 <style>
   /*
    * Palette ported from govapiportal (agmonr.github.io/govapiportal) so this
@@ -694,6 +702,13 @@
     </div>
   </header>
 
+  <div class="onboarding-banner" id="legal-notice" hidden>
+    <div class="ob-text">
+      <div class="ob-detail">אתר זה מנטר את השימוש הנעשה בו</div>
+    </div>
+    <button type="button" id="legal-notice-dismiss">הבנתי</button>
+  </div>
+
   <div class="onboarding-banner" id="onboarding-banner" hidden>
     <div class="ob-text">
       <div class="ob-title">ממציאים את הטלויזיה מחדש</div>
@@ -948,6 +963,7 @@
   var LS_PREVIEW_MUTED = "idanplus.previewMuted.v1";
   var LS_ONBOARDING_SEEN = "idanplus.onboardingSeen.v1";
   var LS_FIREFOX_NOTICE_SEEN = "idanplus.firefoxNoticeSeen.v1";
+  var LS_LEGAL_NOTICE_SEEN = "idanplus.legalNoticeSeen.v1";
 
   function lsGet(key, fallback) {
     try { var raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : fallback; }
@@ -1011,6 +1027,16 @@
   var generatedAtEl = document.getElementById("generated-at");
   if (generatedAtEl) generatedAtEl.textContent = fmtGeneratedAt(DATA.generatedAt);
   initThemePicker(document.getElementById("themePick"));
+
+  (function wireLegalNotice() {
+    var notice = document.getElementById("legal-notice");
+    if (!notice || lsGet(LS_LEGAL_NOTICE_SEEN, false)) return;
+    notice.hidden = false;
+    document.getElementById("legal-notice-dismiss").addEventListener("click", function () {
+      notice.hidden = true;
+      lsSet(LS_LEGAL_NOTICE_SEEN, true);
+    });
+  })();
 
   var isFirefox = /firefox/i.test(navigator.userAgent);
   if (isFirefox) {
@@ -1564,6 +1590,7 @@
       btn.onclick = function () {
         state.page = btn.getAttribute("data-page");
         lsSet(LS_PAGE, state.page);
+        gtag('event', 'page_tab_select', { page_type: state.page });
         state.selected.clear();
         // Only tear down the TV modal if it's actually what's open - radio
         // plays through this same <video> element via the bottom bar, and
@@ -1790,6 +1817,11 @@
     var list = saved[state.page];
     var idx = list.indexOf(group.key);
     if (idx === -1) list.push(group.key); else list.splice(idx, 1);
+    gtag('event', idx === -1 ? 'save_channel' : 'unsave_channel', {
+      channel_name: group.name,
+      channel_key: group.key,
+      page_type: state.page
+    });
     lsSet(LS_SAVED, saved);
     var row = document.querySelector('.row[data-key="' + CSS.escape(group.key) + '"]');
     if (row) {
@@ -1881,6 +1913,13 @@
     if (playerAttempt >= playerCandidates.length) {
       var reason = lastPlaybackFailure ? " [" + lastPlaybackFailure.type + (lastPlaybackFailure.detail ? ": " + lastPlaybackFailure.detail : "") + "]" : "";
       setPlayerStatus("לא ניתן להפעיל אף אחד מהמקורות הזמינים כרגע." + reason + " נסו לרענן את העמוד או לבחור ערוץ אחר.");
+      gtag('event', 'stream_play_exhausted', {
+        channel_name: playingName,
+        channel_key: playingKey,
+        page_type: playingPage,
+        candidates_tried: playerCandidates.length,
+        last_failure_type: lastPlaybackFailure ? lastPlaybackFailure.type : null
+      });
       return;
     }
     var candidate = playerCandidates[playerAttempt];
@@ -1892,7 +1931,18 @@
 
     var tryNext = function (reason) {
       if (playerAttempt !== myAttempt) return;
-      if (reason) lastPlaybackFailure = reason;
+      if (reason) {
+        lastPlaybackFailure = reason;
+        gtag('event', 'stream_play_failure', {
+          channel_name: playingName,
+          channel_key: playingKey,
+          page_type: playingPage,
+          source_label: candidate.label,
+          attempt_index: myAttempt,
+          failure_type: reason.type,
+          failure_detail: reason.detail || null
+        });
+      }
       playerAttempt += 1;
       playCandidate();
     };
@@ -2174,7 +2224,18 @@
     var wantMuted = playerVideo.muted;
     var wantVolume = playerVideo.volume;
     var hls = attachStream(playerVideo, link, {
-      onReady: function () { setPlayerStatus(""); },
+      onReady: function () {
+        setPlayerStatus("");
+        var candidate = playerCandidates[playerAttempt];
+        gtag('event', 'stream_play_success', {
+          channel_name: playingName,
+          channel_key: playingKey,
+          page_type: playingPage,
+          source_label: candidate ? candidate.label : null,
+          attempt_index: playerAttempt,
+          candidate_count: playerCandidates.length
+        });
+      },
       onFatal: tryNext,
       onPlayBlocked: function (err) {
         var detail = err && err.name ? " [" + err.name + (err.message ? ": " + err.message : "") + "]" : "";
@@ -2189,6 +2250,17 @@
 
   var playingKey = null;
   var playingPage = null; // the page the CURRENT playingKey belongs to - state.page can change (page-tab switch) before closePlayer() runs, so this can't just be read from state.page there
+  var playingName = null; // group.name for the CURRENT playingKey, for analytics event params (see trackSelectChannel)
+
+  function trackSelectChannel(group) {
+    var pickSource = manualPickId(group) ? "manual" : (state.smartPicks[group.key] ? "smart" : "default");
+    gtag('event', 'select_channel', {
+      channel_name: group.name,
+      channel_key: group.key,
+      page_type: state.page,
+      pick_source: pickSource
+    });
+  }
   var scrollYBeforePlayer = 0; // restored in closePlayer() - see the comment there
   var osdTimer = null;
   var osdEl = document.getElementById("player-osd");
@@ -2234,6 +2306,8 @@
     cancelHoverPreview();
     playingKey = group.key;
     playingPage = state.page;
+    playingName = group.name;
+    trackSelectChannel(group);
     document.getElementById("player-title").textContent = group.name;
     showOsd(group);
     playerCandidates = playerCandidatesFor(group);
@@ -2541,6 +2615,8 @@
     radioIsPlaying = false; // don't carry the previous station's "actually playing" state into this one
     playingKey = group.key;
     playingPage = state.page;
+    playingName = group.name;
+    trackSelectChannel(group);
     document.getElementById("radio-bar-name").textContent = group.name;
     radioBar.style.setProperty("--now-playing-color", moduleBadge(group.module).color);
     playerCandidates = playerCandidatesFor(group);
@@ -3007,10 +3083,18 @@
     renderList();
   });
 
+  var searchTrackTimer = null;
   document.getElementById("search").addEventListener("input", function (e) {
     pageUi().search = e.target.value;
     lsSet(LS_UI, ui);
     renderList();
+    clearTimeout(searchTrackTimer);
+    var term = e.target.value.trim().slice(0, 50);
+    var pageAtSearch = state.page;
+    searchTrackTimer = setTimeout(function () {
+      if (!term) return;
+      gtag('event', 'search', { search_term: term, page_type: pageAtSearch });
+    }, 600);
   });
 
   // ---------- saved panel ----------
@@ -3104,18 +3188,22 @@
   }
 
   document.getElementById("export-json").addEventListener("click", function () {
-    var list = savedEntries().map(function (e) {
+    var entries = savedEntries();
+    var list = entries.map(function (e) {
       return { page: e.page, name: e.group.name, module: e.group.module, link: activeLinkFor(e.page, e.group) };
     });
     downloadBlob(JSON.stringify(list, null, 2), "idanplus-saved-channels.json", "application/json");
+    gtag('event', 'export_saved_channels', { format: "json", channel_count: entries.length });
   });
   document.getElementById("export-m3u").addEventListener("click", function () {
+    var entries = savedEntries();
     var lines = ["#EXTM3U"];
-    savedEntries().forEach(function (e) {
+    entries.forEach(function (e) {
       lines.push('#EXTINF:-1 group-title="' + PAGE_LABEL[e.page] + '",' + e.group.name);
       lines.push(activeLinkFor(e.page, e.group) || "");
     });
     downloadBlob(lines.join("\n"), "idanplus-saved-channels.m3u", "audio/x-mpegurl");
+    gtag('event', 'export_saved_channels', { format: "m3u", channel_count: entries.length });
   });
 
   function activeLinkFor(page, group) {
@@ -3214,8 +3302,10 @@
       var shareText = "עידן+ - כל הערוצים בלייב, במקום אחד";
       var shareUrl = location.href;
       if (navigator.share) {
+        gtag('event', 'share', { method: "native_share", content_type: "app" });
         navigator.share({ title: document.title, text: shareText, url: shareUrl }).catch(function () {});
       } else {
+        gtag('event', 'share', { method: "whatsapp_fallback", content_type: "app" });
         window.open("https://wa.me/?text=" + encodeURIComponent(shareText + " " + shareUrl), "_blank", "noopener");
       }
     });
@@ -3324,6 +3414,7 @@
   })();
 
   fullRender();
+  gtag('event', 'page_tab_select', { page_type: state.page });
   // The page also starts out at the top, same as scrolling back up to it -
   // give it the same short settle delay as any other scroll-stop, rather
   // than duplicating previewCenteredChannel's logic for the load-at-top case.
