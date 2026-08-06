@@ -584,7 +584,6 @@
     border: 1px solid var(--border); background: var(--surface-2); color: var(--text-dim);
     border-radius: 999px; padding: 2px 7px; font-size: 10px; cursor: pointer;
   }
-  .source-pill .mono { font-size: 9.5px; }
   .source-pill.is-active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); font-weight: 700; }
   .source-pill-auto { color: var(--text-dim); }
 
@@ -1849,7 +1848,7 @@
   // whole point is getting picture up as quickly as possible.
   var HOVER_HLS_CONFIG = { maxBufferLength: 4, startLevel: 0, capLevelToPlayerSize: false };
   var HOVER_HLS_CONFIG_FAST = { maxBufferLength: 2, maxMaxBufferLength: 2, startLevel: 0, capLevelToPlayerSize: false, backBufferLength: 0 };
-  var hoverPreview = { timer: null, key: null, page: null, video: null, hls: null, spinner: null, thumb: null, muteBadge: null };
+  var hoverPreview = { timer: null, key: null, page: null, video: null, hls: null, spinner: null, thumb: null, muteBadge: null, gen: 0 };
   // Header mute button (id="preview-mute-btn") toggles this - applies to
   // every preview (hover/long-press/scroll-stop) and persists across visits.
   var previewMuted = lsGet(LS_PREVIEW_MUTED, false);
@@ -1879,6 +1878,11 @@
   }
 
   function cancelHoverPreview() {
+    // Bumped unconditionally, even when there's nothing visible yet to tear
+    // down below (e.g. a freshenLink fetch still in flight with no video
+    // created yet) - see startHoverPreview's own comment on why a stale
+    // call must not be able to attach a video after this point.
+    hoverPreview.gen++;
     if (hoverPreview.timer) { clearTimeout(hoverPreview.timer); hoverPreview.timer = null; }
     if (hoverPreview.spinner) { hoverPreview.spinner.remove(); hoverPreview.spinner = null; }
     if (hoverPreview.muteBadge) { hoverPreview.muteBadge.remove(); hoverPreview.muteBadge = null; }
@@ -1913,7 +1917,22 @@
   }
 
   function startHoverPreview(group, thumb, opts) {
+    // Never start a grid preview (audible by default - see previewMuted)
+    // on top of the real player/radio bar, and always tear down whatever
+    // preview is already running first - otherwise a long-press (or a
+    // fresh scroll-settle) on a thumb that's already previewing creates a
+    // SECOND <video>+hls that overwrites hoverPreview's own references
+    // without ever tearing down the first one, leaking an orphaned stream
+    // that plays forever.
+    if (isPlaybackUiActive()) return;
+    cancelHoverPreview();
     opts = opts || {};
+    // Generation token (same pattern as attachStream's videoEl._streamGen) -
+    // captured before the async freshenLink call below, so if ANOTHER
+    // startHoverPreview() call supersedes this one before it resolves, this
+    // call's own .then callback can tell it's stale and bail out instead of
+    // attaching a video nothing references any more.
+    var myGen = ++hoverPreview.gen;
     hoverPreview.key = group.key;
     hoverPreview.page = state.page;
     hoverPreview.thumb = thumb;
@@ -1927,10 +1946,11 @@
     syncPreviewMuteBadge();
 
     freshenLink(candidate).then(function (link) {
-      // The mouse may well have left (or landed on a different card)
-      // during that fetch - only proceed if this is still the card being
-      // hovered.
-      if (hoverPreview.key !== group.key) return;
+      // Superseded by a later cancel or another startHoverPreview() call
+      // while this fetch was in flight - bail out rather than attaching a
+      // video that's no longer tracked by hoverPreview (see the comment
+      // above).
+      if (hoverPreview.gen !== myGen) return;
 
       var video = document.createElement("video");
       video.className = "hover-video";
@@ -2156,9 +2176,11 @@
     return true;
   }
 
-  // One clickable pill per candidate, showing its measured response time -
-  // clicking pins that specific source (setManualPick), overriding the
-  // automatic fastest-pick until cleared back to "אוטומטי".
+  // One clickable pill per candidate (label only, e.g. "ראשי"/"גיבוי" - the
+  // measured response time behind the pick is used to rank/auto-select but
+  // deliberately not shown) - clicking pins that specific source
+  // (setManualPick), overriding the automatic fastest-pick until cleared
+  // back to "אוטומטי".
   function sourcePicksHtml(group) {
     var pick = state.smartPicks[group.key];
     var candidates = candidatesOf(group);
@@ -2169,11 +2191,10 @@
     var pills = pick.results.map(function (r) {
       var isActive = r.id === activeId;
       var isAuto = !manualId && r.id === pick.bestId;
-      var timeLabel = r.ms === null ? "אין תגובה" : r.ms + "ms";
       return '<button type="button" class="source-pill' + (isActive ? " is-active" : "") + '" ' +
         'data-candidate="' + escapeHtml(r.id) + '" aria-pressed="' + isActive + '" ' +
         'title="' + (isAuto ? "נבחר אוטומטית" : "בחירה ידנית") + '">' +
-        escapeHtml(r.label) + ' <span class="mono">' + timeLabel + "</span></button>";
+        escapeHtml(r.label) + "</button>";
     }).join("");
     var resetPill = manualId
       ? '<button type="button" class="source-pill source-pill-auto" data-candidate="">אוטומטי</button>'
@@ -4183,8 +4204,7 @@
     // Still the same channel that was already showing/loading - leave it
     // running rather than tearing it down and restarting from scratch.
     if (hoverPreview.key === group.key && (hoverPreview.video || hoverPreview.spinner)) return;
-    cancelHoverPreview();
-    startHoverPreview(group, thumb, { fast: true });
+    startHoverPreview(group, thumb, { fast: true }); // cancels whatever was already running itself
   }
   (function wireScrollStopPreview() {
     window.addEventListener("scroll", function () {
