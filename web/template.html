@@ -142,13 +142,6 @@
 
   .app { direction: rtl; max-width: 980px; margin: 0 auto; padding: 0 20px 120px; }
 
-  .site-footer {
-    max-width: 980px; margin: 32px auto 0; padding: 16px 20px;
-    border-top: 1px solid var(--border); text-align: center;
-  }
-  .site-footer a { color: var(--text-dim); font-size: 12px; text-decoration: none; }
-  .site-footer a:hover { color: var(--accent); text-decoration: underline; }
-
   /* ---------- header.site: ported from govapiportal ---------- */
   header.site {
     border-radius: 18px; margin: 16px 0 20px;
@@ -252,36 +245,55 @@
   }
   .pagetab-icon { display: none; }
   /* Mobile: the TV/radio tabs become icon-only (an old antenna-TV and an
-     old transistor radio, own line-art rather than the flat modern 📺
-     emoji) - desktop keeps the text label as before. */
+     old transistor radio, own colored artwork rather than the flat modern
+     📺 emoji) - desktop keeps the text label as before. Bigger render size
+     (was 18px) so the artwork actually fills the button instead of sitting
+     small in the middle of its padding, and nudged a bit further from the
+     button's start edge (the physical right, under RTL) toward center. */
   @media (max-width: 640px) {
-    .pagetab-icon { display: block; }
+    .pagetab-icon { display: block; width: 22px; height: 22px; margin-inline-start: 6px; }
     .pagetab-label { display: none; }
-    .pagetab { padding: 9px 14px; }
+    .pagetab { padding: 8px 10px; }
   }
   .radio-favs-btn[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+  /* Same fixed box as .radio-color-family right after it (see that rule's
+     own comment) - only one of the two is ever visible at a time (JS toggle
+     in renderPageTabs), so matching their size/position exactly means
+     nothing else in the bar (including the TV/radio tab icons right after
+     both) visually shifts when switching between TV and radio. The old
+     margin-inline-start: auto here was left over from before this button
+     moved next to the hamburger and was actively pushing it back out of
+     place - dropped along with the rest of the mismatched sizing. */
   .preview-mute-btn {
-    margin-inline-start: auto; align-self: center;
-    border: none; background: none; color: var(--text-dim); font-size: 16px; line-height: 1;
-    cursor: pointer; padding: 4px 6px;
+    align-self: center;
+    border: 1px solid var(--border); background: var(--surface);
+    color: var(--text-dim); font-size: 15px; border-radius: 8px; cursor: pointer;
+    width: 30px; height: 30px; padding: 0; display: flex; align-items: center; justify-content: center;
   }
-  .preview-mute-btn[aria-pressed="true"] { color: var(--accent); }
+  .preview-mute-btn[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); }
+  /* The explicit display:flex above beats the browser's own [hidden]{display:
+     none} at equal specificity (author CSS wins ties over UA CSS) - without
+     this, JS setting .hidden = true (see renderPageTabs) would stop doing
+     anything and the button would stay visually visible on the radio page.
+     Same pattern already used elsewhere in this file (.color-family-grid
+     [hidden], .onboarding-banner[hidden], .radio-bar[hidden]). */
+  .preview-mute-btn[hidden] { display: none; }
   .share-btn-big {
     margin-inline-start: auto; align-self: center; white-space: nowrap;
     /* Follows the current radio color family too (see
        applyThemeAccentToChrome) - falls back to the generic --accent for
        "original" (no single family color) via the var()'s own second
        argument. */
-    border: 1px solid var(--theme-accent, var(--accent)); background: var(--accent-soft); color: var(--theme-accent, var(--accent));
+    border: 1px solid var(--theme-accent, var(--accent)); background: var(--theme-accent, var(--accent)); color: #fff;
     font-size: 13px; font-weight: 700; line-height: 1; border-radius: 8px;
     cursor: pointer; padding: 8px 14px;
     display: inline-flex; align-items: center; gap: 6px;
   }
-  /* fill/stroke: currentColor - tracks the button's own color (theme
-     accent, or white on hover/active via .share-btn-big:hover above)
-     rather than a fixed color, so it stays in sync automatically. */
+  /* fill/stroke: currentColor - tracks the button's own color (white,
+     matching the solid frame-color background) rather than a fixed color,
+     so it stays in sync automatically. */
   .share-icon { flex: none; }
-  .share-btn-big:hover { background: var(--theme-accent, var(--accent)); color: #fff; }
+  .share-btn-big:hover { filter: brightness(1.1); }
   /* Mobile-radio-only color-family picker (see #radio-color-family) - hidden
      on desktop unconditionally (min-width query below) even while shown on
      the radio page; the JS toggle in renderPageTabs handles the TV-page and
@@ -417,6 +429,15 @@
     border-radius: 10px; padding: 9px 14px; font-size: 13px; font-weight: 700; cursor: pointer;
   }
   .savedbtn:hover { border-color: var(--accent); }
+  /* Dropped from the mobile hamburger menu specifically (that menu is just
+     .controls revealed - see body.header-menu-open .controls above) - the
+     star on each row already favorites/unfavorites directly, this button
+     only opened the separate saved-channels overlay panel. Desktop keeps
+     it, unaffected (.controls there isn't gated behind a hamburger at all,
+     it's the always-visible toolbar). */
+  @media (max-width: 640px) {
+    #open-saved { display: none; }
+  }
   .savedbtn .count {
     background: var(--accent); color: #fff; border-radius: 999px; min-width: 20px; height: 20px;
     display: inline-flex; align-items: center; justify-content: center; font-size: 11px;
@@ -524,14 +545,28 @@
     padding: 2px 7px; font-family: ui-monospace, monospace;
   }
   .row-thumb-corner {
-    position: absolute; top: 6px; inset-inline-end: 6px; display: flex; gap: 4px;
+    position: absolute; top: 6px; inset-inline-end: 6px; display: flex; align-items: center; gap: 4px;
   }
   .row-thumb-corner .starbtn, .row-thumb-corner .a11ybtn {
     background: rgba(0,0,0,.55); color: #fff; border-radius: 999px;
   }
+  /* Bigger/bolder star badge (was 16px) - the ☆/★ glyph itself is what
+     carries "favorited" at a glance, so it gets more visual weight than a
+     generic corner icon like .a11ybtn right next to it. */
+  .row-thumb-corner .starbtn { font-size: 21px; padding: 6px 7px; }
   .row-thumb-corner .starbtn.is-saved { color: #ffd25c; }
   .row-thumb-corner .a11ybtn { border: none; padding: 5px 10px; font-size: 10.5px; }
   .row-thumb-corner .a11ybtn[aria-pressed="true"] { background: var(--a11y); color: #fff; }
+  /* TV only (see rowHtml) - the station name right beside the bigger star,
+     so favoriting from the thumbnail corner alone still identifies which
+     channel it is without having to look down at .row-name. Radio doesn't
+     need this duplicated - its own mobile compact card already draws the
+     name directly onto the thumbnail (see body.page-radio .row-thumb). */
+  .row-thumb-name {
+    font-size: 10.5px; font-weight: 700; background: rgba(0,0,0,.55); color: #fff;
+    border-radius: 999px; padding: 3px 9px; max-width: 55%;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
 
   .pickbox {
     width: 18px; height: 18px; border-radius: 5px; border: 1.5px solid var(--border);
@@ -632,10 +667,6 @@
          within the active scheme, not a fixed accent color. */
       box-shadow: 0 0 0 3px var(--now-playing-frame-color, var(--accent)), 0 0 14px rgba(255,255,255,.6);
     }
-    /* Shorter share-button label - mobile radio view only, everywhere else
-       (desktop, or the TV page on mobile) keeps "ספר לחברים". */
-    body.page-radio .share-btn-label { display: none; }
-    body.page-radio #share-btn::after { content: "שתף"; }
     /* A brief native "catch" at every continuous-scroll cycle seam (see
        appendRadioCycle) - proximity snap, not mandatory, so it only
        engages when scrolling happens to slow down near the marker instead
@@ -794,13 +825,17 @@
 
   .player-overlay {
     position: fixed; inset: 0; background: rgba(0,0,0,.72); z-index: 50;
-    display: none; align-items: center; justify-content: center; padding: 4vh 16px;
+    display: none; align-items: center; justify-content: center; padding: 4vh 0;
   }
   .player-overlay.is-open { display: flex; }
   .player-panel {
     position: relative;
-    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
-    width: min(880px, 100%); box-shadow: var(--shadow); direction: rtl; overflow: hidden;
+    /* Full viewport width by default (was capped at 880px, floating in the
+       middle of the screen) - still shrinkable/draggable afterward via
+       wirePlayerResize/wirePlayerPanelDrag for anyone who wants a smaller
+       floating window, this is just the starting size. */
+    background: var(--surface); border: 1px solid var(--border); border-radius: 0;
+    width: 100%; box-shadow: var(--shadow); direction: rtl; overflow: hidden;
     /* Width only - height stays derived from the video's own 16:9
        aspect-ratio (.player-video-wrap) rather than being independently
        resizable, which would just leave blank space rather than actually
@@ -917,27 +952,31 @@
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
       </button>
       <!-- Moved here, right next to the hamburger, per explicit request -
+           TV-only in practice (see wireHoverPreviewMuteButton's own guard -
+           previews only ever happen on the TV grid), same idea as the
+           radio color-family button right after it. -->
+      <button type="button" class="preview-mute-btn" id="preview-mute-btn" aria-pressed="false" title="השתקת תצוגה מקדימה">🔊</button>
+      <!-- Moved here, right next to the hamburger, per explicit request -
            still only ever shown on the radio page (see the JS toggle in
            renderPageTabs and the body:not(.page-radio) CSS backstop). -->
       <button type="button" class="radio-color-family" id="radio-color-family-btn" title="ערכת צבעים" aria-haspopup="true" aria-expanded="false" hidden>
         <span id="radio-color-family-swatch">🟦</span>
       </button>
       <button class="pagetab" data-page="tv" role="tab" aria-label="טלוויזיה">
-        <svg class="pagetab-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 8 L5 3"/><path d="M14 8 L17 3"/><rect x="3" y="8" width="18" height="12" rx="2"/><circle cx="9" cy="14" r="2.4"/><line x1="14" y1="12" x2="19" y2="12"/><line x1="14" y1="16" x2="19" y2="16"/></svg>
+        <svg class="pagetab-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M9 7 L6 2" stroke="#5b6068" stroke-width="1.8" stroke-linecap="round" fill="none"/><path d="M15 7 L18 2" stroke="#5b6068" stroke-width="1.8" stroke-linecap="round" fill="none"/><circle cx="12" cy="6.3" r="1" fill="#bcdffa"/><rect x="2" y="7" width="20" height="13" rx="2.5" fill="#5b6068"/><rect x="4" y="9" width="12" height="9" rx="1" fill="#f3f3f3"/><rect x="4" y="9" width="3" height="9" fill="#f24c4c"/><rect x="7" y="9" width="3" height="9" fill="#ffa93b"/><rect x="10" y="9" width="3" height="9" fill="#7ed957"/><rect x="13" y="9" width="3" height="9" fill="#5b9df9"/><circle cx="18.7" cy="11" r="1.1" fill="#dfe6ee"/><circle cx="18.7" cy="14" r="1.1" fill="#dfe6ee"/><circle cx="18.7" cy="17" r="1.1" fill="#e0473f"/><path d="M7 20 L6 22" stroke="#5b6068" stroke-width="1.8" stroke-linecap="round"/><path d="M17 20 L18 22" stroke="#5b6068" stroke-width="1.8" stroke-linecap="round"/></svg>
         <span class="pagetab-label">טלוויזיה</span>
       </button>
       <button class="pagetab" data-page="radio" role="tab" aria-label="רדיו">
-        <svg class="pagetab-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="16" y1="9" x2="19" y2="4"/><circle cx="19" cy="4" r="0.6" fill="currentColor"/><rect x="3" y="9" width="18" height="10" rx="2"/><circle cx="8" cy="14" r="2.2"/><line x1="13" y1="12.5" x2="18" y2="12.5"/><line x1="13" y1="15.5" x2="18" y2="15.5"/></svg>
+        <svg class="pagetab-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M15 8 L18.5 3" stroke="#5b6068" stroke-width="1.6" stroke-linecap="round" fill="none"/><circle cx="18.5" cy="3" r="1" fill="#8f97a3"/><rect x="13.5" y="6.5" width="2" height="2" rx="0.4" fill="#8f97a3"/><rect x="6" y="6.5" width="2" height="2" rx="0.4" fill="#8f97a3"/><rect x="3" y="8" width="18" height="11" rx="2.5" fill="#f6a536"/><circle cx="8" cy="13.5" r="3.2" fill="#c7cdd6"/><circle cx="8" cy="13.5" r="1.6" fill="#8f97a3"/><rect x="13" y="9.5" width="6" height="3" rx="0.6" fill="#8ecdf0"/><circle cx="14.5" cy="15" r="1" fill="#3fae5a"/><circle cx="17.5" cy="15" r="1" fill="#e0473f"/><line x1="13" y1="16.8" x2="19" y2="16.8" stroke="#7a5416" stroke-width="0.8"/><line x1="13" y1="17.6" x2="19" y2="17.6" stroke="#7a5416" stroke-width="0.8"/></svg>
         <span class="pagetab-label">רדיו</span>
       </button>
       <button type="button" class="pagetab radio-favs-btn" id="radio-favs-btn" aria-pressed="false" hidden>מועדפי רדיו</button>
-      <button type="button" class="preview-mute-btn" id="preview-mute-btn" aria-pressed="false" title="השתקת תצוגה מקדימה">🔊</button>
       <button type="button" class="radio-stop-btn" id="radio-stop-btn" title="עצירה" aria-label="עצירה" hidden>
         <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2"/></svg>
       </button>
       <button type="button" class="share-btn-big" id="share-btn" title="שיתוף">
         <svg class="share-icon" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="10.6" x2="15.4" y2="6.4" stroke="currentColor" stroke-width="2"/><line x1="8.6" y1="13.4" x2="15.4" y2="17.6" stroke="currentColor" stroke-width="2"/></svg>
-        <span class="share-btn-label">ספר לחברים</span>
+        <span class="share-btn-label">שתף</span>
       </button>
     </div>
 
@@ -961,6 +1000,11 @@
            the last item in the toolbar row instead of an absolutely
            positioned corner link. -->
       <a class="attribution-link" href="https://hod-hasharon.org/" target="_blank" rel="noopener">פרויקט של רם אגמון</a>
+      <!-- Moved here from the old bottom-of-page <footer class="site-footer">
+           (removed) - same reasoning as the attribution link right above:
+           this is what the mobile hamburger menu reveals, desktop sees it
+           in the toolbar row too. -->
+      <a class="attribution-link" href="https://github.com/Fishenzon/repo.git" target="_blank" rel="noopener">תודה לפישנזון ↗</a>
     </div>
   </header>
 
@@ -1046,9 +1090,9 @@
         <section>
           <h3>כללי</h3>
           <ul>
-            <li>התפריט (☰) פותח חיפוש, סינון, ערוצים שמורים ועזרה.</li>
+            <li>התפריט (☰) פותח חיפוש, סינון ועזרה.</li>
             <li>לחיצה ארוכה על כרטיס ערוץ/תחנה מוסיפה או מסירה אותו מהשמורים - כמו לחיצה על ★.</li>
-            <li>האפליקציה נשלטת גם מגלגל הגה במכוניות תומכות.</li>
+            <li>ניתן לשלוט באפליקציה מגלגל ההגה במכוניות תומכות.</li>
           </ul>
         </section>
         <section>
@@ -1143,10 +1187,6 @@
       <div class="player-resize-handle" id="player-resize-handle" aria-hidden="true"></div>
     </div>
   </div>
-
-  <footer class="site-footer">
-    <a href="https://github.com/Fishenzon/repo.git" target="_blank" rel="noopener">מקור הנתונים: Fishenzon/repo ↗</a>
-  </footer>
 </div>
 
 <script type="application/json" id="channel-data">__CHANNEL_DATA_JSON__</script>
@@ -2311,6 +2351,7 @@
           '<img data-role="thumb-img" alt=""' + (cached ? ' class="is-loaded" src="' + cached + '"' : "") + " />" +
           '<div class="row-thumb-corner">' +
             '<button type="button" class="starbtn' + (isSaved ? " is-saved" : "") + '" aria-label="שמור" aria-pressed="' + isSaved + '">' + (isSaved ? "★" : "☆") + "</button>" +
+            (state.page === "tv" ? '<span class="row-thumb-name">' + escapeHtml(group.name) + "</span>" : "") +
             (hasA11y ? '<button type="button" class="a11ybtn" aria-pressed="' + isA11yOn + '">ליקוי שמיעה</button>' : "") +
           "</div>" +
           '<div class="row-connecting-bar" data-role="connecting-bar" aria-hidden="true"></div>' +
@@ -3090,28 +3131,42 @@
   var CONNECTING_BAR_MS = 14000;
   var connectingBarTimer = null;
   var connectingBarStartedAt = 0;
-  function setConnectingBarWidth(pct) {
-    if (!playingKey) return;
-    document.querySelectorAll('.row[data-key="' + CSS.escape(playingKey) + '"] .row-connecting-bar').forEach(function (bar) {
+  // The station this bar is CURRENTLY for - not the same as playingKey.
+  // openRadioBar reassigns playingKey to the new station BEFORE calling
+  // startConnectingBar(), so reading playingKey inside setConnectingBarWidth
+  // (the original bug) always targeted the newly-selected station, even
+  // from the internal stopConnectingBar() cleanup call that's meant to
+  // reset the PREVIOUS one - leaving the old station's bar visually stuck
+  // wherever it happened to be when interrupted. This var is captured
+  // explicitly instead, so cleanup always targets whichever station it
+  // actually belonged to.
+  var connectingBarKey = null;
+  function setConnectingBarWidth(key, pct) {
+    if (!key) return;
+    document.querySelectorAll('.row[data-key="' + CSS.escape(key) + '"] .row-connecting-bar').forEach(function (bar) {
       bar.style.width = pct + "%";
     });
   }
   function startConnectingBar() {
-    stopConnectingBar();
+    stopConnectingBar(); // resets the PREVIOUS station's bar, via its own still-current connectingBarKey
+    connectingBarKey = playingKey;
     connectingBarStartedAt = Date.now();
-    setConnectingBarWidth(4); // an immediate small nudge - otherwise it visually stalls at 0 the instant you tap
+    setConnectingBarWidth(connectingBarKey, 4); // an immediate small nudge - otherwise it visually stalls at 0 the instant you tap
     connectingBarTimer = setInterval(function () {
       var elapsed = Date.now() - connectingBarStartedAt;
-      setConnectingBarWidth(Math.min(90, (elapsed / CONNECTING_BAR_MS) * 90));
+      setConnectingBarWidth(connectingBarKey, Math.min(90, (elapsed / CONNECTING_BAR_MS) * 90));
     }, 120);
   }
   function stopConnectingBar(success) {
     if (connectingBarTimer) { clearInterval(connectingBarTimer); connectingBarTimer = null; }
+    if (!connectingBarKey) return;
+    var key = connectingBarKey;
+    connectingBarKey = null;
     if (success) {
-      setConnectingBarWidth(100);
-      setTimeout(function () { setConnectingBarWidth(0); }, 300);
+      setConnectingBarWidth(key, 100);
+      setTimeout(function () { setConnectingBarWidth(key, 0); }, 300);
     } else {
-      setConnectingBarWidth(0);
+      setConnectingBarWidth(key, 0);
     }
   }
 
@@ -3572,14 +3627,22 @@
     var SWIPE_MIN_DISTANCE = 50;
     var SWIPE_MAX_VERTICAL = 60;
     var MOVE_TOLERANCE = 10; // beyond this it's a drag, not a long-press-in-place
+    // Tap-to-close (the native "click" listener above) used to fire for ANY
+    // touch that didn't reach the full swipe distance - so a small
+    // incidental movement (adjusting grip, a stray brush) that fell short
+    // of an actual swipe still closed the whole player back to the list.
+    // Anything past this radius is no longer treated as "just a tap", so
+    // the click that would otherwise follow gets suppressed below - a real
+    // close still needs a clean, near-stationary tap.
+    var TAP_MAX_MOVEMENT = 24;
     var LONG_PRESS_MUTE_MS = 450;
-    var startX = 0, startY = 0, tracking = false, swiped = false, longPressed = false;
+    var startX = 0, startY = 0, tracking = false, swiped = false, longPressed = false, maxMove = 0;
     var longPressTimer = null;
 
     playerVideo.addEventListener("touchstart", function (e) {
       var t = e.touches[0];
       startX = t.clientX; startY = t.clientY;
-      tracking = true; swiped = false; longPressed = false;
+      tracking = true; swiped = false; longPressed = false; maxMove = 0;
       longPressTimer = setTimeout(function () {
         longPressed = true;
         setPlayerMuted(!playerDesiredMuted);
@@ -3590,6 +3653,7 @@
       if (!tracking || swiped) return;
       var t = e.touches[0];
       var dx = t.clientX - startX, dy = t.clientY - startY;
+      maxMove = Math.max(maxMove, Math.abs(dx), Math.abs(dy));
       if (Math.abs(dx) > MOVE_TOLERANCE || Math.abs(dy) > MOVE_TOLERANCE) clearTimeout(longPressTimer);
       if (Math.abs(dx) > SWIPE_MIN_DISTANCE && Math.abs(dy) < SWIPE_MAX_VERTICAL) {
         swiped = true;
@@ -3599,8 +3663,9 @@
 
     playerVideo.addEventListener("touchend", function (e) {
       clearTimeout(longPressTimer);
-      if (swiped || longPressed) e.preventDefault(); // suppress the tap-to-close click that would otherwise follow
-      tracking = false; swiped = false; longPressed = false;
+      // suppress the tap-to-close click that would otherwise follow
+      if (swiped || longPressed || maxMove > TAP_MAX_MOVEMENT) e.preventDefault();
+      tracking = false; swiped = false; longPressed = false; maxMove = 0;
     });
   })();
 
@@ -4278,46 +4343,24 @@
     });
   })();
 
-  // ---------- topbar auto-hide (scroll + timed) ----------
-  // Hidden once scrolled past the 3rd channel card, brought back only by
-  // scrolling all the way back to the top of the list (not just scrolling
-  // up a bit) - see the .topbar.is-hidden CSS transform. On top of that, it
-  // also hides itself after TOPBAR_TIMED_HIDE_MS even if you never scroll
-  // at all - restarted every time it becomes visible again.
+  // ---------- topbar auto-hide (disabled - kept as a stable landmark) ----------
+  // Used to hide the header on TV once scrolled past the 3rd channel card
+  // (or after a few seconds idle), the same way radio's header already
+  // always stayed put - per explicit request, TV now matches radio instead:
+  // the header floats permanently everywhere, never auto-hides. Left as
+  // functions/call sites rather than deleted outright so re-enabling it
+  // later (e.g. TV-only again) is a small, obvious diff.
   var topbarEl = document.querySelector(".topbar");
   var TOPBAR_HIDE_AFTER_INDEX = 2; // 0-indexed - hide once past the 3rd row
   var TOPBAR_TIMED_HIDE_MS = 10000;
   var topbarTimedHideTimer = null;
   function scheduleTopbarTimedHide() {
     if (topbarTimedHideTimer) { clearTimeout(topbarTimedHideTimer); topbarTimedHideTimer = null; }
-    if (state.page === "radio") return; // radio floats the header always - see updateTopbarVisibility's own guard
-    topbarTimedHideTimer = setTimeout(function () {
-      if (topbarEl) topbarEl.classList.add("is-hidden");
-    }, TOPBAR_TIMED_HIDE_MS);
   }
   function updateTopbarVisibility() {
     if (!topbarEl) return;
-    // The header floats permanently on the radio page - no scroll-hide, no
-    // timed-hide. It's a stable landmark for the continuous-scroll list
-    // (see appendRadioCycle) rather than something that comes and goes
-    // mid-scroll.
-    if (state.page === "radio") {
-      if (topbarTimedHideTimer) { clearTimeout(topbarTimedHideTimer); topbarTimedHideTimer = null; }
-      topbarEl.classList.remove("is-hidden");
-      return;
-    }
-    if (window.scrollY <= 1) {
-      if (!topbarEl.classList.contains("is-hidden")) return; // already shown - don't restart its clock every scroll tick
-      topbarEl.classList.remove("is-hidden");
-      scheduleTopbarTimedHide();
-      return;
-    }
     if (topbarTimedHideTimer) { clearTimeout(topbarTimedHideTimer); topbarTimedHideTimer = null; }
-    var rows = document.querySelectorAll("#list .row");
-    var thresholdRow = rows[TOPBAR_HIDE_AFTER_INDEX];
-    if (!thresholdRow) return;
-    var thresholdY = thresholdRow.getBoundingClientRect().top + window.scrollY;
-    if (window.scrollY > thresholdY) topbarEl.classList.add("is-hidden");
+    topbarEl.classList.remove("is-hidden");
   }
   (function wireTopbarAutoHide() {
     if (!isCoarsePointer) return; // desktop keeps the header visible at all times
@@ -4668,16 +4711,25 @@
 
   // Screen stays ON (the wake lock above is unaffected) but visually dims
   // after 2 minutes with no interaction - a bright screen left untouched
-  // (e.g. mounted in a car) is otherwise a distraction for no reason. Any
-  // interaction at all undims immediately and restarts the countdown.
+  // (e.g. mounted in a car, playing radio) is otherwise a distraction for
+  // no reason. Any interaction at all undims immediately and restarts the
+  // countdown. Mobile radio only (same check used elsewhere for that view,
+  // e.g. updateTopbarVisibility) - on TV/desktop the screen itself is the
+  // thing being watched, so dimming it would be actively unwanted there.
   var DIM_AFTER_MS = 2 * 60 * 1000;
   var dimTimer = null;
+  function isMobileRadioView() {
+    return state.page === "radio" && window.matchMedia("(max-width: 640px)").matches;
+  }
   function resetDimTimer() {
     document.body.classList.remove("is-dimmed");
     clearTimeout(dimTimer);
-    dimTimer = setTimeout(function () { document.body.classList.add("is-dimmed"); }, DIM_AFTER_MS);
+    if (!isMobileRadioView()) return;
+    dimTimer = setTimeout(function () {
+      if (isMobileRadioView()) document.body.classList.add("is-dimmed");
+    }, DIM_AFTER_MS);
   }
-  ["mousemove", "mousedown", "touchstart", "keydown", "wheel", "scroll"].forEach(function (evt) {
+  ["mousemove", "mousedown", "touchstart", "keydown", "wheel", "scroll", "resize"].forEach(function (evt) {
     document.addEventListener(evt, resetDimTimer, { passive: true });
   });
   resetDimTimer();
