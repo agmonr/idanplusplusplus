@@ -4206,6 +4206,221 @@
     }, { passive: true });
   })();
 
+  // ---------- client-side EPG enhancement (kan/mako/13tv) ----------
+  // Same "now playing" data the server-side build already bakes into
+  // group.primary.now_playing (drawn on cards - see drawChannelPlaceholder -
+  // and shown on the lock screen - see updateMediaSessionMetadata), but
+  // refreshed live from each visitor's OWN browser for the handful of
+  // sources that work fine from a real browser despite being unreliable
+  // for the server-side cron job that builds this page (see
+  // scripts/update_channels.py's EPG_RESOLVERS comments - kan.org.il's
+  // Cloudflare and 13tv.co.il's Akamai both reject repeated automated
+  // requests, but a real browser's fetch - same TLS fingerprint as normal
+  // browsing - sails through, and each response happens to allow being
+  // read cross-origin). This is a progressive enhancement layer on top of
+  // the server-baked baseline, not a replacement for it - if a fetch
+  // fails (network, ad-blocker, source down) the page just keeps showing
+  // whatever was baked in at build time.
+  //
+  // Cached in localStorage for 24h per source so a returning visitor
+  // doesn't re-fetch every single page view - once a day is already more
+  // than the schedule data itself changes.
+  var EPG_CACHE_KEY = "idanplus.epg.cache.v1";
+  var EPG_CACHE_MS = 24 * 60 * 60 * 1000;
+
+  function epgNowPlayingFromSchedule(schedule) {
+    var now = Date.now() / 1000;
+    var picked = {};
+    Object.keys(schedule).forEach(function (tvgId) {
+      var programs = schedule[tvgId];
+      for (var i = 0; i < programs.length; i++) {
+        if (programs[i].start <= now && now < programs[i].end) {
+          picked[tvgId] = programs[i];
+          break;
+        }
+      }
+    });
+    return picked;
+  }
+
+  function loadEpgCache() {
+    try {
+      return JSON.parse(localStorage.getItem(EPG_CACHE_KEY)) || {};
+    } catch (ex) {
+      return {};
+    }
+  }
+  function saveEpgCache(cache) {
+    try {
+      localStorage.setItem(EPG_CACHE_KEY, JSON.stringify(cache));
+    } catch (ex) {} // storage full/disabled - caching is an optimization, not required
+
+  }
+
+  // Israel local wall-clock time -> real epoch seconds, DST-correct (IDT in
+  // summer, IST in winter) regardless of the VISITOR's own timezone - looks
+  // up Israel's actual UTC offset for that specific date via Intl rather
+  // than assuming a fixed +3, the same correctness the server-side build
+  // gets from Python's zoneinfo.
+  function israelLocalToEpoch(dateStr, timeStr) {
+    var naive = new Date(dateStr + "T" + timeStr + ":00Z");
+    var utcStr = naive.toLocaleString("en-US", { timeZone: "UTC" });
+    var ilStr = naive.toLocaleString("en-US", { timeZone: "Asia/Jerusalem" });
+    var offsetMs = new Date(ilStr) - new Date(utcStr);
+    return (naive.getTime() - offsetMs) / 1000;
+  }
+
+  // -- mako (keshet 12) --
+  function fetchMakoSchedule() {
+    return fetch("https://www.mako.co.il/AjaxPage?jspName=EPGResponse.jsp").then(function (r) {
+      return r.json();
+    }).then(function (data) {
+      var programs = (data && data.programs) || [];
+      var schedule = programs.map(function (item) {
+        var start = item.StartTimeUTC / 1000;
+        return { name: item.ProgramName, start: start, end: start + item.DurationMs / 1000 };
+      });
+      return { "12": schedule };
+    });
+  }
+
+  // -- kan (10 of 13 channels - see scripts/update_channels.py's
+  // KAN_CHANNEL_IDS comment for which/why) --
+  var KAN_CHANNEL_IDS = {
+    "11": 4444, "23": 4471, "33": 4532, "88": 4504, "bet": 4483,
+    "gimel": 4490, "culture": 4497, "music": 4518, "moreshet": 4511, "reka": 4525,
+  };
+  // Each item's HTML block appears twice (mobile + desktop variants with
+  // identical values) - non-greedy matching after "results-item" stops at
+  // the FIRST date/title pair, so one regex match = one program.
+  var KAN_ITEM_RE = /class="results-item[\s\S]*?data-date-utc="([^"]+)"[\s\S]*?program-title">([^<]*)/g;
+  function parseKanSchedule(html) {
+    var items = [];
+    var m;
+    KAN_ITEM_RE.lastIndex = 0;
+    while ((m = KAN_ITEM_RE.exec(html))) {
+      var name = m[2].trim();
+      if (!name) continue;
+      // "D.M.YYYY H:MM:SS", already Israel local time despite the "-utc"
+      // name (confirmed empirically server-side - see update_channels.py).
+      var parts = m[1].match(/(\d+)\.(\d+)\.(\d+) (\d+):(\d+):(\d+)/);
+      if (!parts) continue;
+      var dateStr = parts[3] + "-" + parts[2].padStart(2, "0") + "-" + parts[1].padStart(2, "0");
+      var timeStr = parts[4].padStart(2, "0") + ":" + parts[5] + ":" + parts[6];
+      items.push({ name: name, start: israelLocalToEpoch(dateStr, timeStr) });
+    }
+    var deduped = [];
+    items.forEach(function (item) {
+      var last = deduped[deduped.length - 1];
+      if (last && last.start === item.start && last.name === item.name) return;
+      deduped.push(item);
+    });
+    // No explicit duration - each program's end is simply the next
+    // program's start; the last item gets an arbitrary 1h fallback.
+    deduped.forEach(function (item, i) {
+      item.end = i + 1 < deduped.length ? deduped[i + 1].start : item.start + 3600;
+    });
+    return deduped;
+  }
+  function fetchKanSchedule() {
+    var tvgIds = Object.keys(KAN_CHANNEL_IDS);
+    return Promise.all(tvgIds.map(function (tvgId) {
+      var url = "https://www.kan.org.il/umbraco/surface/LoadBroadcastSchedule/LoadSchedule?channelId=" + KAN_CHANNEL_IDS[tvgId] + "&currentPageId=1517";
+      return fetch(url).then(function (r) { return r.text(); }).then(function (html) {
+        return { tvgId: tvgId, items: parseKanSchedule(html) };
+      }).catch(function () { return { tvgId: tvgId, items: [] }; }); // one channel's failure shouldn't lose the other 9
+    })).then(function (results) {
+      var schedule = {};
+      results.forEach(function (r) { if (r.items.length) schedule[r.tvgId] = r.items; });
+      return schedule;
+    });
+  }
+
+  // -- 13tv/reshet 13 --
+  function parse13tvSchedule(nextData) {
+    var page = nextData && nextData.props && nextData.props.pageProps && nextData.props.pageProps.page;
+    var grid = page && page.Content && page.Content.PageGrid;
+    if (!grid || !grid[0] || !grid[0].broadcastWeek) return [];
+    var items = [];
+    grid[0].broadcastWeek.forEach(function (day) {
+      (day.shows || []).forEach(function (show) {
+        if (!show.title || !show.show_date || !show.start_time) return;
+        items.push({ name: show.title, start: israelLocalToEpoch(show.show_date, show.start_time + ":00") });
+      });
+    });
+    items.sort(function (a, b) { return a.start - b.start; });
+    items.forEach(function (item, i) {
+      item.end = i + 1 < items.length ? items[i + 1].start : item.start + 3600;
+    });
+    return items;
+  }
+  function fetch13tvSchedule() {
+    return fetch("https://13tv.co.il/tv-guide/").then(function (r) {
+      return r.text();
+    }).then(function (html) {
+      var m = html.match(/<script id="__NEXT_DATA__" type="application\/json">([\s\S]*?)<\/script>/);
+      if (!m) throw new Error("13tv: __NEXT_DATA__ not found - page shape may have changed");
+      var items = parse13tvSchedule(JSON.parse(m[1]));
+      return items.length ? { "13": items } : {};
+    });
+  }
+
+  var EPG_CLIENT_SOURCES = {
+    mako: fetchMakoSchedule,
+    kan: fetchKanSchedule,
+    "13tv": fetch13tvSchedule,
+  };
+
+  // Patches now_playing directly onto the SAME group objects groups()/
+  // PAGES/DATA all share (not copies), so redrawAllPlaceholders() picks
+  // the new values up immediately without needing a data-model change.
+  function applyClientNowPlaying(nowPlaying) {
+    var tvgIds = Object.keys(nowPlaying);
+    if (!tvgIds.length) return;
+    DATA.tv.concat(DATA.radio).forEach(function (group) {
+      [group.primary, group.accessibility].concat(group.backups || []).forEach(function (variant) {
+        if (variant && nowPlaying[variant.tvgID]) variant.now_playing = nowPlaying[variant.tvgID].name;
+      });
+    });
+    redrawAllPlaceholders();
+    // The currently-open player's lock-screen text was set from whatever
+    // now_playing value existed at open time (see openRadioBar/openPlayer)
+    // - refresh it live too, in case fresher data arrived while it's
+    // already playing.
+    if (playingKey) {
+      var playing = groups().filter(function (g) { return g.key === playingKey; })[0];
+      if (playing) updateMediaSessionMetadata(playing);
+    }
+  }
+
+  (function refreshClientEpg() {
+    var cache = loadEpgCache();
+    var now = Date.now();
+    var combined = {};
+    var toFetch = [];
+    Object.keys(EPG_CLIENT_SOURCES).forEach(function (source) {
+      var cached = cache[source];
+      if (cached && now - cached.fetchedAt < EPG_CACHE_MS) {
+        var picked = epgNowPlayingFromSchedule(cached.schedule);
+        Object.keys(picked).forEach(function (tvgId) { combined[tvgId] = picked[tvgId]; });
+      } else {
+        toFetch.push(source);
+      }
+    });
+    if (Object.keys(combined).length) applyClientNowPlaying(combined);
+    toFetch.forEach(function (source) {
+      EPG_CLIENT_SOURCES[source]().then(function (schedule) {
+        cache[source] = { fetchedAt: now, schedule: schedule };
+        saveEpgCache(cache);
+        applyClientNowPlaying(epgNowPlayingFromSchedule(schedule));
+      }).catch(function () {
+        // Best-effort enhancement layer on top of the server-baked
+        // baseline - a failed fetch just means this source's channels
+        // keep showing whatever was baked in at build time.
+      });
+    });
+  })();
+
   fullRender();
   gtag('event', 'page_tab_select', { page_type: state.page });
   // The page also starts out at the top, same as scrolling back up to it -
