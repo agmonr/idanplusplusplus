@@ -688,24 +688,6 @@
     opacity: .65;
   }
   .radio-bar-grip:active { cursor: grabbing; }
-  .winamp-display {
-    position: relative; height: 51px; overflow: hidden; cursor: pointer;
-    background: #0a1a0e; border-radius: 3px;
-    /* Station's own module color (set inline per open, see openRadioBar) -
-       a glowing "now playing" frame instead of a plain dark border. */
-    border: 2px solid var(--now-playing-color, #050a06);
-    box-shadow: inset 0 2px 5px rgba(0,0,0,.85), inset 0 0 0 1px rgba(255,255,255,.04),
-      0 0 10px var(--now-playing-color, transparent);
-    display: flex; align-items: flex-start;
-  }
-  .winamp-display canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
-  .radio-bar-name {
-    position: relative; z-index: 1; color: #6dff77; font-weight: 700; font-size: 16px;
-    font-family: ui-monospace, "SF Mono", Consolas, monospace; letter-spacing: .04em;
-    text-shadow: 0 0 6px rgba(109,255,119,.65);
-    flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-    padding: 4px 10px 0;
-  }
   .winamp-controls { display: flex; align-items: center; gap: 6px; }
   .winamp-slider-label { flex: none; font-size: 10.5px; color: #a9adb3; letter-spacing: .04em; }
   .winamp-slider {
@@ -961,21 +943,15 @@
   </div>
 
   <!-- Radio plays directly here, no modal "window" - see openRadioBar() in
-       the script below. Winamp-styled: brushed-metal bar, green LCD-style
-       display with a simulated segmented spectrum (see drawRadioVisualizer -
-       not real audio analysis, see its own comment for why), beveled
-       buttons. -->
+       the script below. Winamp-styled brushed-metal control strip -
+       volume/prev/next/mute/stop. No display/name/visualizer of its own
+       anymore - what's playing is shown by the frame around that actual
+       station's card in the grid instead (see .row.is-now-playing). -->
   <div class="radio-bar" id="radio-bar" hidden>
     <div class="radio-bar-grip" id="radio-bar-grip" aria-hidden="true"></div>
-    <div class="winamp-display">
-      <canvas id="radio-viz" width="440" height="51"></canvas>
-      <div class="radio-bar-name" id="radio-bar-name"></div>
-    </div>
     <div class="winamp-controls">
       <span class="winamp-slider-label">עוצמה</span>
       <input type="range" id="radio-bar-volume" class="winamp-slider" min="0" max="100" value="100" aria-label="עוצמת שמע" />
-      <span class="winamp-slider-label">איזון</span>
-      <input type="range" id="radio-bar-balance" class="winamp-slider" min="-100" max="100" value="0" aria-label="איזון שמע" />
       <span class="winamp-spacer"></span>
       <button type="button" class="flip-icon" id="radio-bar-prev" aria-label="ערוץ קודם">⏮</button>
       <button type="button" class="flip-icon" id="radio-bar-next" aria-label="ערוץ הבא">⏭</button>
@@ -1137,7 +1113,7 @@
   // the whole grid reads as one coherent palette instead of a dozen
   // unrelated hues.
   // hex out, not "hsl(...)" - shadeColor() (used all over on this accent,
-  // e.g. the gradient below and the radio bar's --now-playing-color) only
+  // e.g. the gradient below and familyFrameColor's now-playing frame) only
   // understands "#rrggbb" and silently parses anything else as black.
   function hslToHex(h, s, l) {
     s /= 100; l /= 100;
@@ -1990,6 +1966,10 @@
         lsSet(LS_UI, ui);
         renderPageTabs();
         renderList();
+        // See the matching comment in wirePagetabFavsLongPress - forces
+        // the color-family gradient to recompute against the now-filtered
+        // list rather than keeping each card's full-list color.
+        requestAnimationFrame(redrawAllPlaceholders);
       };
     }
 
@@ -2838,8 +2818,8 @@
   // Reuses the exact same playback engine as the TV player (playerVideo,
   // playerCandidates/playCandidate, teardownPlayer) - just without ever
   // opening playerOverlay, going fullscreen, or touching history. A fixed
-  // bottom bar shows the station name plus a live colorful visualizer of
-  // the actual audio instead.
+  // bottom bar of just controls - no display/visualizer of its own, see
+  // the radio-bar markup's own comment for why.
   var radioBar = document.getElementById("radio-bar");
   // "Is some playback UI currently active" - either the TV modal or the
   // radio bar. Several places (playCandidate's async freshenLink guard,
@@ -2849,93 +2829,8 @@
   // all: playCandidate's guard was silently aborting on every single
   // radio attempt, since is-open was never true for radio to begin with.
   function isPlaybackUiActive() { return playerOverlay.classList.contains("is-open") || !radioBar.hidden; }
-  var radioVizCanvas = document.getElementById("radio-viz");
-  var radioVizCtx = radioVizCanvas.getContext("2d");
-  var radioVizRAF = null;
-  var VIZ_BAR_COUNT = 24;
-  var vizPhase = [];
-  for (var vi = 0; vi < VIZ_BAR_COUNT; vi++) vizPhase.push(Math.random() * Math.PI * 2);
 
-  // Segmented LED-style bars, real audio-reactive when possible. The
-  // actual playback element (playerVideo) is NEVER wired into Web Audio -
-  // that was tried once already and confirmed live to SILENTLY MUTE
-  // playback on several stations (גלגלצ, 90FM, 91FM): browsers treat
-  // cross-origin audio routed through an AnalyserNode as "tainted" without
-  // CORS headers these small station CDNs don't send, and some zero out
-  // the actual audible output rather than just the analyser's readings.
-  // Instead, a second, completely separate, always-muted <video> loads the
-  // SAME stream purely for analysis (same "hidden background video" idea
-  // capturePreviewFrom already uses elsewhere in this file) - it can fail,
-  // hang, or get its data zeroed by a CORS restriction with zero
-  // consequence, because nothing about it is ever audible or connected to
-  // the real player. Its data feeds the bars when available; the simulated
-  // animation below is the fallback whenever it isn't (station's CDN
-  // doesn't support CORS, hasn't loaded yet, etc.) - so the bars are never
-  // just flat, but real reactivity is used whenever it's actually safe to get it.
-  var radioVizVideo = null, radioVizHls = null, radioVizDataOk = false;
-  var audioCtx = null, radioAnalyser = null;
-
-  function ensureRadioVizVideo() {
-    if (radioVizVideo) return radioVizVideo;
-    radioVizVideo = document.createElement("video");
-    radioVizVideo.muted = true;
-    radioVizVideo.playsInline = true;
-    radioVizVideo.crossOrigin = "anonymous"; // required for the analyser to be allowed to read data at all
-    radioVizVideo.style.cssText = "position:fixed;left:-9999px;top:0;width:2px;height:2px;pointer-events:none";
-    document.body.appendChild(radioVizVideo);
-    return radioVizVideo;
-  }
-
-  // A <video> element can only ever get ONE MediaElementSourceNode for its
-  // whole lifetime in a given AudioContext - radioVizVideo is a single
-  // reused element (like playerVideo), so this is created once, lazily,
-  // and kept around rather than recreated per station.
-  function ensureRadioAnalyser() {
-    if (radioAnalyser) return radioAnalyser;
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    var sourceNode = audioCtx.createMediaElementSource(ensureRadioVizVideo());
-    radioAnalyser = audioCtx.createAnalyser();
-    radioAnalyser.fftSize = 64;
-    // Deliberately NOT connected onward to audioCtx.destination - this
-    // node is for analysis only. Reading its data doesn't require an
-    // audible output, and connecting one would risk this silent analysis
-    // video becoming audible (however faintly) alongside the real player.
-    sourceNode.connect(radioAnalyser);
-    return radioAnalyser;
-  }
-
-  function startRadioAudioAnalysis(candidate) {
-    radioVizDataOk = false;
-    if (!candidate || !candidate.link) return;
-    try {
-      ensureRadioAnalyser();
-      if (audioCtx.state === "suspended") audioCtx.resume();
-    } catch (e) { return; } // Web Audio unavailable - simulated animation covers it
-    if (radioVizHls) { try { radioVizHls.destroy(); } catch (e) {} radioVizHls = null; }
-    freshenLink(candidate).then(function (link) {
-      radioVizHls = attachStream(radioVizVideo, link, {
-        onReady: function () { radioVizDataOk = true; },
-        onFatal: function () { radioVizDataOk = false; },
-        settleMuted: true, settleVolume: 0,
-        hlsConfig: { maxBufferLength: 2, startLevel: 0, capLevelToPlayerSize: false },
-      }) || null;
-    });
-  }
-
-  function stopRadioAudioAnalysis() {
-    radioVizDataOk = false;
-    if (radioVizHls) { try { radioVizHls.destroy(); } catch (e) {} radioVizHls = null; }
-    if (radioVizVideo) { radioVizVideo.removeAttribute("src"); radioVizVideo.load(); }
-  }
-
-  // Whether playerVideo is ACTUALLY producing audio right now, vs. still
-  // connecting/buffering (or paused/stopped) - drives the idle animation
-  // below. Harmless to also listen for this on the TV modal's use of the
-  // same element; the flag is simply unused there.
-  var radioIsPlaying = false;
-  playerVideo.addEventListener("playing", function () { radioIsPlaying = true; stopConnectingBar(true); });
-  playerVideo.addEventListener("waiting", function () { radioIsPlaying = false; });
-  playerVideo.addEventListener("pause", function () { radioIsPlaying = false; });
+  playerVideo.addEventListener("playing", function () { stopConnectingBar(true); });
 
   // Underline under the connecting station's card (see .row-connecting-bar)
   // that grows for as long as the connection is actually taking - not a
@@ -2972,101 +2867,6 @@
     } else {
       setConnectingBarWidth(0);
     }
-  }
-
-  // Waveform/oscilloscope is the default while actually playing - click
-  // the display to toggle to the segmented bar spectrum instead, same idea
-  // as classic media players that let you click through visualization modes.
-  var radioVizMode = "wave";
-  document.querySelector(".winamp-display").addEventListener("click", function () {
-    radioVizMode = radioVizMode === "bars" ? "wave" : "bars";
-  });
-
-  // The station name sits on top of this canvas (see .radio-bar-name),
-  // pinned to the top of the display - every drawing mode below is
-  // confined to the bottom VIZ_ZONE_FRAC of the canvas so nothing ever
-  // draws behind/through the text.
-  var VIZ_ZONE_FRAC = 0.62;
-
-  function drawVizBars(t) {
-    var w = radioVizCanvas.width, h = radioVizCanvas.height;
-    var zoneH = h * VIZ_ZONE_FRAC, zoneBottom = h;
-    var levels = [];
-    if (radioVizDataOk && radioAnalyser) {
-      var data = new Uint8Array(radioAnalyser.frequencyBinCount);
-      radioAnalyser.getByteFrequencyData(data);
-      var bucket = data.length / VIZ_BAR_COUNT;
-      for (var i = 0; i < VIZ_BAR_COUNT; i++) levels.push(data[Math.floor(i * bucket)] / 255);
-    } else {
-      for (var j = 0; j < VIZ_BAR_COUNT; j++) levels.push(0.3 + 0.7 * Math.abs(Math.sin(t * (1.6 + (j % 5) * 0.35) + vizPhase[j])));
-    }
-    var barW = w / VIZ_BAR_COUNT;
-    var segH = 4, segGap = 2;
-    var segTotal = Math.floor(zoneH / (segH + segGap));
-    for (var k = 0; k < VIZ_BAR_COUNT; k++) {
-      var litSegs = Math.round(levels[k] * segTotal);
-      for (var s = 0; s < litSegs; s++) {
-        var frac = s / segTotal;
-        radioVizCtx.fillStyle = frac > 0.75 ? "#ff4d4d" : frac > 0.5 ? "#ffd24d" : "#5dff5d";
-        radioVizCtx.fillRect(k * barW + 1, zoneBottom - (s + 1) * (segH + segGap), barW - 2, segH);
-      }
-    }
-  }
-
-  function drawVizWave(t) {
-    var w = radioVizCanvas.width, h = radioVizCanvas.height;
-    var zoneTop = h * (1 - VIZ_ZONE_FRAC), zoneH = h - zoneTop, mid = zoneTop + zoneH / 2;
-    radioVizCtx.strokeStyle = "#5dff5d";
-    radioVizCtx.lineWidth = 2;
-    radioVizCtx.beginPath();
-    if (radioVizDataOk && radioAnalyser) {
-      var data = new Uint8Array(radioAnalyser.fftSize);
-      radioAnalyser.getByteTimeDomainData(data);
-      var step = w / data.length;
-      for (var i = 0; i < data.length; i++) {
-        var y = zoneTop + (data[i] / 255) * zoneH;
-        if (i === 0) radioVizCtx.moveTo(i * step, y); else radioVizCtx.lineTo(i * step, y);
-      }
-    } else {
-      var points = 48;
-      for (var j = 0; j <= points; j++) {
-        var x = (j / points) * w;
-        var y = mid + Math.sin(j * 0.5 + t * 3) * (zoneH * 0.42) * Math.sin(t * 1.1 + j * 0.05);
-        if (j === 0) radioVizCtx.moveTo(x, y); else radioVizCtx.lineTo(x, y);
-      }
-    }
-    radioVizCtx.stroke();
-  }
-
-  function drawRadioVisualizer(ts) {
-    radioVizRAF = requestAnimationFrame(drawRadioVisualizer);
-    var w = radioVizCanvas.width, h = radioVizCanvas.height;
-    radioVizCtx.clearRect(0, 0, w, h);
-    var t = (ts || 0) / 1000;
-
-    if (!radioIsPlaying) {
-      // Nothing actually playing yet (still connecting/buffering, or
-      // paused/stopped) - a single block bouncing left-right instead of
-      // pretending there's already a live signal to show. Kept in the same
-      // bottom zone as the real visualizer, clear of the station name.
-      var zoneTop = h * (1 - VIZ_ZONE_FRAC), zoneH = h - zoneTop;
-      var blockW = w * 0.12;
-      var frac = Math.abs(Math.sin(t * 1.2));
-      radioVizCtx.fillStyle = "#5dff5d";
-      radioVizCtx.fillRect(frac * (w - blockW), zoneTop + zoneH * 0.3, blockW, zoneH * 0.4);
-      return;
-    }
-
-    if (radioVizMode === "wave") drawVizWave(t); else drawVizBars(t);
-  }
-
-  function startRadioVisualizer() {
-    if (!radioVizRAF) drawRadioVisualizer(0);
-  }
-
-  function stopRadioVisualizer() {
-    if (radioVizRAF) { cancelAnimationFrame(radioVizRAF); radioVizRAF = null; }
-    radioVizCtx.clearRect(0, 0, radioVizCanvas.width, radioVizCanvas.height);
   }
 
   // Draggable via the small grip strip at the top, like a real floating
@@ -3153,34 +2953,23 @@
   function openRadioBar(group) {
     if (playerOverlay.classList.contains("is-open")) closePlayer(); // only one playback UI active at a time
     cancelHoverPreview();
-    radioIsPlaying = false; // don't carry the previous station's "actually playing" state into this one
     playingKey = group.key;
     updateNowPlayingFrame();
     playingPage = state.page;
     playingName = group.name;
     updateMediaSessionMetadata(group);
     trackSelectChannel(group);
-    document.getElementById("radio-bar-name").textContent = group.name;
-    // Same darkened, scheme-aware color as the card's own now-playing
-    // frame (see familyFrameColor) - was a fixed per-module color before,
-    // unrelated to whatever color family is actually selected.
-    var visibleForColor = groups().filter(matches);
-    var colorIdx = visibleForColor.findIndex(function (g) { return g.key === group.key; });
-    var colorT = visibleForColor.length > 1 ? colorIdx / (visibleForColor.length - 1) : 0;
-    radioBar.style.setProperty("--now-playing-color", familyFrameColor(group, colorT));
     playerCandidates = playerCandidatesFor(group);
     playerAttempt = 0;
     radioBar.hidden = false;
     if (!radioBarPositioned) { positionRadioBarDefault(); radioBarPositioned = true; }
     document.body.classList.add("has-radio-bar");
     document.getElementById("radio-bar-volume").value = Math.round(playerVideo.volume * 100);
-    document.getElementById("radio-bar-balance").value = 0; // visual only - see its slider's own comment
     // playerVideo is the SAME <video> element the TV modal uses - don't
     // carry its mute state into radio. Muting the TV shouldn't silently
     // mute the next station you open here too.
     playerVideo.muted = false;
     syncRadioMuteButton();
-    startRadioVisualizer();
     if (!playerCandidates.length) {
       setPlayerStatus("אין מקור זמין לערוץ הזה כרגע.");
       // See the matching comment in openPlayer - playCandidate() never runs
@@ -3195,7 +2984,6 @@
       });
       return;
     }
-    startRadioAudioAnalysis(playerCandidates[0]);
     startConnectingBar();
     playCandidate();
   }
@@ -3204,11 +2992,8 @@
     stopConnectingBar();
     playingKey = null;
     updateNowPlayingFrame();
-    radioIsPlaying = false;
     radioBar.hidden = true;
     document.body.classList.remove("has-radio-bar");
-    stopRadioVisualizer();
-    stopRadioAudioAnalysis();
     teardownPlayer();
     if ("mediaSession" in navigator) {
       navigator.mediaSession.metadata = null;
@@ -3260,12 +3045,6 @@
     if (playerVideo.volume > 0) playerVideo.muted = false;
     syncRadioMuteButton();
   });
-  // The balance slider is visual-only, deliberately not wired to real
-  // stereo panning - that would need routing playerVideo through Web
-  // Audio too (a StereoPannerNode), the exact thing already confirmed to
-  // silently mute several stations when tried for the visualizer (see its
-  // own comment) - not worth that risk for a balance control nobody's
-  // likely to touch on a radio stream anyway.
 
   // Three ↑/↓ surfing modes, cheapest/most-curated first:
   //  plain      - a short curated "favorites" order (the channels most
@@ -3852,7 +3631,18 @@
           longPressed = true;
           ui[page].savedOnly = !ui[page].savedOnly;
           lsSet(LS_UI, ui);
-          if (state.page === page) { renderPageTabs(); renderList(); }
+          if (state.page === page) {
+            renderPageTabs();
+            renderList();
+            // Forces the color-family gradient to recompute against the
+            // NOW-filtered (favorites-only, or back to everyone) list -
+            // cards were reported keeping their full-list color/position
+            // instead of a fresh sweep across just the smaller set.
+            // requestAnimationFrame, not immediate: gives layout a beat to
+            // settle first, in case that's what the immediate redraw
+            // inside renderList's own render was racing against.
+            requestAnimationFrame(redrawAllPlaceholders);
+          }
           if (navigator.vibrate) navigator.vibrate(15);
         }, LONG_PRESS_MS);
       }, { passive: true });
@@ -3986,6 +3776,7 @@
   var RADIO_LIST_MAX_EXTRA_CYCLES = 20; // a generous but real ceiling on DOM growth
   function appendRadioCycle() {
     if (state.page !== "radio") return;
+    if (ui.radio.savedOnly) return; // no continuous-scroll growth in the favorites-only view - leave it a plain, finite list
     if (radioListExtraCycles >= RADIO_LIST_MAX_EXTRA_CYCLES) return;
     var visible = groups().filter(matches);
     if (!visible.length) return;
