@@ -699,6 +699,16 @@
   .panel-foot .export-m3u { background: var(--surface); color: var(--text); }
   .panel-foot button:disabled { opacity: .45; cursor: not-allowed; }
 
+  /* .panel-body's own default styling targets the saved-channels LIST
+     (.panel-item rows) - this is prose instead, so it gets its own
+     typography rather than fighting that. */
+  .help-body { padding: 4px 18px 18px; }
+  .help-body section + section { margin-top: 18px; }
+  .help-body h3 { font-size: 13.5px; color: var(--accent); margin: 0 0 6px; }
+  .help-body ul { margin: 0; padding-inline-start: 20px; }
+  .help-body li { font-size: 13px; color: var(--text); line-height: 1.6; }
+  .help-panel { max-height: 82vh; }
+
   .playbtn {
     background: none; border: none; cursor: pointer; color: var(--text-dim); font-size: 15px;
     line-height: 1; padding: 4px; flex: none; border-radius: 50%; display: grid; place-content: center;
@@ -932,6 +942,9 @@
         <span>★ שמורים</span>
         <span class="count mono" id="saved-count">0</span>
       </button>
+      <button class="savedbtn" id="open-help" type="button">
+        <span>❓ עזרה</span>
+      </button>
       <!-- Last item, not floating top-right of the header anymore (see its
            own CSS) - on mobile, .controls is exactly what the hamburger
            menu (#header-menu-btn) reveals, so this lands at the end of
@@ -1005,6 +1018,51 @@
       <div class="panel-foot">
         <button class="export-json" id="export-json" disabled>⬇ ייצוא JSON</button>
         <button class="export-m3u" id="export-m3u" disabled>⬇ ייצוא M3U</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Shown automatically once on first visit (see wireHelpOverlay -
+       localStorage-gated the same way as the older onboarding-banner
+       above, which only ever covered "tap to open, swipe to switch" -
+       this is the fuller version) and any time after via the hamburger
+       menu's own "❓ עזרה" button. -->
+  <div class="overlay" id="help-overlay">
+    <div class="panel help-panel" role="dialog" aria-modal="true" aria-label="עזרה">
+      <div class="panel-head">
+        <h2>עזרה</h2>
+        <button id="close-help" aria-label="סגור">✕</button>
+      </div>
+      <div class="panel-body help-body">
+        <section>
+          <h3>כללי</h3>
+          <ul>
+            <li>התפריט (☰) פותח חיפוש, סינון, ערוצים שמורים ועזרה.</li>
+            <li>לחיצה ארוכה על כרטיס ערוץ/תחנה מוסיפה או מסירה אותו מהשמורים - כמו לחיצה על ★.</li>
+          </ul>
+        </section>
+        <section>
+          <h3>טלוויזיה</h3>
+          <ul>
+            <li>לחיצה על שידור נכנסת אליו, יציאה יוצאת.</li>
+            <li>בזמן צפייה: החלקה שמאלה/ימינה (או מקשי החצים) עוברת לערוץ הבא/הקודם.</li>
+            <li>לחיצה על מסך הווידאו עוברת למסך מלא.</li>
+          </ul>
+        </section>
+        <section>
+          <h3>רדיו</h3>
+          <ul>
+            <li>לחיצה על תחנה מתחילה נגינה - הנגן הצף נשאר בתחתית המסך תוך כדי גלישה.</li>
+            <li>הפס העליון בנגן הצף הוא בקרת עוצמה - גרירה או הקשה עליו קובעת את העוצמה.</li>
+            <li>⏮/⏭ בנגן עוברים לתחנה הקודמת/הבאה.</li>
+          </ul>
+        </section>
+        <section>
+          <h3>מקשי מקלדת (במחשב, בזמן צפייה/האזנה)</h3>
+          <ul>
+            <li>חצים - מעבר בין ערוצים · M - השתקה · P - השהיה · Enter - מסך מלא</li>
+          </ul>
+        </section>
       </div>
     </div>
   </div>
@@ -1420,6 +1478,7 @@
   var LS_MANUAL_SOURCE = "idanplus.manualSource.v1";
   var LS_PREVIEW_MUTED = "idanplus.previewMuted.v1";
   var LS_ONBOARDING_SEEN = "idanplus.onboardingSeen.v1";
+  var LS_HELP_SEEN = "idanplus.helpSeen.v1";
   var LS_FIREFOX_NOTICE_SEEN = "idanplus.firefoxNoticeSeen.v1";
   var LS_LEGAL_NOTICE_SEEN = "idanplus.legalNoticeSeen.v1";
 
@@ -3718,6 +3777,29 @@
   overlay.addEventListener("click", function (e) { if (e.target === overlay) closePanel(); });
   document.addEventListener("keydown", function (e) { if (e.key === "Escape") closePanel(); });
   function closePanel() { overlay.classList.remove("is-open"); }
+
+  // ---------- help panel ----------
+  // Same overlay/panel open-close pattern as the saved panel above, just a
+  // second independent instance - opened either from the hamburger menu's
+  // own "❓ עזרה" button, or automatically once on a visitor's first ever
+  // visit (see wireHelpOverlay's own first-run check further down).
+  (function wireHelpPanel() {
+    var helpOverlay = document.getElementById("help-overlay");
+    function openHelp() { helpOverlay.classList.add("is-open"); }
+    function closeHelp() { helpOverlay.classList.remove("is-open"); }
+    document.getElementById("open-help").addEventListener("click", openHelp);
+    document.getElementById("close-help").addEventListener("click", closeHelp);
+    helpOverlay.addEventListener("click", function (e) { if (e.target === helpOverlay) closeHelp(); });
+    document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeHelp(); });
+    // First-run only, regardless of device (unlike the older onboarding-
+    // banner above, which is mobile-only and covers just the touch
+    // gestures) - this covers TV, radio, and keyboard shortcuts alike, so
+    // it's worth showing to a first-time desktop visitor too.
+    if (!lsGet(LS_HELP_SEEN, false)) {
+      openHelp();
+      lsSet(LS_HELP_SEEN, true);
+    }
+  })();
 
   function savedEntries() {
     var out = [];
