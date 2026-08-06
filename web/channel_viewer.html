@@ -227,8 +227,8 @@
      applies - falls back to --accent itself for "original" (no single
      family color) via the var()'s own second argument. */
   .pagetab[data-page="radio"][aria-selected="true"] {
-    background: var(--pagetab-theme-accent, var(--accent));
-    border-color: var(--pagetab-theme-accent, var(--accent));
+    background: var(--theme-accent, var(--accent));
+    border-color: var(--theme-accent, var(--accent));
   }
   /* Small star badge - this tab's favorites-only view is on (see
      wirePagetabFavsLongPress), independent of aria-selected so it's
@@ -257,7 +257,11 @@
   .preview-mute-btn[aria-pressed="true"] { color: var(--accent); }
   .share-btn-big {
     margin-inline-start: auto; align-self: center; white-space: nowrap;
-    border: 1px solid var(--accent); background: var(--accent-soft); color: var(--accent);
+    /* Follows the current radio color family too (see
+       applyThemeAccentToChrome) - falls back to the generic --accent for
+       "original" (no single family color) via the var()'s own second
+       argument. */
+    border: 1px solid var(--theme-accent, var(--accent)); background: var(--accent-soft); color: var(--theme-accent, var(--accent));
     font-size: 13px; font-weight: 700; line-height: 1; border-radius: 8px;
     cursor: pointer; padding: 8px 14px;
     display: inline-flex; align-items: center; gap: 6px;
@@ -266,7 +270,7 @@
      accent, or white on hover/active via .share-btn-big:hover above)
      rather than a fixed color, so it stays in sync automatically. */
   .share-icon { flex: none; }
-  .share-btn-big:hover { background: var(--accent); color: #fff; }
+  .share-btn-big:hover { background: var(--theme-accent, var(--accent)); color: #fff; }
   /* Mobile-radio-only color-family picker (see #radio-color-family) - hidden
      on desktop unconditionally (min-width query below) even while shown on
      the radio page; the JS toggle in renderPageTabs handles the TV-page and
@@ -331,11 +335,19 @@
      station is actually playing (see body.has-radio-bar below), since
      scrolling deliberately does NOT stop playback here (that was tried
      and reverted - browsing and listening are meant to coexist). */
+  /* Classic round stop-button look (solid circle, white square glyph)
+     rather than the previous bordered square chip. Themed the same way as
+     the share button/radio tab/volume bar (see applyThemeAccentToChrome) -
+     falls back to --danger (its original red) for "original", where
+     there's no single family color to use. */
   .radio-stop-btn {
-    display: none; align-self: center; border: 1px solid var(--border); background: var(--surface);
-    color: var(--danger); border-radius: 8px; cursor: pointer;
+    display: none; align-self: center; border: none;
+    background: var(--theme-accent, var(--danger));
+    color: #fff; border-radius: 50%; cursor: pointer;
     width: 30px; height: 30px; align-items: center; justify-content: center; padding: 0;
+    box-shadow: 0 1px 3px rgba(0,0,0,.35);
   }
+  .radio-stop-btn:hover { filter: brightness(1.12); }
   body.has-radio-bar .radio-stop-btn { display: inline-flex; }
   @media (min-width: 641px) {
     .radio-stop-btn { display: none !important; }
@@ -694,16 +706,23 @@
   .playbtn:hover { background: var(--accent-soft); color: var(--accent); }
 
   /* Retro-styled player bar - a compact panel (about 2 grid cards wide),
-     not a full-width strip. Positioned via left/top (JS-controlled, see
-     wireRadioBarDrag) rather than pinned to the bottom, so it can be
-     dragged around like a real floating player window. */
+     not a full-width strip. Bottom-anchored via plain CSS (not a
+     JS-computed pixel top) until actually dragged - a fixed px top
+     computed once from window.innerHeight goes stale the moment a mobile
+     browser's address bar hides/shows during scrolling (a real, frequent
+     resize of the visual viewport), which read as "the player moves while
+     scrolling". CSS bottom-anchoring tracks that resize natively with no
+     jump. Once dragged (see wireRadioBarDrag/.is-dragged), position
+     switches to JS-controlled left/top so the drag actually sticks. */
   .radio-bar {
     position: fixed; z-index: 45; width: min(460px, calc(100% - 24px));
+    left: 50%; bottom: 16px; transform: translateX(-50%);
     display: flex; flex-direction: column; gap: 6px; padding: 8px;
     background: linear-gradient(180deg, #4a4d53 0%, #34363a 45%, #202124 100%);
     border: 2px solid #6b6e75; border-radius: 6px;
     box-shadow: 0 4px 14px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.12);
   }
+  .radio-bar.is-dragged { left: 0; bottom: auto; transform: none; }
   .radio-bar[hidden] { display: none; }
   /* Doubled from 10px (now nearly tripled) and repurposed as the volume
      control itself (see wireRadioBarVolume) instead of just a drag handle -
@@ -711,7 +730,7 @@
      rather than needing a separate slider underneath. */
   .radio-bar-grip {
     position: relative; overflow: hidden;
-    height: 28px; margin: -4px -4px 0; border-radius: 4px 4px 0 0; cursor: pointer;
+    height: 35px; margin: -4px -4px 0; border-radius: 4px 4px 0 0; cursor: pointer;
     background: repeating-linear-gradient(90deg, #7a7d84 0 2px, transparent 2px 6px), #101410;
     box-shadow: inset 0 1px 2px rgba(0,0,0,.8);
   }
@@ -1229,29 +1248,29 @@
 
   // A single representative color for the current radio color family (the
   // sweep's midpoint, t=0.5) - used to tint chrome that isn't itself a
-  // station card (the volume bar, the radio pagetab), which has no
-  // specific station to pull a color from the way familyAccentColor's
-  // other callers do. null for "original", since that family means "each
-  // station keeps its own real color" - there's no single color to apply.
+  // station card (the volume bar, the radio pagetab, the share button),
+  // which has no specific station to pull a color from the way
+  // familyAccentColor's other callers do. null for "original", since that
+  // family means "each station keeps its own real color" - there's no
+  // single color to apply.
   function themeAccentColor() {
     var family = ui.radio.colorFamily || "blue";
     if (family === "original") return null;
     return familyAccentColor({ module: "" }, family, 0.5);
   }
-  // Keeps the volume bar fill and the radio pagetab's selected-color in
-  // sync with the current color family - called from renderPageTabs (so
-  // every render/page-switch stays current) and from the swatch grid's own
-  // click handler (an immediate repaint on pick, not waiting for the next
-  // unrelated render).
+  // Keeps the volume bar fill, the radio pagetab's selected-color, and the
+  // share button in sync with the current color family - called from
+  // renderPageTabs (so every render/page-switch stays current) and from
+  // the swatch grid's own click handler (an immediate repaint on pick, not
+  // waiting for the next unrelated render). --theme-accent lives on
+  // documentElement (not just the radio tab) since the share button is a
+  // sibling of the pagetabs, not a descendant of any one of them.
   function applyThemeAccentToChrome() {
     var color = themeAccentColor();
     var fill = document.getElementById("radio-bar-grip-fill");
     if (fill) fill.style.background = color ? "linear-gradient(180deg, " + shadeColor(color, 20) + ", " + shadeColor(color, -20) + ")" : "";
-    var radioTab = document.querySelector('.pagetab[data-page="radio"]');
-    if (radioTab) {
-      if (color) radioTab.style.setProperty("--pagetab-theme-accent", color);
-      else radioTab.style.removeProperty("--pagetab-theme-accent");
-    }
+    if (color) document.documentElement.style.setProperty("--theme-accent", color);
+    else document.documentElement.style.removeProperty("--theme-accent");
   }
 
   // Own-design "reconnecting" placeholder, in the vein of a US broadcast
@@ -2273,21 +2292,11 @@
     var thumb = row.querySelector('[data-role="thumb"]');
     if (thumb && group.status !== "broken") {
       var choose = function () { if (state.page === "radio") openRadioBar(group); else openPlayer(group); };
-      thumb.addEventListener("click", function (e) {
-        // Mobile radio only: a short tap on the right ~40% of the card
-        // (where the station name sits, see drawChannelPlaceholder)
-        // toggles favorite instead of opening it - a bigger, easier
-        // target than the small corner star button for the same action.
-        var isMobileRadio = state.page === "radio" && window.matchMedia("(max-width: 640px)").matches;
-        if (isMobileRadio) {
-          var rect = thumb.getBoundingClientRect();
-          if ((e.clientX - rect.left) / rect.width > 0.6) {
-            toggleSaved(group);
-            return;
-          }
-        }
-        choose();
-      });
+      // A short tap anywhere on the card plays it - the right-40%-toggles-
+      // favorite zone that used to live here was dropped; the star button
+      // and the long-press (see wireRadioFavLongPress) are the only ways
+      // to toggle favorite now.
+      thumb.addEventListener("click", function (e) { choose(); });
       thumb.addEventListener("keydown", function (e) {
         if (e.key === "Enter" || e.key === " ") { e.preventDefault(); choose(); }
       });
@@ -2303,9 +2312,9 @@
   }
 
   // Long-press anywhere on a radio card toggles favorite - same action as
-  // the short tap on the right ~40% (see thumb's own click handler above)
-  // or the corner star button, just a third, bigger/easier way to reach
-  // it. Same touchstart/touchmove/touchend shape as wireLongPress (TV's
+  // the corner star button, just a bigger/easier way to reach it now that a
+  // short tap always plays (see thumb's own click handler above). Same
+  // touchstart/touchmove/touchend shape as wireLongPress (TV's
   // hover-preview long-press) but simpler: no preview to start, just the
   // toggle, and no separate long-press-vs-scroll move tolerance concerns
   // beyond what wireLongPress already established.
@@ -3000,18 +3009,6 @@
     }
   }
 
-  // Draggable via the spacer in the controls row (see wireRadioBarDrag),
-  // like a real floating player window - positioned with left/top
-  // (JS-controlled) rather than pinned to the bottom, so a drag actually
-  // sticks. Defaults to centered-near-the-bottom the FIRST time it's
-  // shown; stays wherever it was left for the rest of the session after
-  // that (switching stations doesn't reset it).
-  var radioBarPositioned = false;
-  function positionRadioBarDefault() {
-    var w = radioBar.offsetWidth || 460, h = radioBar.offsetHeight || 120;
-    radioBar.style.left = Math.round((window.innerWidth - w) / 2) + "px";
-    radioBar.style.top = Math.round(window.innerHeight - h - 16) + "px";
-  }
   // The grip strip no longer drags the panel around - it IS the volume
   // control now (see .radio-bar-grip/.radio-bar-grip-fill), replacing the
   // separate winamp-slider entirely. Position along its own width sets
@@ -3054,8 +3051,15 @@
       dragging = true;
       var p = e.touches ? e.touches[0] : e;
       startX = p.clientX; startY = p.clientY;
+      // Read the CURRENT on-screen rect before switching to is-dragged -
+      // whether that's still the CSS bottom-anchored default or an
+      // earlier drag's own left/top, this is what "hasn't moved yet"
+      // means right now, so the switch itself causes no jump.
       var rect = radioBar.getBoundingClientRect();
       startLeft = rect.left; startTop = rect.top;
+      radioBar.classList.add("is-dragged");
+      radioBar.style.left = startLeft + "px";
+      radioBar.style.top = startTop + "px";
       e.preventDefault();
     }
     function onMove(e) {
@@ -3128,7 +3132,6 @@
     playerCandidates = playerCandidatesFor(group);
     playerAttempt = 0;
     radioBar.hidden = false;
-    if (!radioBarPositioned) { positionRadioBarDefault(); radioBarPositioned = true; }
     document.body.classList.add("has-radio-bar");
     syncRadioBarVolumeFill();
     applyThemeAccentToChrome();
