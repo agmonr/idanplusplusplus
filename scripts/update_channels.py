@@ -1,16 +1,20 @@
 #!/usr/bin/env python3
 """
-Refreshes TV + radio channel stream data in
-../repo/zips/plugin.video.idanplus/channels.json straight from the
-broadcasters themselves, and writes a grouped status/EPG report used by the
-channel-viewer static page.
+Refreshes TV + radio channel stream data in data/channels.json straight
+from the broadcasters themselves, and writes a grouped status/EPG report
+used by the channel-viewer static page.
 
-This tool lives in the idanplusplusplus repo but operates on the sibling
-Fishenzon/repo checkout (../../repo relative to this file) -- that's the
-actual Kodi addon distribution repo; this repo is just the tooling around it.
+data/channels.json started as a one-time copy of the real Kodi addon
+distribution's channels.json (Fishenzon/repo, zips/plugin.video.idanplus/
+channels.json) but is now this repo's own independent copy - updates here
+no longer read from or write back to that repo, so link-refresh fixes made
+here only benefit the web viewer, not the actual Kodi addon anymore. That
+was a deliberate decoupling: this tool used to require a sibling checkout
+of Fishenzon/repo to exist on whatever host it ran on, which broke on any
+machine without one.
 
 Usage:
-    python3 update_channels.py [--dry-run] [--repo-root PATH]
+    python3 update_channels.py [--dry-run] [--channels-path PATH]
 
 For channels whose module already knows how to re-derive the current stream
 from the station's own site/API (14tv, sport5, hidabroot, glz, 100fm,
@@ -381,30 +385,22 @@ def group_channels(entries):
 # ---------------------------------------------------------------------------
 
 def main():
-    # FISHENZON_REPO_ROOT env var lets a host override this without editing
-    # the script - the "sibling directory" default only holds if this repo
-    # and Fishenzon/repo happen to be checked out next to each other, which
-    # isn't guaranteed on every machine this runs on.
-    default_repo_root = os.environ.get("FISHENZON_REPO_ROOT", "../../repo")
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    default_channels_path = os.path.join(script_dir, "..", "data", "channels.json")
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--repo-root", default=default_repo_root,
-                         help="Path to the Fishenzon/repo checkout (default: $FISHENZON_REPO_ROOT or ../../repo, i.e. a sibling of this repo)")
+    parser.add_argument("--channels-path", default=default_channels_path,
+                         help="Path to channels.json (default: data/channels.json in this repo)")
     parser.add_argument("--dry-run", action="store_true", help="Don't write channels.json, just report")
     parser.add_argument("--report-out", default=None, help="Where to write the combined grouped status/EPG JSON for the viewer page")
     args = parser.parse_args()
 
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    repo_root = os.path.abspath(os.path.join(script_dir, args.repo_root))
-    channels_path = os.path.join(repo_root, "zips", "plugin.video.idanplus", "channels.json")
+    channels_path = os.path.abspath(args.channels_path)
     report_path = args.report_out or os.path.join(script_dir, "..", "data", "channels_status.json")
 
     if not os.path.isfile(channels_path):
         raise SystemExit(
-            "Fishenzon/repo checkout not found at {0}\n"
-            "(resolved from --repo-root {1!r}). Clone it there, e.g.:\n"
-            "  git clone https://github.com/Fishenzon/repo.git {0}\n"
-            "or point at an existing checkout with --repo-root PATH "
-            "(or the FISHENZON_REPO_ROOT env var).".format(repo_root, args.repo_root)
+            "channels.json not found at {0} (from --channels-path {1!r}).".format(
+                channels_path, args.channels_path)
         )
 
     # newline="" preserves the file's original CRLF line endings so in-place
