@@ -129,6 +129,15 @@
     font: 16px/1.55 system-ui, "Segoe UI", "Arial Hebrew", Arial, sans-serif;
     -webkit-font-smoothing: antialiased;
   }
+  /* 2-minutes-idle screen dim (see resetDimTimer) - a dark layer over
+     everything, not an actual brightness change (no web API controls real
+     hardware brightness) - pointer-events:none so any touch/click both
+     undims (via the document-level listener) AND still reaches whatever's
+     underneath in the same gesture, instead of needing two taps. */
+  body.is-dimmed::after {
+    content: ""; position: fixed; inset: 0; background: rgba(0,0,0,.85);
+    z-index: 9999; pointer-events: none; transition: opacity 1s ease;
+  }
   .mono { font-family: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace; font-variant-numeric: tabular-nums; }
 
   .app { direction: rtl; max-width: 980px; margin: 0 auto; padding: 0 20px 120px; }
@@ -3381,7 +3390,11 @@
   // and startPlayback reads them fresh on every candidate/retry rather
   // than a stale one-time snapshot.
   var playerDesiredMuted = false;
-  var playerDesiredVolume = 1;
+  // 90%, not the browser's native 100% default - applied to playerVideo
+  // itself too (not just tracked here) since radio reads/shows the video
+  // element's own .volume directly rather than going through this var.
+  var playerDesiredVolume = 0.9;
+  playerVideo.volume = playerDesiredVolume;
   var muteToggleBtn = document.getElementById("mute-toggle");
   var muteIndicatorEl = document.getElementById("mute-indicator");
   function syncMuteButton() {
@@ -4599,7 +4612,11 @@
     }
   }
 
-  (function refreshClientEpg() {
+  // force=false (page load): respects each source's own cache TTL, same
+  // as before. force=true (the periodic refresh below): ignores the cache
+  // entirely and re-fetches every source live, since 30 minutes is itself
+  // the desired refresh cadence regardless of any individual source's TTL.
+  function refreshClientEpg(force) {
     var cache = loadEpgCache();
     var now = Date.now();
     var combined = {};
@@ -4607,7 +4624,7 @@
     Object.keys(EPG_CLIENT_SOURCES).forEach(function (source) {
       var cached = cache[source];
       var ttl = EPG_CACHE_MS_OVERRIDES[source] || EPG_CACHE_MS;
-      if (cached && now - cached.fetchedAt < ttl) {
+      if (!force && cached && now - cached.fetchedAt < ttl) {
         var picked = epgNowPlayingFromSchedule(cached.schedule);
         Object.keys(picked).forEach(function (tvgId) { combined[tvgId] = picked[tvgId]; });
       } else {
@@ -4626,7 +4643,47 @@
         // keep showing whatever was baked in at build time.
       });
     });
-  })();
+  }
+  refreshClientEpg(false);
+  // Re-pulls everything every 30 minutes for as long as the tab stays
+  // open, on top of the page-load refresh above (which alone only
+  // happens on an actual reload/revisit) - a station's schedule can move
+  // on well before a visitor ever reloads the page themselves.
+  var EPG_REFRESH_INTERVAL_MS = 30 * 60 * 1000;
+  setInterval(function () { refreshClientEpg(true); }, EPG_REFRESH_INTERVAL_MS);
+
+  // ---------- keep the screen awake, dim after 2 minutes idle ----------
+  // Screen Wake Lock API - prevents the device from locking/sleeping while
+  // this tab is open (useful driving with the radio on, or leaving a TV
+  // channel up). Wake locks are automatically released by the browser the
+  // moment a tab goes hidden/backgrounded (spec behavior, not something we
+  // control) - re-request on visibilitychange so it's held again once the
+  // tab comes back to the foreground, not just on the very first load.
+  var wakeLock = null;
+  function requestWakeLock() {
+    if (!("wakeLock" in navigator)) return;
+    navigator.wakeLock.request("screen").then(function (lock) { wakeLock = lock; }).catch(function () {});
+  }
+  requestWakeLock();
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState === "visible") requestWakeLock();
+  });
+
+  // Screen stays ON (the wake lock above is unaffected) but visually dims
+  // after 2 minutes with no interaction - a bright screen left untouched
+  // (e.g. mounted in a car) is otherwise a distraction for no reason. Any
+  // interaction at all undims immediately and restarts the countdown.
+  var DIM_AFTER_MS = 2 * 60 * 1000;
+  var dimTimer = null;
+  function resetDimTimer() {
+    document.body.classList.remove("is-dimmed");
+    clearTimeout(dimTimer);
+    dimTimer = setTimeout(function () { document.body.classList.add("is-dimmed"); }, DIM_AFTER_MS);
+  }
+  ["mousemove", "mousedown", "touchstart", "keydown", "wheel", "scroll"].forEach(function (evt) {
+    document.addEventListener(evt, resetDimTimer, { passive: true });
+  });
+  resetDimTimer();
 
   fullRender();
   gtag('event', 'page_tab_select', { page_type: state.page });
