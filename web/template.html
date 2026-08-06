@@ -4288,9 +4288,14 @@
   //
   // Cached in localStorage for 24h per source so a returning visitor
   // doesn't re-fetch every single page view - once a day is already more
-  // than the schedule data itself changes.
+  // than a real day-schedule source (kan/mako/13tv) changes. eco99fm is
+  // different - it's a single "what's playing RIGHT NOW" snapshot (the
+  // song changes every few minutes), so a whole day's cache would show a
+  // long-stale song for most of that time instead of nothing; it gets its
+  // own much shorter override here.
   var EPG_CACHE_KEY = "idanplus.epg.cache.v1";
   var EPG_CACHE_MS = 24 * 60 * 60 * 1000;
+  var EPG_CACHE_MS_OVERRIDES = { eco99fm: 3 * 60 * 1000 };
 
   function epgNowPlayingFromSchedule(schedule) {
     var now = Date.now() / 1000;
@@ -4429,10 +4434,38 @@
     });
   }
 
+  // -- eco99fm --
+  // Its own "now playing" widget reads one Firestore document directly
+  // (found by searching their app bundle for the collection().doc() call) -
+  // not a schedule, just whatever's airing right now, so it's wrapped in a
+  // start=0/end=Infinity window to flow through epgNowPlayingFromSchedule
+  // the same as every other source. Public Firestore REST read, no auth -
+  // the same document eco99fm.maariv.co.il's own player reads, confirmed
+  // CORS-open (resp.type "cors") from this page's own origin.
+  var ECO99FM_DOC_URL = "https://firestore.googleapis.com/v1/projects/eco-99-production/databases/(default)/documents/streamed_content/program";
+  function fetchEco99fmSchedule() {
+    return fetch(ECO99FM_DOC_URL).then(function (r) { return r.json(); }).then(function (data) {
+      var fields = (data && data.fields) || {};
+      function field(name) { return (fields[name] && fields[name].stringValue) || ""; }
+      var song = field("song_name"), artist = field("artist_name"), program = field("program_name");
+      // Song-level, not just the show block (which stays the same for
+      // hours) - more specific to what's actually airing on a music
+      // station right this second.
+      var name = (song && artist) ? (song + " - " + artist) : (song || program);
+      if (!name) throw new Error("eco99fm: empty song/program fields");
+      // A real, large-but-finite epoch, not Infinity - Infinity doesn't
+      // survive JSON.stringify (silently becomes null in the localStorage
+      // cache, which would then read back as "0 minutes long" and never
+      // match epgNowPlayingFromSchedule's start<=now<end check again).
+      return { "99fm": [{ name: name, start: 0, end: 9999999999 }] };
+    });
+  }
+
   var EPG_CLIENT_SOURCES = {
     mako: fetchMakoSchedule,
     kan: fetchKanSchedule,
     "13tv": fetch13tvSchedule,
+    eco99fm: fetchEco99fmSchedule,
   };
 
   // Patches now_playing directly onto the SAME group objects groups()/
@@ -4464,7 +4497,8 @@
     var toFetch = [];
     Object.keys(EPG_CLIENT_SOURCES).forEach(function (source) {
       var cached = cache[source];
-      if (cached && now - cached.fetchedAt < EPG_CACHE_MS) {
+      var ttl = EPG_CACHE_MS_OVERRIDES[source] || EPG_CACHE_MS;
+      if (cached && now - cached.fetchedAt < ttl) {
         var picked = epgNowPlayingFromSchedule(cached.schedule);
         Object.keys(picked).forEach(function (tvgId) { combined[tvgId] = picked[tvgId]; });
       } else {

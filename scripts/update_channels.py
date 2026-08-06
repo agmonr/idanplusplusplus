@@ -431,9 +431,42 @@ def epg_kan():
     return schedule
 
 
+
+# eco99fm's own "now playing" widget reads a single Firestore document
+# (found by searching their app bundle for the collection().doc() call) -
+# not a schedule, just whatever's airing on the ONE station right now, so
+# it's wrapped in a start=0/end=infinity window to flow through
+# _now_playing_from_schedule the same as every other source rather than
+# needing its own special-cased merge path. Public Firestore REST read
+# (no auth) - same document eco99fm.maariv.co.il's own player reads.
+ECO99FM_DOC_URL = "https://firestore.googleapis.com/v1/projects/eco-99-production/databases/(default)/documents/streamed_content/program"
+
+
+def epg_eco99fm():
+    resp = session.get(ECO99FM_DOC_URL, timeout=TIMEOUT)
+    resp.raise_for_status()
+    fields = resp.json().get("fields") or {}
+    def field(name):
+        return (fields.get(name) or {}).get("stringValue") or ""
+    song, artist, program = field("song_name"), field("artist_name"), field("program_name")
+    # Song-level, not just the show block (which stays the same "מוזיקה
+    # מעולה כל היום" for hours) - more specific to what's actually airing
+    # right this second on a music station.
+    name = (song + " - " + artist) if song and artist else (song or program)
+    if not name:
+        raise ValueError("eco99fm: empty song/program fields")
+    # A real, large-but-finite epoch, not float("inf") - matches the
+    # client-side version's own reasoning (see fetchEco99fmSchedule):
+    # keeps this consistent even though this particular value never
+    # actually gets JSON-serialized on the Python side (only "name" is
+    # persisted into the report, see main()'s entries_by_type loop).
+    return {"99fm": [{"name": name, "start": 0, "end": 9999999999}]}
+
+
 EPG_RESOLVERS = {
     "mako": epg_mako,
     "kan": epg_kan,
+    "eco99fm": epg_eco99fm,
 }
 
 
