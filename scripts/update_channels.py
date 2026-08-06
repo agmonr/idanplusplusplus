@@ -294,7 +294,13 @@ def resolve_channel(channel_id, channel):
 
 def fetch_now_playing():
     """Returns {tvgID: {"name":..., "start":..., "end":...}} for the program
-    airing right now, mirroring resources/lib/epg.py's GetNowEPG()."""
+    airing right now, mirroring resources/lib/epg.py's GetNowEPG().
+
+    Returns None (not {}) on failure - distinguishable from "fetched fine,
+    nothing currently airing anywhere" - so main() can fall back to the
+    previous report's now_playing values instead of blanking every
+    channel's program name to null over what's usually a transient network
+    hiccup, not a real "nothing is playing right now" state."""
     try:
         resp = session.get(EPG_URL, timeout=30)
         resp.raise_for_status()
@@ -303,7 +309,7 @@ def fetch_now_playing():
             epg = json.loads(zf.read(name).decode("utf-8"))
     except Exception as ex:  # noqa: BLE001
         log("Failed to fetch EPG: {0}".format(ex))
-        return {}
+        return None
     now = int(time.time())
     now_playing = {}
     for tvg_id, programs in epg.items():
@@ -311,6 +317,29 @@ def fetch_now_playing():
             if program["start"] <= now < program["end"]:
                 now_playing[tvg_id] = program
                 break
+    return now_playing
+
+
+def load_previous_now_playing(report_path):
+    """Best-effort fallback for fetch_now_playing() returning None: pulls
+    whatever now_playing values were embedded in the LAST successful
+    report, keyed back by tvgID, so a transient EPG outage freezes each
+    channel's displayed program at its last known value instead of
+    blanking all of them - see fetch_now_playing's own comment."""
+    try:
+        with io.open(report_path, "r", encoding="utf-8") as f:
+            previous = json.load(f)
+    except Exception:  # noqa: BLE001 - no previous report yet, or unreadable; nothing to fall back to
+        return {}
+    now_playing = {}
+    for group in previous.get("tv", []) + previous.get("radio", []):
+        variants = [group.get("primary"), group.get("accessibility")] + group.get("backups", [])
+        for variant in variants:
+            if not variant:
+                continue
+            tvg_id, name = variant.get("tvgID"), variant.get("now_playing")
+            if tvg_id and name:
+                now_playing[tvg_id] = {"name": name}
     return now_playing
 
 
@@ -413,7 +442,11 @@ def main():
     log("Found {0} TV+radio channels to check.".format(len(watchable_ids)))
 
     now_playing = fetch_now_playing()
-    log("EPG: got 'now playing' data for {0} tvgIDs.".format(len(now_playing)))
+    if now_playing is None:
+        now_playing = load_previous_now_playing(report_path)
+        log("EPG fetch failed - falling back to {0} previously known 'now playing' value(s) instead of blanking them.".format(len(now_playing)))
+    else:
+        log("EPG: got 'now playing' data for {0} tvgIDs.".format(len(now_playing)))
 
     results = {}
     text_substitutions = []  # (block_start, block_end, new_block)
