@@ -37,12 +37,23 @@ jobs:
       # og:image meta tag in template.html - those crawlers fetch it as a
       # real HTTP request, so it has to be deployed as an actual file here,
       # not embedded in the HTML like the favicon is.
+      #
+      # The site used to be (wrongly) assumed to live under /web/ - og:url/
+      # og:image pointed there and 404'd until that got fixed. Anyone with
+      # an old /web/channel_viewer.html link/bookmark/share still lands on
+      # a real page instead: legacy_redirect.html there (client-side
+      # redirect to ../channel_viewer.html), and og-image.png duplicated
+      # as a real file since an image request can't follow an HTML
+      # redirect the way a browser navigation can.
       - name: Prepare Pages site
         run: |
-          mkdir -p _site
+          mkdir -p _site/web
           cp web/channel_viewer.html _site/index.html
           cp web/channel_viewer.html _site/channel_viewer.html
           cp web/og-image.png _site/og-image.png
+          cp web/legacy_redirect.html _site/web/channel_viewer.html
+          cp web/legacy_redirect.html _site/web/index.html
+          cp web/og-image.png _site/web/og-image.png
 
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
