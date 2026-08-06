@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-06T16:40:25",
+  "generatedAt": "2026-08-06T16:51:02",
   "radio": [
     {
       "accessibility": null,
@@ -137,7 +137,7 @@
         "kind": "primary",
         "module": "99fm",
         "name": "ECO 99FM",
-        "now_playing": "Gold (Non Stop Edit) - Spandau Ballet",
+        "now_playing": "מוזיקה מעולה כל היום",
         "refresh": null,
         "resolved_link": "http://eco-live.mediacast.co.il/99fm_aac",
         "status": "ok",
@@ -353,7 +353,7 @@
         "kind": "primary",
         "module": "glz",
         "name": "גלי צה\"ל",
-        "now_playing": "ארבע אחרי הצהריים",
+        "now_playing": "תרבות היום",
         "refresh": null,
         "resolved_link": "http://glzwizzlv.bynetcdn.com/glz_mp3?awCollectionId=misc&awEpisodeId=glz",
         "status": "ok",
@@ -377,7 +377,7 @@
         "kind": "primary",
         "module": "kan",
         "name": "כאן ב",
-        "now_playing": "כאן הסכת",
+        "now_playing": "חדשות הערב",
         "refresh": null,
         "resolved_link": "https://r.il.cdn-redge.media/livedash/oil/kancdn-live/live/radio/kan_reshet_bet/live.livx?dvr=14400000",
         "status": "ok",
@@ -449,7 +449,7 @@
         "kind": "primary",
         "module": "kan",
         "name": "כאן קול המוסיקה",
-        "now_playing": "מכאן לשם",
+        "now_playing": "לוקל-קלאסי קונצרטים נבחרים",
         "refresh": null,
         "resolved_link": "https://r.il.cdn-redge.media/livedash/oil/kancdn-live/live/radio/kan_kol_hamuzika/live.livx?dvr=14400000",
         "status": "ok",
@@ -545,7 +545,7 @@
         "kind": "primary",
         "module": "kan",
         "name": "כאן Reka",
-        "now_playing": "שניים באחד",
+        "now_playing": "אמהרית ערב",
         "refresh": null,
         "resolved_link": "https://r.il.cdn-redge.media/livedash/oil/kancdn-live/live/radio/kan_reka/live.livx?dvr=14400000",
         "status": "ok",
@@ -853,7 +853,7 @@
         "kind": "accessibility",
         "module": "kan",
         "name": "כאן 11 - לקויי שמיעה",
-        "now_playing": "שרון ואורי",
+        "now_playing": "מהדורת כאן חדשות עם מאיה ראכלין",
         "refresh": null,
         "resolved_link": "https://r.il.cdn-redge.media/livehls/oil/kancdn-live/live/kan11_subs/live.livx/playlist.m3u8?dvr=21600000",
         "status": "ok",
@@ -869,7 +869,7 @@
           "kind": "backup",
           "module": "tv",
           "name": "כאן 11 - גיבוי",
-          "now_playing": "שרון ואורי",
+          "now_playing": "מהדורת כאן חדשות עם מאיה ראכלין",
           "refresh": null,
           "resolved_link": "https://r.il.cdn-redge.media/livedash/oil/kancdn-live/live/kan11/live.livx?dvr=14400000",
           "status": "ok",
@@ -889,7 +889,7 @@
         "kind": "primary",
         "module": "kan",
         "name": "כאן 11",
-        "now_playing": "שרון ואורי",
+        "now_playing": "מהדורת כאן חדשות עם מאיה ראכלין",
         "refresh": null,
         "resolved_link": "https://r.il.cdn-redge.media/livehls/oil/kancdn-live/live/kan11/live.livx/playlist.m3u8?dvr=21600000",
         "status": "ok",
@@ -914,7 +914,7 @@
           "kind": "keshet",
           "path": "/k12cc/index.m3u8?b-in-range=0-1800"
         },
-        "resolved_link": "https://d2249b6f08tjt0.cloudfront.net/k12cc/index.m3u8?b-in-range=0-1800&token=eyJhbGciOiJIUzI1NiJ9.eyJwYXRoIjoiXC9rMTJjY1wvaW5kZXgubTN1OD9iLWluLXJhbmdlPTAtMTgwMCIsInRpbWVzdGFtcCI6MTc4NjAyMzU5Mzc0NX0.ZQwFLCXhrYB9QVuIZtkIC4jfkQc5yl9z22Lklnbl_dU",
+        "resolved_link": "https://d2249b6f08tjt0.cloudfront.net/k12cc/index.m3u8?b-in-range=0-1800&token=eyJhbGciOiJIUzI1NiJ9.eyJwYXRoIjoiXC9rMTJjY1wvaW5kZXgubTN1OD9iLWluLXJhbmdlPTAtMTgwMCIsInRpbWVzdGFtcCI6MTc4NjAyNDIzMDc2Nn0.WXSSNMRTaL3Ujm4RhJmNha5jrUUCelh04jp3uY-rWws",
         "status": "ok",
         "tvgID": "12"
       },
@@ -935,7 +935,7 @@
             "kind": "keshet",
             "path": "/stream/hls/live/2033791/k12n12wad/index.m3u8"
           },
-          "resolved_link": "https://mako-streaming.akamaized.net/stream/hls/live/2033791/k12n12wad/index.m3u8?hdnea=st%3D1786023472%7Eexp%3D1786024372%7Eacl%3D%2F*%7Ehmac%3D5bab3548a78b86b7941addc338be50181b1366258a2e86d7e9e9b70d19c89c5b",
+          "resolved_link": "https://mako-streaming.akamaized.net/stream/hls/live/2033791/k12n12wad/index.m3u8?hdnea=st%3D1786024109%7Eexp%3D1786025009%7Eacl%3D%2F*%7Ehmac%3D36e25709167a142cf463d66aa79f0f947f26ae404bd32d8c9cfed1d3cfdd2d45",
           "status": "ok",
           "tvgID": "12"
         },
@@ -955,7 +955,7 @@
             "kind": "keshet",
             "path": "/stream/hls/live/2033791/k12dvr/index.m3u8"
           },
-          "resolved_link": "https://mako-streaming.akamaized.net/stream/hls/live/2033791/k12dvr/index.m3u8?hdnea=st%3D1786023472%7Eexp%3D1786024372%7Eacl%3D%2F*%7Ehmac%3D5bab3548a78b86b7941addc338be50181b1366258a2e86d7e9e9b70d19c89c5b",
+          "resolved_link": "https://mako-streaming.akamaized.net/stream/hls/live/2033791/k12dvr/index.m3u8?hdnea=st%3D1786024110%7Eexp%3D1786025010%7Eacl%3D%2F*%7Ehmac%3Daff4792b4c77fab1b6352b2f18bdd05a6ecf92694cebad0c10d29c1c3e1135cd",
           "status": "ok",
           "tvgID": "12"
         },
@@ -975,7 +975,7 @@
             "kind": "keshet",
             "path": "/n12/hls/live/20000821/k12rh/index.m3u8"
           },
-          "resolved_link": "https://mako-streaming.akamaized.net/n12/hls/live/20000821/k12rh/index.m3u8?hdnea=st%3D1786023473%7Eexp%3D1786024373%7Eacl%3D%2F*%7Ehmac%3D0bc994c9e11cb6eb8d1e6b20aad15cc8ba3276f77120bbbc8e93a1938099431d",
+          "resolved_link": "https://mako-streaming.akamaized.net/n12/hls/live/20000821/k12rh/index.m3u8?hdnea=st%3D1786024110%7Eexp%3D1786025010%7Eacl%3D%2F*%7Ehmac%3Daff4792b4c77fab1b6352b2f18bdd05a6ecf92694cebad0c10d29c1c3e1135cd",
           "status": "ok",
           "tvgID": "12"
         }
@@ -1000,7 +1000,7 @@
           "kind": "keshet",
           "path": "/stream/hls/live/2033791/k12/index.m3u8"
         },
-        "resolved_link": "https://mako-streaming.akamaized.net/stream/hls/live/2033791/k12/index.m3u8?hdnea=st%3D1786023472%7Eexp%3D1786024372%7Eacl%3D%2F*%7Ehmac%3D5bab3548a78b86b7941addc338be50181b1366258a2e86d7e9e9b70d19c89c5b",
+        "resolved_link": "https://mako-streaming.akamaized.net/stream/hls/live/2033791/k12/index.m3u8?hdnea=st%3D1786024077%7Eexp%3D1786024977%7Eacl%3D%2F*%7Ehmac%3D0a66e6a96ebc865a3bc1ddf6662ee488cc799358e4f0d461d8672819ddaba4a3",
         "status": "ok",
         "tvgID": "12"
       },
@@ -1166,7 +1166,7 @@
           "kind": "backup",
           "module": "tv",
           "name": "כאן חינוכית 23 - גיבוי",
-          "now_playing": "מלון הוטל 3 - 10. חתונה מארגז ראשון",
+          "now_playing": "חדש!להציל את חיות הבית 4  - אן ופאבלו",
           "refresh": null,
           "resolved_link": "https://r.il.cdn-redge.media/livedash/oil/kancdn-live/live/kan_edu/live.livx?dvr=14400000",
           "status": "ok",
@@ -1186,7 +1186,7 @@
         "kind": "primary",
         "module": "kan",
         "name": "כאן חינוכית 23",
-        "now_playing": "מלון הוטל 3 - 10. חתונה מארגז ראשון",
+        "now_playing": "חדש!להציל את חיות הבית 4  - אן ופאבלו",
         "refresh": null,
         "resolved_link": "https://r.il.cdn-redge.media/livehls/oil/kancdn-live/live/kan_edu/live.livx/playlist.m3u8?dvr=21600000",
         "status": "ok",
@@ -1217,7 +1217,7 @@
           "kind": "keshet",
           "path": "/direct/hls/live/2035340/ch24live/index.m3u8?as=1"
         },
-        "resolved_link": "https://mako-streaming.akamaized.net/direct/hls/live/2035340/ch24live/index.m3u8?as=1&hdnea=st%3D1786023478%7Eexp%3D1786024378%7Eacl%3D%2F*%7Ehmac%3Dbad6c4a9b871e83596592017878eb914e7885114792fb8f92d1320e9d5990aaf",
+        "resolved_link": "https://mako-streaming.akamaized.net/direct/hls/live/2035340/ch24live/index.m3u8?as=1&hdnea=st%3D1786024069%7Eexp%3D1786024969%7Eacl%3D%2F*%7Ehmac%3D644d3c45b5ed2ca3037b359cfb3e420fff61258fffc8ff80a8689e065640cb4c",
         "status": "ok",
         "tvgID": "24"
       },
@@ -1573,7 +1573,7 @@
         "kind": "primary",
         "module": "tv",
         "name": "i24news",
-        "now_playing": "ישיר! מהדורת 15",
+        "now_playing": "ישיר! מהדורת חמש",
         "refresh": null,
         "resolved_link": "https://i24newshebrew-cdn.encoders.immergo.tv/master.m3u8",
         "status": "ok",
@@ -1597,7 +1597,7 @@
         "kind": "primary",
         "module": "tv",
         "name": "i24news en",
-        "now_playing": "ישיר! מהדורת 15",
+        "now_playing": "ישיר! מהדורת חמש",
         "refresh": null,
         "resolved_link": "https://i24newsenglish-cdn.encoders.immergo.tv/master.m3u8",
         "status": "ok",
@@ -1621,7 +1621,7 @@
         "kind": "primary",
         "module": "tv",
         "name": "i24news fr",
-        "now_playing": "ישיר! מהדורת 15",
+        "now_playing": "ישיר! מהדורת חמש",
         "refresh": null,
         "resolved_link": "https://i24newsfrench-cdn.encoders.immergo.tv/master.m3u8",
         "status": "ok",
@@ -1645,7 +1645,7 @@
         "kind": "primary",
         "module": "tv",
         "name": "i24news ar",
-        "now_playing": "ישיר! מהדורת 15",
+        "now_playing": "ישיר! מהדורת חמש",
         "refresh": null,
         "resolved_link": "https://i24newsarabic-cdn.encoders.immergo.tv/master.m3u8",
         "status": "ok",
@@ -1772,7 +1772,7 @@
           "kind": "keshet",
           "path": "/free/hls/live/2111419/erets/index.m3u8?b-in-range=0-1800"
         },
-        "resolved_link": "https://mako-streaming.akamaized.net/free/hls/live/2111419/erets/index.m3u8?b-in-range=0-1800&hdnea=st%3D1786023485%7Eexp%3D1786024385%7Eacl%3D%2F*%7Ehmac%3Da0c8092ea2cda5e7627fa9a6a14c114742d7c37bced23fc8f5da63626763d97e",
+        "resolved_link": "https://mako-streaming.akamaized.net/free/hls/live/2111419/erets/index.m3u8?b-in-range=0-1800&hdnea=st%3D1786024059%7Eexp%3D1786024959%7Eacl%3D%2F*%7Ehmac%3Df36e46a2fe1566dc5107e7b267f1e4c03817c15eba29c34b99085b055cc1ebf2",
         "status": "ok",
         "tvgID": ""
       },
@@ -1801,7 +1801,7 @@
           "kind": "keshet",
           "path": "/free/hls/live/2111419/savri/index.m3u8?b-in-range=0-1800"
         },
-        "resolved_link": "https://mako-streaming.akamaized.net/free/hls/live/2111419/savri/index.m3u8?b-in-range=0-1800&hdnea=st%3D1786023486%7Eexp%3D1786024386%7Eacl%3D%2F*%7Ehmac%3D838a9bc87653e37216671d0650e2fe1d5b6a3924ea1e0884768dd49297102bec",
+        "resolved_link": "https://mako-streaming.akamaized.net/free/hls/live/2111419/savri/index.m3u8?b-in-range=0-1800&hdnea=st%3D1786024065%7Eexp%3D1786024965%7Eacl%3D%2F*%7Ehmac%3D95b182e6f9c773caccc35e793455261c1ff5c57c002abaaf1f07528bcbb07e71",
         "status": "ok",
         "tvgID": ""
       },
