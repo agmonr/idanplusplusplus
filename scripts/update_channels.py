@@ -381,9 +381,14 @@ def group_channels(entries):
 # ---------------------------------------------------------------------------
 
 def main():
+    # FISHENZON_REPO_ROOT env var lets a host override this without editing
+    # the script - the "sibling directory" default only holds if this repo
+    # and Fishenzon/repo happen to be checked out next to each other, which
+    # isn't guaranteed on every machine this runs on.
+    default_repo_root = os.environ.get("FISHENZON_REPO_ROOT", "../../repo")
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--repo-root", default="../../repo",
-                         help="Path to the Fishenzon/repo checkout (default: ../../repo, i.e. a sibling of this repo)")
+    parser.add_argument("--repo-root", default=default_repo_root,
+                         help="Path to the Fishenzon/repo checkout (default: $FISHENZON_REPO_ROOT or ../../repo, i.e. a sibling of this repo)")
     parser.add_argument("--dry-run", action="store_true", help="Don't write channels.json, just report")
     parser.add_argument("--report-out", default=None, help="Where to write the combined grouped status/EPG JSON for the viewer page")
     args = parser.parse_args()
@@ -392,6 +397,15 @@ def main():
     repo_root = os.path.abspath(os.path.join(script_dir, args.repo_root))
     channels_path = os.path.join(repo_root, "zips", "plugin.video.idanplus", "channels.json")
     report_path = args.report_out or os.path.join(script_dir, "..", "data", "channels_status.json")
+
+    if not os.path.isfile(channels_path):
+        raise SystemExit(
+            "Fishenzon/repo checkout not found at {0}\n"
+            "(resolved from --repo-root {1!r}). Clone it there, e.g.:\n"
+            "  git clone https://github.com/Fishenzon/repo.git {0}\n"
+            "or point at an existing checkout with --repo-root PATH "
+            "(or the FISHENZON_REPO_ROOT env var).".format(repo_root, args.repo_root)
+        )
 
     # newline="" preserves the file's original CRLF line endings so in-place
     # text substitutions below don't spuriously touch every line.
