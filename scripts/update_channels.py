@@ -291,33 +291,96 @@ def resolve_channel(channel_id, channel):
 # ---------------------------------------------------------------------------
 # EPG
 # ---------------------------------------------------------------------------
+# Own per-broadcaster EPG resolvers (EPG_RESOLVERS below), same dispatch
+# shape as the stream RESOLVERS above but keyed by an independent source id
+# rather than module - a module's stream endpoint doesn't necessarily cover
+# all of that module's channels for EPG (e.g. mako only has keshet 12's
+# schedule, not keshet's other channels). fishenzon-epg (EPG_URL) is kept as
+# an explicit, temporary fallback layer underneath our own sources - see
+# ENABLE_FISHENZON_FALLBACK - until enough of our own sources exist to
+# match its coverage; our own sources always win when they succeed.
 
-def fetch_now_playing():
-    """Returns {tvgID: {"name":..., "start":..., "end":...}} for the program
-    airing right now, mirroring resources/lib/epg.py's GetNowEPG().
+MAKO_EPG_URL = "https://www.mako.co.il/AjaxPage?jspName=EPGResponse.jsp"
+ENABLE_FISHENZON_FALLBACK = True
 
-    Returns None (not {}) on failure - distinguishable from "fetched fine,
-    nothing currently airing anywhere" - so main() can fall back to the
-    previous report's now_playing values instead of blanking every
-    channel's program name to null over what's usually a transient network
-    hiccup, not a real "nothing is playing right now" state."""
-    try:
-        resp = session.get(EPG_URL, timeout=30)
-        resp.raise_for_status()
-        with zipfile.ZipFile(io.BytesIO(resp.content)) as zf:
-            name = next(n for n in zf.namelist() if n.endswith(".json"))
-            epg = json.loads(zf.read(name).decode("utf-8"))
-    except Exception as ex:  # noqa: BLE001
-        log("Failed to fetch EPG: {0}".format(ex))
-        return None
+
+def _now_playing_from_schedule(schedule):
+    """schedule: {tvgID: [{"name","start","end"}, ...]} (epoch seconds,
+    not necessarily sorted/filtered) -> {tvgID: {"name","start","end"}}
+    for whichever program's start/end window contains right now. Shared by
+    every EPG source (including fetch_fishenzon_epg) instead of each
+    reimplementing "find the current program" independently."""
     now = int(time.time())
     now_playing = {}
-    for tvg_id, programs in epg.items():
+    for tvg_id, programs in schedule.items():
         for program in programs:
             if program["start"] <= now < program["end"]:
                 now_playing[tvg_id] = program
                 break
     return now_playing
+
+
+def epg_mako():
+    """Keshet 12's own schedule feed - the same one iptv-org/epg's
+    mako.co.il grabber uses. No query params, no special headers. Covers
+    only tvgID "12" (keshet's other channels - 24/erets/savri - have no
+    known EPG source). Response already spans today+tomorrow.
+
+    NOTE: seen returning HTTP 403 from some networks (bot-blocking is
+    commonly IP-reputation-based) - if this consistently fails in
+    production, check the log for "EPG[mako] failed" and investigate
+    headers/Referer, or accept this source may not be viable from that
+    host."""
+    resp = session.get(MAKO_EPG_URL, timeout=30)
+    resp.raise_for_status()
+    data = resp.json()
+    programs = data.get("programs") or []
+    if not programs:
+        raise ValueError("mako EPG response had no programs")
+    schedule = []
+    for item in programs:
+        start = item["StartTimeUTC"] / 1000.0
+        schedule.append({
+            "name": item["ProgramName"],
+            "start": start,
+            "end": start + item["DurationMs"] / 1000.0,
+        })
+    return {"12": schedule}
+
+
+EPG_RESOLVERS = {
+    "mako": epg_mako,
+}
+
+
+def fetch_now_playing():
+    """Runs every EPG_RESOLVERS source, merging each into a combined
+    {tvgID: {"name","start","end"}} now-playing dict. Each source's
+    failure is caught individually (mirroring resolve_channel's per-
+    channel isolation on the stream side) so one broken source never
+    affects the others."""
+    combined = {}
+    for source_name, fetch_fn in EPG_RESOLVERS.items():
+        try:
+            schedule = fetch_fn()
+            picked = _now_playing_from_schedule(schedule)
+            combined.update(picked)
+            log("  EPG[{0}]: {1} tvgID(s) currently airing".format(source_name, len(picked)))
+        except Exception as ex:  # noqa: BLE001 - one broken source must not affect the others
+            log("  EPG[{0}] failed: {1}".format(source_name, ex))
+    return combined
+
+
+def fetch_fishenzon_epg():
+    """Third-party fallback (see ENABLE_FISHENZON_FALLBACK) - mirrors
+    resources/lib/epg.py's GetNowEPG() data source. Raises on failure,
+    same convention as the epg_<source>() resolvers above, so callers
+    handle it identically."""
+    resp = session.get(EPG_URL, timeout=30)
+    resp.raise_for_status()
+    with zipfile.ZipFile(io.BytesIO(resp.content)) as zf:
+        name = next(n for n in zf.namelist() if n.endswith(".json"))
+        return json.loads(zf.read(name).decode("utf-8"))
 
 
 def load_previous_now_playing(report_path):
@@ -441,12 +504,22 @@ def main():
     watchable_ids = [cid for cid, c in channels.items() if c.get("type") in ("tv", "radio")]
     log("Found {0} TV+radio channels to check.".format(len(watchable_ids)))
 
-    now_playing = fetch_now_playing()
-    if now_playing is None:
-        now_playing = load_previous_now_playing(report_path)
-        log("EPG fetch failed - falling back to {0} previously known 'now playing' value(s) instead of blanking them.".format(len(now_playing)))
-    else:
-        log("EPG: got 'now playing' data for {0} tvgIDs.".format(len(now_playing)))
+    # Floor-then-layer: start from whatever the previous report had (so any
+    # tvgID a source doesn't cover this run - because it failed, or was
+    # never covered - keeps its last known value instead of going blank),
+    # then let progressively more-trusted sources override it: fishenzon
+    # (transitional third-party fallback, see ENABLE_FISHENZON_FALLBACK)
+    # first, then our own EPG_RESOLVERS sources, which always win.
+    now_playing = load_previous_now_playing(report_path)
+    log("EPG: {0} tvgID(s) carried over from the previous report as a floor.".format(len(now_playing)))
+    if ENABLE_FISHENZON_FALLBACK:
+        try:
+            fishenzon_playing = _now_playing_from_schedule(fetch_fishenzon_epg())
+            now_playing.update(fishenzon_playing)
+            log("EPG[fishenzon]: {0} tvgID(s) currently airing".format(len(fishenzon_playing)))
+        except Exception as ex:  # noqa: BLE001 - transitional fallback, never fatal
+            log("EPG[fishenzon] failed: {0}".format(ex))
+    now_playing.update(fetch_now_playing())
 
     results = {}
     text_substitutions = []  # (block_start, block_end, new_block)
