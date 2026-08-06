@@ -222,6 +222,14 @@
     display: flex; align-items: center; gap: 7px;
   }
   .pagetab[aria-selected="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+  /* Radio's own selected color follows the current color family (see
+     applyThemeAccentToChrome) instead of the generic --accent, when one
+     applies - falls back to --accent itself for "original" (no single
+     family color) via the var()'s own second argument. */
+  .pagetab[data-page="radio"][aria-selected="true"] {
+    background: var(--pagetab-theme-accent, var(--accent));
+    border-color: var(--pagetab-theme-accent, var(--accent));
+  }
   /* Small star badge - this tab's favorites-only view is on (see
      wirePagetabFavsLongPress), independent of aria-selected so it's
      visible even on the tab you're not currently viewing. */
@@ -274,17 +282,27 @@
   @media (min-width: 641px) {
     .radio-color-family { display: none !important; }
   }
+  /* Backstop for the TV page on mobile: the JS toggle in renderPageTabs
+     already hides #radio-color-family-btn there, but the popup grid itself
+     only tracks its own open/closed state, not state.page - if it's left
+     open while switching from radio to tv, this guarantees it (and the
+     button) never show over the TV list either way. */
+  body:not(.page-radio) .radio-color-family,
+  body:not(.page-radio) .color-family-grid {
+    display: none !important;
+  }
   /* 4-wide swatch table (see the HTML comment on #radio-color-family-grid
      for the rainbow ordering) - a popup under the button rather than a
      native <select>, so the whole palette is visible at once instead of a
      one-at-a-time native option list. */
   .color-family-grid {
-    /* top/inset-inline-end set inline by JS (wireRadioColorFamily) from
-       #radio-color-family-btn's own actual position, since this is no
-       longer a normal-flow sibling of that button - see its own HTML
-       comment for why (escaping .topbar's overflow:hidden). */
+    /* top/right set inline by JS (wireRadioColorFamily) - body-level now,
+       not a normal-flow sibling of the button anymore (escaping .topbar's
+       overflow:hidden, see the grid's own HTML comment), so top still
+       follows the button's actual on-screen spot but right is pinned to
+       the screen's own edge rather than the button's position. */
     position: fixed; z-index: 25;
-    display: grid; grid-template-columns: repeat(4, 34px); gap: 4px;
+    display: grid; grid-template-columns: repeat(4, 40px); gap: 5px;
     background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
     padding: 6px; box-shadow: var(--shadow);
   }
@@ -294,19 +312,21 @@
      nothing without this. */
   .color-family-grid[hidden] { display: none; }
   .cf-swatch {
-    width: 34px; height: 34px; border: 1px solid var(--border); background: var(--bg);
-    border-radius: 7px; font-size: 15px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+    width: 40px; height: 40px; border: 1px solid var(--border); background: var(--bg);
+    border-radius: 8px; font-size: 17px; cursor: pointer; display: flex; align-items: center; justify-content: center;
   }
   .cf-swatch.is-active { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
   /* Grayscale swatch: one box with a real black-to-white gradient, not two
      separate ⬛⬜ emoji side by side - actually shows what the family looks
-     like instead of just implying "black and white" as two flat chips. */
-  .cf-swatch-gray { padding: 0; }
+     like instead of just implying "black and white" as two flat chips.
+     Sized to match the emoji glyphs in the other swatches (see
+     #radio-color-family-swatch .cf-gray-gradient below for the matching
+     small-button version) rather than filling the whole cell, which made
+     it read as visually bigger than every other icon. */
   .cf-gray-gradient {
-    display: block; width: 100%; height: 100%; border-radius: 6px;
+    display: block; width: 18px; height: 18px; border-radius: 4px;
     background: linear-gradient(135deg, #0a0a0a, #ffffff);
   }
-  #radio-color-family-swatch .cf-gray-gradient { width: 18px; height: 18px; border-radius: 4px; }
   /* Manual stop, next to the color-family swatch - shown only while a
      station is actually playing (see body.has-radio-bar below), since
      scrolling deliberately does NOT stop playback here (that was tried
@@ -323,7 +343,11 @@
   .attribution-link {
     /* Was position:absolute (floating top-right of the header) - now a
        normal flex child, last in .controls (see its own HTML comment on
-       why: that's what the mobile hamburger menu reveals). */
+       why: that's what the mobile hamburger menu reveals). flex-basis:100%
+       forces it onto its own line regardless of how the row above wraps,
+       so it always lands directly under ★ שמורים (the item right before
+       it in the DOM) instead of just tagging along beside it. */
+    flex-basis: 100%;
     font-size: 14px; font-weight: 400; color: var(--text-dim);
     background: none; border: none; text-decoration: none; white-space: nowrap;
   }
@@ -411,6 +435,11 @@
     position: relative; aspect-ratio: 16 / 9; background: var(--surface-2);
     display: flex; align-items: center; justify-content: center; overflow: hidden;
     cursor: pointer;
+    /* A long press (see wireLongPress/wireRadioFavLongPress) otherwise
+       triggers the browser's own native text-selection/callout on
+       whatever text is under the finger (e.g. the ▶ play glyph) -
+       fighting our own long-press gesture with an unrelated native one. */
+    -webkit-touch-callout: none; -webkit-user-select: none; user-select: none;
   }
   /* Keyboard grid navigation (arrow keys, see wireGridKeyboardNav in the
      script below) moves real DOM focus between cards, so a clearly visible
@@ -447,16 +476,10 @@
   .row-thumb-placeholder {
     position: absolute; inset: 0; width: 100%; height: 100%; display: block;
   }
-  .row-thumb-play {
-    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
-    background: linear-gradient(to top, rgba(0,0,0,.45), transparent 45%);
-    opacity: 0; transition: opacity .15s ease;
-  }
-  .row-thumb:hover .row-thumb-play, .row:focus-within .row-thumb-play { opacity: 1; }
-  .row-thumb-play span {
-    width: 40px; height: 40px; border-radius: 50%; background: rgba(255,255,255,.92);
-    color: #111; display: flex; align-items: center; justify-content: center; font-size: 15px;
-  }
+  /* .row-thumb-play (the hover-revealed ▶ overlay) removed entirely -
+     on first load, a touch device's first tap was only entering the
+     :hover state (revealing the icon) instead of actually firing the
+     click, needing a second tap to really open the station. */
   /* Underline that grows while THIS station is connecting (see
      startConnectingBar/stopConnectingBar) - literally reflects elapsed
      wait time, not a fixed-duration animation, so a slow connection really
@@ -682,28 +705,39 @@
     box-shadow: 0 4px 14px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.12);
   }
   .radio-bar[hidden] { display: none; }
+  /* Doubled from 10px (now nearly tripled) and repurposed as the volume
+     control itself (see wireRadioBarVolume) instead of just a drag handle -
+     a bigger target that shows its own state via .radio-bar-grip-fill
+     rather than needing a separate slider underneath. */
   .radio-bar-grip {
-    height: 10px; margin: -4px -4px 0; border-radius: 4px 4px 0 0; cursor: grab;
-    background: repeating-linear-gradient(90deg, #7a7d84 0 2px, transparent 2px 6px);
-    opacity: .65;
+    position: relative; overflow: hidden;
+    height: 28px; margin: -4px -4px 0; border-radius: 4px 4px 0 0; cursor: pointer;
+    background: repeating-linear-gradient(90deg, #7a7d84 0 2px, transparent 2px 6px), #101410;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,.8);
   }
-  .radio-bar-grip:active { cursor: grabbing; }
+  /* Physical left/width (not inset-inline-start) - deliberately matches
+     e.clientX math in wireRadioBarVolume, which is also viewport-physical
+     and ignores the app's dir:rtl, so the fill always lines up with where
+     a drag/tap actually landed. */
+  .radio-bar-grip-fill {
+    position: absolute; left: 0; top: 0; bottom: 0; width: 100%;
+    background: linear-gradient(180deg, #e8c37a, #a97a2e);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.3); pointer-events: none;
+  }
+  /* Marks the bar as the volume control, not just a plain grip stripe -
+     a speaker icon centered on top, readable over both the filled and
+     unfilled portions via the text-shadow. */
+  .radio-bar-grip-icon {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    font-size: 13px; pointer-events: none; text-shadow: 0 1px 3px rgba(0,0,0,.9);
+  }
   .winamp-controls { display: flex; align-items: center; gap: 6px; }
-  .winamp-slider-label { flex: none; font-size: 10.5px; color: #a9adb3; letter-spacing: .04em; }
-  .winamp-slider {
-    -webkit-appearance: none; appearance: none; flex: none; width: 54px; height: 10px;
-    background: #101410; border: 1px solid #050805; border-radius: 2px;
-    box-shadow: inset 0 1px 2px rgba(0,0,0,.8); cursor: pointer;
-  }
-  .winamp-slider::-webkit-slider-thumb {
-    -webkit-appearance: none; width: 8px; height: 14px; margin-top: -3px; border-radius: 1px;
-    background: linear-gradient(180deg, #e8c37a, #a97a2e); border: 1px solid #5c3f14; cursor: pointer;
-  }
-  .winamp-slider::-moz-range-thumb {
-    width: 8px; height: 14px; border-radius: 1px; border: 1px solid #5c3f14;
-    background: linear-gradient(180deg, #e8c37a, #a97a2e); cursor: pointer;
-  }
-  .winamp-spacer { flex: 1; }
+  /* Repositioning the panel moved here (see wireRadioBarDrag) now that the
+     grip strip is dedicated to volume - this empty stretch of the controls
+     row is otherwise unused space, a natural drag target same as a window
+     title bar's blank area. */
+  .winamp-spacer { flex: 1; cursor: grab; min-height: 20px; }
+  .winamp-spacer:active { cursor: grabbing; }
   .radio-bar button {
     width: 32px; height: 28px; flex: none; cursor: pointer; font-size: 14px;
     color: #dfe1e4; background: linear-gradient(180deg, #5a5d63, #38393d);
@@ -833,6 +867,12 @@
       <button type="button" class="hamburger-btn" id="header-menu-btn" aria-label="תפריט" aria-haspopup="true" aria-expanded="false">
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
       </button>
+      <!-- Moved here, right next to the hamburger, per explicit request -
+           still only ever shown on the radio page (see the JS toggle in
+           renderPageTabs and the body:not(.page-radio) CSS backstop). -->
+      <button type="button" class="radio-color-family" id="radio-color-family-btn" title="ערכת צבעים" aria-haspopup="true" aria-expanded="false" hidden>
+        <span id="radio-color-family-swatch">🟦</span>
+      </button>
       <button class="pagetab" data-page="tv" role="tab" aria-label="טלוויזיה">
         <svg class="pagetab-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 8 L5 3"/><path d="M14 8 L17 3"/><rect x="3" y="8" width="18" height="12" rx="2"/><circle cx="9" cy="14" r="2.4"/><line x1="14" y1="12" x2="19" y2="12"/><line x1="14" y1="16" x2="19" y2="16"/></svg>
         <span class="pagetab-label">טלוויזיה</span>
@@ -843,9 +883,6 @@
       </button>
       <button type="button" class="pagetab radio-favs-btn" id="radio-favs-btn" aria-pressed="false" hidden>מועדפי רדיו</button>
       <button type="button" class="preview-mute-btn" id="preview-mute-btn" aria-pressed="false" title="השתקת תצוגה מקדימה">🔊</button>
-      <button type="button" class="radio-color-family" id="radio-color-family-btn" title="ערכת צבעים" aria-haspopup="true" aria-expanded="false" hidden>
-        <span id="radio-color-family-swatch">🟦</span>
-      </button>
       <button type="button" class="radio-stop-btn" id="radio-stop-btn" title="עצירה" aria-label="עצירה" hidden>
         <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2"/></svg>
       </button>
@@ -948,11 +985,12 @@
        anymore - what's playing is shown by the frame around that actual
        station's card in the grid instead (see .row.is-now-playing). -->
   <div class="radio-bar" id="radio-bar" hidden>
-    <div class="radio-bar-grip" id="radio-bar-grip" aria-hidden="true"></div>
+    <div class="radio-bar-grip" id="radio-bar-grip" role="slider" aria-label="עוצמת שמע" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100">
+      <div class="radio-bar-grip-fill" id="radio-bar-grip-fill"></div>
+      <span class="radio-bar-grip-icon" aria-hidden="true">🔊</span>
+    </div>
     <div class="winamp-controls">
-      <span class="winamp-slider-label">עוצמה</span>
-      <input type="range" id="radio-bar-volume" class="winamp-slider" min="0" max="100" value="100" aria-label="עוצמת שמע" />
-      <span class="winamp-spacer"></span>
+      <span class="winamp-spacer" id="radio-bar-drag-handle" aria-hidden="true"></span>
       <button type="button" class="flip-icon" id="radio-bar-prev" aria-label="ערוץ קודם">⏮</button>
       <button type="button" class="flip-icon" id="radio-bar-next" aria-label="ערוץ הבא">⏭</button>
       <button type="button" id="radio-bar-mute" aria-label="השתקה">🔊</button>
@@ -1046,13 +1084,22 @@
     var rest = list.filter(function (g) { return !orderedNames[g.name]; });
     return ordered.concat(rest);
   }
-  // Radio grid order (by request): כאן 88, then גלגל"צ/גלי צה"ל, pinned to
-  // the top same as applyOrder above - then every station with a parseable
-  // "NNN FM" frequency in its name, sorted ascending by that number, then
-  // everything else (no frequency in the name - other כאן sub-channels,
-  // streaming-only stations like רדיו נושמים מזרחית/רדיו שירי דיכאון,
-  // etc.) at the very end in natural/scraped order.
-  var RADIO_PRIORITY_ORDER = ["כאן 88", 'גלגל"צ', 'גלי צה"ל'];
+  // Radio grid order (by request): every HEBREW כאן station first (כאן 88
+  // leading, the rest - כאן ב, כאן גימל, etc. - in their existing/scraped
+  // relative order; כאן مكان, the Arabic-language Kan service, is
+  // deliberately excluded from this group, see isArabicText), then
+  // גלי צה"ל and גלגל"צ, then every station with a parseable "NNN FM"
+  // frequency in its name sorted ascending by that number, then everything
+  // else (כאן مكان included, streaming-only stations like
+  // רדיו נושמים מזרחית/רדיו שירי דיכאון, etc.) at the very end in
+  // natural/scraped order.
+  // Arabic (כאן مكان) + Cyrillic/Russian (Первое Радио, Лучшее Радио) -
+  // both excluded from the "kan first" pin AND from the frequency-sorted
+  // "local stations" bucket below, even when a Russian name happens to
+  // contain a parseable "NNN FM" pattern (e.g. "...89.1FM") - that's a
+  // stylistic number on a foreign online station, not a real local
+  // frequency, so it doesn't belong sorted in among the Israeli ones.
+  function isForeignScriptText(s) { return /[؀-ۿЀ-ӿ]/.test(s); }
   function radioFrequency(name) {
     var m = name.match(/(\d+(?:\.\d+)?)\s*FM/i);
     return m ? parseFloat(m[1]) : null;
@@ -1061,15 +1108,22 @@
     var byName = {};
     list.forEach(function (g) { byName[g.name] = g; });
     var pinnedNames = {};
-    var pinned = RADIO_PRIORITY_ORDER.map(function (name) { return byName[name]; }).filter(function (g) {
-      if (!g) return false;
-      pinnedNames[g.name] = true;
-      return true;
+
+    var kanFirst = byName["כאן 88"];
+    var kanRest = list.filter(function (g) {
+      return g.module === "kan" && g.name !== "כאן 88" && !isForeignScriptText(g.name);
     });
+    var kan = (kanFirst ? [kanFirst] : []).concat(kanRest);
+
+    var afterKan = ['גלי צה"ל', 'גלגל"צ'].map(function (name) { return byName[name]; }).filter(Boolean);
+
+    var pinned = kan.concat(afterKan);
+    pinned.forEach(function (g) { pinnedNames[g.name] = true; });
+
     var rest = list.filter(function (g) { return !pinnedNames[g.name]; });
     var withFreq = [], withoutFreq = [];
     rest.forEach(function (g) {
-      var f = radioFrequency(g.name);
+      var f = isForeignScriptText(g.name) ? null : radioFrequency(g.name);
       if (f === null) withoutFreq.push(g); else withFreq.push({ g: g, f: f });
     });
     withFreq.sort(function (a, b) { return a.f - b.f; });
@@ -1167,6 +1221,33 @@
   function familyFrameColor(group, t) {
     var family = ui.radio.colorFamily || "blue";
     return shadeColor(familyAccentColor(group, family, t), -55);
+  }
+
+  // A single representative color for the current radio color family (the
+  // sweep's midpoint, t=0.5) - used to tint chrome that isn't itself a
+  // station card (the volume bar, the radio pagetab), which has no
+  // specific station to pull a color from the way familyAccentColor's
+  // other callers do. null for "original", since that family means "each
+  // station keeps its own real color" - there's no single color to apply.
+  function themeAccentColor() {
+    var family = ui.radio.colorFamily || "blue";
+    if (family === "original") return null;
+    return familyAccentColor({ module: "" }, family, 0.5);
+  }
+  // Keeps the volume bar fill and the radio pagetab's selected-color in
+  // sync with the current color family - called from renderPageTabs (so
+  // every render/page-switch stays current) and from the swatch grid's own
+  // click handler (an immediate repaint on pick, not waiting for the next
+  // unrelated render).
+  function applyThemeAccentToChrome() {
+    var color = themeAccentColor();
+    var fill = document.getElementById("radio-bar-grip-fill");
+    if (fill) fill.style.background = color ? "linear-gradient(180deg, " + shadeColor(color, 20) + ", " + shadeColor(color, -20) + ")" : "";
+    var radioTab = document.querySelector('.pagetab[data-page="radio"]');
+    if (radioTab) {
+      if (color) radioTab.style.setProperty("--pagetab-theme-accent", color);
+      else radioTab.style.removeProperty("--pagetab-theme-accent");
+    }
   }
 
   // Own-design "reconnecting" placeholder, in the vein of a US broadcast
@@ -1879,6 +1960,12 @@
   // unless it's prevented) - and not mistaking a scroll gesture (finger
   // moves) for a long press.
   var LONG_PRESS_MS = 450;
+  // Deliberately longer than LONG_PRESS_MS above - that one only starts a
+  // low-stakes hover preview, so a false trigger barely matters. This one
+  // flips a favorite on/off, which is jarring to get by accident on what
+  // felt like a normal tap - reported happening at 450ms, so radio's own
+  // long-press-to-favorite (see wireRadioFavLongPress) gets more headroom.
+  var RADIO_FAV_LONG_PRESS_MS = 650;
   var LONG_PRESS_MOVE_TOLERANCE = 10;
   function wireLongPress(thumb, group) {
     var timer = null;
@@ -1950,6 +2037,12 @@
         // silently killed by an unconditional closePlayer()/teardownPlayer()
         // on every tab switch.
         if (playerOverlay.classList.contains("is-open")) closePlayer();
+        // A live grid preview (hover/long-press/scroll-stop) has its own,
+        // separate <video> and audio, entirely apart from the modal above -
+        // switching tabs while one is actively playing otherwise leaves it
+        // running in the background, audibly bleeding through underneath
+        // whatever page you switched to.
+        cancelHoverPreview();
         fullRender();
         updateTopbarVisibility(); // radio floats the header always - see its own guard for why
       };
@@ -1989,6 +2082,7 @@
         sw.classList.toggle("is-active", sw.getAttribute("data-family") === activeFamily);
       });
     }
+    applyThemeAccentToChrome();
 
     // The preview-mute button only ever controlled grid PREVIEW audio,
     // and previews are TV-only (see previewCenteredChannel's own guard) -
@@ -2092,7 +2186,6 @@
             '<button type="button" class="starbtn' + (isSaved ? " is-saved" : "") + '" aria-label="שמור" aria-pressed="' + isSaved + '">' + (isSaved ? "★" : "☆") + "</button>" +
             (hasA11y ? '<button type="button" class="a11ybtn" aria-pressed="' + isA11yOn + '">ליקוי שמיעה</button>' : "") +
           "</div>" +
-          '<div class="row-thumb-play"><span>▶</span></div>' +
           '<div class="row-connecting-bar" data-role="connecting-bar" aria-hidden="true"></div>' +
         "</div>" +
         '<div class="row-main">' +
@@ -2198,9 +2291,43 @@
         thumb.addEventListener("mouseenter", function () { scheduleHoverPreview(group, thumb); });
         thumb.addEventListener("mouseleave", cancelHoverPreview);
         wireLongPress(thumb, group);
+      } else {
+        wireRadioFavLongPress(thumb, group);
       }
     }
     wireSourcePicks(row, group);
+  }
+
+  // Long-press anywhere on a radio card toggles favorite - same action as
+  // the short tap on the right ~40% (see thumb's own click handler above)
+  // or the corner star button, just a third, bigger/easier way to reach
+  // it. Same touchstart/touchmove/touchend shape as wireLongPress (TV's
+  // hover-preview long-press) but simpler: no preview to start, just the
+  // toggle, and no separate long-press-vs-scroll move tolerance concerns
+  // beyond what wireLongPress already established.
+  function wireRadioFavLongPress(thumb, group) {
+    var timer = null, longPressed = false, startX = 0, startY = 0;
+    thumb.addEventListener("touchstart", function (e) {
+      longPressed = false;
+      var t = e.touches[0];
+      startX = t.clientX; startY = t.clientY;
+      timer = setTimeout(function () {
+        longPressed = true;
+        toggleSaved(group);
+        if (navigator.vibrate) navigator.vibrate(15);
+      }, RADIO_FAV_LONG_PRESS_MS);
+    }, { passive: true });
+    thumb.addEventListener("touchmove", function (e) {
+      var t = e.touches[0];
+      if (Math.abs(t.clientX - startX) > LONG_PRESS_MOVE_TOLERANCE || Math.abs(t.clientY - startY) > LONG_PRESS_MOVE_TOLERANCE) {
+        clearTimeout(timer); // scrolling, not pressing
+      }
+    }, { passive: true });
+    thumb.addEventListener("touchend", function (e) {
+      clearTimeout(timer);
+      if (longPressed) e.preventDefault(); // suppress the synthetic click - don't ALSO open/play the station
+    });
+    thumb.addEventListener("touchcancel", function () { clearTimeout(timer); });
   }
 
   function renderList() {
@@ -2869,20 +2996,55 @@
     }
   }
 
-  // Draggable via the small grip strip at the top, like a real floating
-  // player window - positioned with left/top (JS-controlled) rather than
-  // pinned to the bottom, so a drag actually sticks. Defaults to
-  // centered-near-the-bottom the FIRST time it's shown; stays wherever it
-  // was left for the rest of the session after that (switching stations
-  // doesn't reset it).
+  // Draggable via the spacer in the controls row (see wireRadioBarDrag),
+  // like a real floating player window - positioned with left/top
+  // (JS-controlled) rather than pinned to the bottom, so a drag actually
+  // sticks. Defaults to centered-near-the-bottom the FIRST time it's
+  // shown; stays wherever it was left for the rest of the session after
+  // that (switching stations doesn't reset it).
   var radioBarPositioned = false;
   function positionRadioBarDefault() {
     var w = radioBar.offsetWidth || 460, h = radioBar.offsetHeight || 120;
     radioBar.style.left = Math.round((window.innerWidth - w) / 2) + "px";
     radioBar.style.top = Math.round(window.innerHeight - h - 16) + "px";
   }
-  (function wireRadioBarDrag() {
+  // The grip strip no longer drags the panel around - it IS the volume
+  // control now (see .radio-bar-grip/.radio-bar-grip-fill), replacing the
+  // separate winamp-slider entirely. Position along its own width sets
+  // volume directly; syncRadioBarVolumeFill mirrors playerVideo.volume
+  // back into the fill (and aria-valuenow) any time it changes elsewhere.
+  function syncRadioBarVolumeFill() {
     var grip = document.getElementById("radio-bar-grip");
+    var fill = document.getElementById("radio-bar-grip-fill");
+    var pct = Math.round(playerVideo.volume * 100);
+    if (fill) fill.style.width = pct + "%";
+    if (grip) grip.setAttribute("aria-valuenow", String(pct));
+  }
+  (function wireRadioBarVolume() {
+    var grip = document.getElementById("radio-bar-grip");
+    var dragging = false;
+    function setFromEvent(e) {
+      var p = e.touches ? e.touches[0] : e;
+      var rect = grip.getBoundingClientRect();
+      var frac = (p.clientX - rect.left) / rect.width;
+      frac = Math.min(1, Math.max(0, frac));
+      playerVideo.volume = frac;
+      if (frac > 0) playerVideo.muted = false;
+      syncRadioBarVolumeFill();
+      syncRadioMuteButton();
+    }
+    function onDown(e) { dragging = true; setFromEvent(e); e.preventDefault(); }
+    function onMove(e) { if (dragging) setFromEvent(e); }
+    function onUp() { dragging = false; }
+    grip.addEventListener("mousedown", onDown);
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    grip.addEventListener("touchstart", onDown, { passive: false });
+    window.addEventListener("touchmove", onMove, { passive: false });
+    window.addEventListener("touchend", onUp);
+  })();
+  (function wireRadioBarDrag() {
+    var handle = document.getElementById("radio-bar-drag-handle");
     var dragging = false, startX = 0, startY = 0, startLeft = 0, startTop = 0;
     function onDown(e) {
       dragging = true;
@@ -2901,10 +3063,10 @@
       radioBar.style.top = Math.min(Math.max(0, startTop + dy), window.innerHeight - h) + "px";
     }
     function onUp() { dragging = false; }
-    grip.addEventListener("mousedown", onDown);
+    handle.addEventListener("mousedown", onDown);
     window.addEventListener("mousemove", onMove);
     window.addEventListener("mouseup", onUp);
-    grip.addEventListener("touchstart", onDown, { passive: false });
+    handle.addEventListener("touchstart", onDown, { passive: false });
     window.addEventListener("touchmove", onMove, { passive: false });
     window.addEventListener("touchend", onUp);
   })();
@@ -2964,7 +3126,8 @@
     radioBar.hidden = false;
     if (!radioBarPositioned) { positionRadioBarDefault(); radioBarPositioned = true; }
     document.body.classList.add("has-radio-bar");
-    document.getElementById("radio-bar-volume").value = Math.round(playerVideo.volume * 100);
+    syncRadioBarVolumeFill();
+    applyThemeAccentToChrome();
     // playerVideo is the SAME <video> element the TV modal uses - don't
     // carry its mute state into radio. Muting the TV shouldn't silently
     // mute the next station you open here too.
@@ -3040,12 +3203,6 @@
     playerVideo.muted = !playerVideo.muted;
     syncRadioMuteButton();
   });
-  document.getElementById("radio-bar-volume").addEventListener("input", function () {
-    playerVideo.volume = this.value / 100;
-    if (playerVideo.volume > 0) playerVideo.muted = false;
-    syncRadioMuteButton();
-  });
-
   // Three ↑/↓ surfing modes, cheapest/most-curated first:
   //  plain      - a short curated "favorites" order (the channels most
   //               people actually flip between - main broadcast numbers,
@@ -3644,7 +3801,7 @@
             requestAnimationFrame(redrawAllPlaceholders);
           }
           if (navigator.vibrate) navigator.vibrate(15);
-        }, LONG_PRESS_MS);
+        }, RADIO_FAV_LONG_PRESS_MS); // same longer threshold as wireRadioFavLongPress - this also flips a setting, not a low-stakes preview
       }, { passive: true });
       btn.addEventListener("touchmove", function (e) {
         var t = e.touches[0];
@@ -3721,12 +3878,13 @@
     if (!btn || !grid) return;
     function setOpen(open) {
       if (open) {
-        // Body-level now (see the grid's own HTML comment), so its
-        // position has to be computed from the button's actual on-screen
-        // spot rather than relying on normal-flow placement next to it.
+        // Body-level now (see the grid's own HTML comment). Vertically
+        // still follows the button's own on-screen spot, but horizontally
+        // pinned to the physical right edge of the screen (not the
+        // button's position) per explicit request.
         var rect = btn.getBoundingClientRect();
         grid.style.top = (rect.bottom + 6) + "px";
-        grid.style.insetInlineEnd = (window.innerWidth - rect.right) + "px";
+        grid.style.right = "12px";
       }
       grid.hidden = !open;
       btn.setAttribute("aria-expanded", String(open));
