@@ -219,8 +219,18 @@
   .pagetab {
     border: 1px solid var(--border); background: var(--surface); color: var(--text-dim);
     border-radius: 10px; padding: 8px 18px; font-size: 13.5px; font-weight: 700; cursor: pointer;
+    display: flex; align-items: center; gap: 7px;
   }
   .pagetab[aria-selected="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .pagetab-icon { display: none; }
+  /* Mobile: the TV/radio tabs become icon-only (an old antenna-TV and an
+     old transistor radio, own line-art rather than the flat modern 📺
+     emoji) - desktop keeps the text label as before. */
+  @media (max-width: 640px) {
+    .pagetab-icon { display: block; }
+    .pagetab-label { display: none; }
+    .pagetab { padding: 9px 14px; }
+  }
   .radio-favs-btn[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
   .preview-mute-btn {
     margin-inline-start: auto; align-self: center;
@@ -235,6 +245,19 @@
     cursor: pointer; padding: 8px 14px;
   }
   .share-btn-big:hover { background: var(--accent); color: #fff; }
+  /* Mobile-radio-only color-family picker (see #radio-color-family) - hidden
+     on desktop unconditionally (min-width query below) even while shown on
+     the radio page; the JS toggle in renderPageTabs handles the TV-page and
+     radio-vs-tv hidden state the same way it already does for
+     radio-favs-btn/preview-mute-btn. */
+  .radio-color-family {
+    align-self: center; border: 1px solid var(--border); background: var(--surface);
+    color: var(--text); font-size: 12.5px; font-weight: 600; border-radius: 8px;
+    padding: 7px 8px; cursor: pointer;
+  }
+  @media (min-width: 641px) {
+    .radio-color-family { display: none !important; }
+  }
   .attribution-link {
     position: absolute; top: 10px; right: 0;
     font-size: 14px; font-weight: 400; color: var(--text-dim);
@@ -451,6 +474,25 @@
 
   @media (max-width: 460px) {
     .list { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; }
+  }
+
+  /* Radio cards on mobile: a station here is just a name/frequency on a
+     color chip - no video preview to show, unlike TV's 16:9 thumbnail - so
+     the tall card was mostly empty space. Shrunk to ~30% of the previous
+     total card height (was ~153px at a 160px-wide card), then bumped 30%
+     back up from that (46px -> 60px) once the first pass read too cramped:
+     the checkbox/source-pick row (.row-main) is dropped entirely - kept in
+     the DOM rather than removed, same reasoning as .stats/.controls above,
+     since drawChannelPlaceholder etc. don't null-guard for its absence -
+     and the thumbnail itself goes from aspect-ratio 16/9 to a flat strip.
+     TV keeps the original tall card (its thumbnail is real preview video). */
+  @media (max-width: 640px) {
+    body.page-radio .row-main { display: none; }
+    body.page-radio .row-thumb { aspect-ratio: auto; height: 60px; }
+    /* Shorter share-button label - mobile radio view only, everywhere else
+       (desktop, or the TV page on mobile) keeps "ספר לחברים". */
+    body.page-radio .share-btn-label { display: none; }
+    body.page-radio #share-btn::after { content: "הפץ"; }
   }
 
   .bulkbar {
@@ -681,11 +723,22 @@
        exist in the DOM; the script guards every reference to them. -->
   <header class="topbar">
     <div class="pagetabs" role="tablist" aria-label="בחירת עמוד">
-      <button class="pagetab" data-page="tv" role="tab">טלוויזיה</button>
-      <button class="pagetab" data-page="radio" role="tab">רדיו</button>
+      <button class="pagetab" data-page="tv" role="tab" aria-label="טלוויזיה">
+        <svg class="pagetab-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 8 L5 3"/><path d="M14 8 L17 3"/><rect x="3" y="8" width="18" height="12" rx="2"/><circle cx="9" cy="14" r="2.4"/><line x1="14" y1="12" x2="19" y2="12"/><line x1="14" y1="16" x2="19" y2="16"/></svg>
+        <span class="pagetab-label">טלוויזיה</span>
+      </button>
+      <button class="pagetab" data-page="radio" role="tab" aria-label="רדיו">
+        <svg class="pagetab-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="16" y1="9" x2="19" y2="4"/><circle cx="19" cy="4" r="0.6" fill="currentColor"/><rect x="3" y="9" width="18" height="10" rx="2"/><circle cx="8" cy="14" r="2.2"/><line x1="13" y1="12.5" x2="18" y2="12.5"/><line x1="13" y1="15.5" x2="18" y2="15.5"/></svg>
+        <span class="pagetab-label">רדיו</span>
+      </button>
       <button type="button" class="pagetab radio-favs-btn" id="radio-favs-btn" aria-pressed="false" hidden>מועדפי רדיו</button>
       <button type="button" class="preview-mute-btn" id="preview-mute-btn" aria-pressed="false" title="השתקת תצוגה מקדימה">🔊</button>
-      <button type="button" class="share-btn-big" id="share-btn" title="שיתוף">📤 ספר לחברים</button>
+      <select id="radio-color-family" class="radio-color-family" title="ערכת צבעים" hidden>
+        <option value="green" title="ירוק">🟩</option>
+        <option value="gray" title="שחור-לבן">⬛⬜</option>
+        <option value="original" title="מקורי">🎨</option>
+      </select>
+      <button type="button" class="share-btn-big" id="share-btn" title="שיתוף">📤 <span class="share-btn-label">ספר לחברים</span></button>
       <a class="attribution-link" href="https://hod-hasharon.org/" target="_blank" rel="noopener">פרויקט של רם אגמון</a>
     </div>
 
@@ -892,21 +945,95 @@
     return "rgb(" + r + "," + g + "," + b + ")";
   }
 
+  // Mobile radio card color families (see #radio-color-family in the
+  // header) - an alternative to each station's own MODULE_BADGE color, so
+  // the whole grid reads as one coherent palette instead of a dozen
+  // unrelated hues. Each station still gets its own shade within the
+  // family (varied by a cheap hash of its key) so cards stay visually
+  // distinguishable from one another.
+  function hashStr(s) {
+    var h = 0;
+    for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+    return Math.abs(h);
+  }
+  // hex out, not "hsl(...)" - shadeColor() (used all over on this accent,
+  // e.g. the gradient below and the radio bar's --now-playing-color) only
+  // understands "#rrggbb" and silently parses anything else as black.
+  function hslToHex(h, s, l) {
+    s /= 100; l /= 100;
+    var c = (1 - Math.abs(2 * l - 1)) * s, x = c * (1 - Math.abs((h / 60) % 2 - 1)), m = l - c / 2;
+    var r, g, b;
+    if (h < 60) { r = c; g = x; b = 0; }
+    else if (h < 120) { r = x; g = c; b = 0; }
+    else if (h < 180) { r = 0; g = c; b = x; }
+    else if (h < 240) { r = 0; g = x; b = c; }
+    else if (h < 300) { r = x; g = 0; b = c; }
+    else { r = c; g = 0; b = x; }
+    var toHex = function (v) { return Math.round((v + m) * 255).toString(16).padStart(2, "0"); };
+    return "#" + toHex(r) + toHex(g) + toHex(b);
+  }
+  function familyAccentColor(group, family, t) {
+    if (!family || family === "original") return moduleBadge(group.module).color;
+    // t (0-1) is this station's position in the currently visible list - a
+    // smooth sweep across it, rather than a per-station hash, so
+    // neighboring cards land close together instead of jumping around the
+    // whole range from one row to the next. Driven by sin(2*pi*t) rather
+    // than a plain linear ramp so t=0 and t=1 land on the exact same color -
+    // the infinite-loop scroll (see wireInfiniteRadioScroll) means the last
+    // station is visually adjacent to the first one, and a linear ramp
+    // would put its biggest jump (green straight back to yellow) right at
+    // that seam.
+    t = typeof t === "number" ? t : 0;
+    var wave = Math.sin(2 * Math.PI * t);
+    if (family === "green") return hslToHex(103 + wave * 47, 55, 44 + wave * 8); // yellow (56) <-> green (150), looping
+    if (family === "gray") {
+      var seed = hashStr(group.key);
+      return hslToHex(0, 0, 32 + (seed % 100) / 100 * 26);
+    }
+    return moduleBadge(group.module).color;
+  }
+
   // Own-design "reconnecting" placeholder, in the vein of a US broadcast
   // network's on-air standby/loading card - not a copy of any real
   // channel's look. Drawn once per row onto its <canvas data-role
   // ="placeholder"> right after insertion, replacing what used to be a
   // small centered monogram badge with a full-bleed graphic bearing the
   // channel's own Hebrew name.
-  function drawChannelPlaceholder(canvas, group) {
+  function drawChannelPlaceholder(canvas, group, index, total) {
     var ctx = canvas.getContext("2d");
     if (!ctx) return;
-    var w = canvas.width, h = canvas.height;
-    var accent = moduleBadge(group.module).color;
+    // Match the canvas's actual on-screen box rather than a fixed 480x270 -
+    // the mobile radio grid (see body.page-radio .row-thumb) uses a much
+    // flatter card than TV's 16:9, and a fixed intrinsic size would just get
+    // squished by the CSS width:100%/height:100% stretch instead of drawing
+    // correctly proportioned for whatever shape the card actually is.
+    var rect = canvas.getBoundingClientRect();
+    var dpr = window.devicePixelRatio || 1;
+    var w = Math.max(1, Math.round(rect.width * dpr));
+    var h = Math.max(1, Math.round(rect.height * dpr));
+    if (canvas.width !== w) canvas.width = w;
+    if (canvas.height !== h) canvas.height = h;
+    // Mobile radio cards use a selectable color family (see
+    // #radio-color-family) instead of each station's own MODULE_BADGE hue -
+    // TV and desktop radio are untouched, keeping their original per-module
+    // colors exactly as before.
+    var isMobileRadio = state.page === "radio" && window.matchMedia("(max-width: 640px)").matches;
+    var t = total > 1 ? (index || 0) / (total - 1) : 0;
+    var accent = isMobileRadio ? familyAccentColor(group, ui.radio.colorFamily || "green", t) : moduleBadge(group.module).color;
 
     var grad = ctx.createLinearGradient(0, 0, w, h);
-    grad.addColorStop(0, "#0b0b0d");
-    grad.addColorStop(1, shadeColor(accent, -55));
+    if (isMobileRadio) {
+      // Both stops are shades of the accent itself (not near-black) - the
+      // near-black TV/desktop gradient below reads as almost no color at
+      // all at a glance, which defeats the point of a selectable family:
+      // these cards need to actually look green/gray, not just have a
+      // thin colored bar at the bottom.
+      grad.addColorStop(0, shadeColor(accent, -30));
+      grad.addColorStop(1, shadeColor(accent, 5));
+    } else {
+      grad.addColorStop(0, "#0b0b0d");
+      grad.addColorStop(1, shadeColor(accent, -55));
+    }
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, w, h);
 
@@ -923,27 +1050,54 @@
 
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-
-    // channel name, centered - the main focal point, shrink to fit long names
-    var size = h * 0.165;
-    var name = group.name;
-    ctx.fillStyle = "#ffffff";
-    do {
-      ctx.font = "800 " + Math.round(size) + "px 'Segoe UI', Arial, sans-serif";
-      size -= 2;
-    } while (ctx.measureText(name).width > w * 0.88 && size > h * 0.06);
-    ctx.fillText(name, w / 2, h * 0.42);
-
-    // current program/show, under the channel name
     var program = group.primary && group.primary.now_playing;
-    if (program) {
-      var psize = h * 0.105;
-      ctx.fillStyle = shadeColor(accent, 55);
+
+    if (isMobileRadio) {
+      // Station name is a small top-left label; the now-playing program is
+      // the dominant text, centered both ways in the card. x starts past
+      // the corner star/a11y badges (also top-left in this RTL layout, see
+      // .row-thumb-corner) so the name clears them rather than sitting
+      // underneath.
+      var name = group.name;
+      var size = h * 0.15;
+      ctx.fillStyle = "#ffffff";
+      ctx.textAlign = "left";
       do {
-        ctx.font = "600 " + Math.round(psize) + "px 'Segoe UI', Arial, sans-serif";
-        psize -= 2;
-      } while (ctx.measureText(program).width > w * 0.82 && psize > h * 0.05);
-      ctx.fillText(program, w / 2, h * 0.6);
+        ctx.font = "800 " + Math.round(size) + "px 'Segoe UI', Arial, sans-serif";
+        size -= 1;
+      } while (ctx.measureText(name).width > w * 0.5 && size > h * 0.08);
+      ctx.fillText(name, w * 0.24, h * 0.16);
+
+      if (program) {
+        var psize = h * 0.32;
+        ctx.textAlign = "center";
+        do {
+          ctx.font = "700 " + Math.round(psize) + "px 'Segoe UI', Arial, sans-serif";
+          psize -= 2;
+        } while (ctx.measureText(program).width > w * 0.88 && psize > h * 0.1);
+        ctx.fillText(program, w / 2, h * 0.55);
+      }
+    } else {
+      // channel name, centered - the main focal point, shrink to fit long names
+      var size = h * 0.165;
+      var name = group.name;
+      ctx.fillStyle = "#ffffff";
+      do {
+        ctx.font = "800 " + Math.round(size) + "px 'Segoe UI', Arial, sans-serif";
+        size -= 2;
+      } while (ctx.measureText(name).width > w * 0.88 && size > h * 0.06);
+      ctx.fillText(name, w / 2, h * 0.42);
+
+      // current program/show, under the channel name
+      if (program) {
+        var psize = h * 0.105;
+        ctx.fillStyle = shadeColor(accent, 55);
+        do {
+          ctx.font = "600 " + Math.round(psize) + "px 'Segoe UI', Arial, sans-serif";
+          psize -= 2;
+        } while (ctx.measureText(program).width > w * 0.82 && psize > h * 0.05);
+        ctx.fillText(program, w / 2, h * 0.6);
+      }
     }
 
     // small corner "bug" - module abbreviation, classic broadcast placement
@@ -1007,8 +1161,9 @@
   var manualSource = lsGet(LS_MANUAL_SOURCE, { tv: {}, radio: {} }); // page -> { groupKey: candidateId }
   var ui = lsGet(LS_UI, {
     tv: { filter: "ok", search: "" },
-    radio: { filter: "ok", search: "", savedOnly: false }
+    radio: { filter: "ok", search: "", savedOnly: false, colorFamily: "green" }
   });
+  if (!ui.radio.colorFamily) ui.radio.colorFamily = "green"; // older saved ui blobs predate this field
 
   var state = {
     page: lsGet(LS_PAGE, "tv"),
@@ -1584,6 +1739,7 @@
 
   // ---------- rendering ----------
   function renderPageTabs() {
+    document.body.classList.toggle("page-radio", state.page === "radio");
     var tabs = document.querySelectorAll(".pagetab[data-page]");
     Array.prototype.forEach.call(tabs, function (btn) {
       btn.setAttribute("aria-selected", btn.getAttribute("data-page") === state.page);
@@ -1614,6 +1770,17 @@
         renderPageTabs();
         renderList();
       };
+    }
+
+    // Mobile-radio color-family picker - hidden on TV (and hidden on
+    // desktop unconditionally via the min-width media query on
+    // .radio-color-family itself). The change handler lives once in
+    // wireRadioColorFamily below, not here - this just keeps its shown
+    // value in sync with ui.radio.colorFamily on every render/page switch.
+    var colorFamilySelect = document.getElementById("radio-color-family");
+    if (colorFamilySelect) {
+      colorFamilySelect.hidden = state.page !== "radio";
+      colorFamilySelect.value = ui.radio.colorFamily || "green";
     }
 
     // The preview-mute button only ever controlled grid PREVIEW audio,
@@ -1709,7 +1876,7 @@
     return (
       '<div class="row' + (isSel ? " is-selected" : "") + (isBroken ? " is-broken" : "") + '" data-key="' + escapeHtml(group.key) + '">' +
         '<div class="row-thumb" data-role="thumb" tabindex="0" role="button" aria-label="נגן את ' + escapeHtml(group.name) + '">' +
-          '<canvas class="row-thumb-placeholder" data-role="placeholder" width="480" height="270"></canvas>' +
+          '<canvas class="row-thumb-placeholder" data-role="placeholder"></canvas>' +
           '<img data-role="thumb-img" alt=""' + (cached ? ' class="is-loaded" src="' + cached + '"' : "") + " />" +
           '<div class="row-thumb-corner">' +
             '<button type="button" class="starbtn' + (isSaved ? " is-saved" : "") + '" aria-label="שמור" aria-pressed="' + isSaved + '">' + (isSaved ? "★" : "☆") + "</button>" +
@@ -1755,11 +1922,15 @@
       emptyState.hidden = true;
       list.innerHTML = visible.map(rowHtml).join("");
     }
-    Array.prototype.forEach.call(list.querySelectorAll(".row"), function (row) {
+    var rows = list.querySelectorAll(".row");
+    Array.prototype.forEach.call(rows, function (row, index) {
       var key = row.getAttribute("data-key");
       var group = groups().filter(function (g) { return g.key === key; })[0];
       var placeholder = row.querySelector('[data-role="placeholder"]');
-      if (placeholder) drawChannelPlaceholder(placeholder, group);
+      // index/rows.length drive the mobile-radio color-family gradient (see
+      // familyAccentColor) - a smooth sweep across the visible list instead
+      // of a per-station hash, so neighboring cards land close together.
+      if (placeholder) drawChannelPlaceholder(placeholder, group, index, rows.length);
       var pick = row.querySelector(".pickbox");
       if (pick) pick.addEventListener("change", function (e) { toggleSelect(group, e.target.checked); });
       // A checkbox alone is a small target - clicking anywhere on the row's
@@ -2253,7 +2424,8 @@
   var playingName = null; // group.name for the CURRENT playingKey, for analytics event params (see trackSelectChannel)
 
   function trackSelectChannel(group) {
-    var pickSource = manualPickId(group) ? "manual" : (state.smartPicks[group.key] ? "smart" : "default");
+    var sp = state.smartPicks[group.key];
+    var pickSource = manualPickId(group) ? "manual" : (sp && sp.bestId ? "smart" : "default");
     gtag('event', 'select_channel', {
       channel_name: group.name,
       channel_key: group.key,
@@ -2322,6 +2494,16 @@
     if (isCoarsePointer) enterFullscreen();
     if (!playerCandidates.length) {
       setPlayerStatus("אין מקור זמין לערוץ הזה כרגע.");
+      // playCandidate() (the only other place this fires) never runs for a
+      // channel with zero candidates - without this, such a channel looks
+      // identical to "nobody opened it" in the funnel instead of "broken".
+      gtag('event', 'stream_play_exhausted', {
+        channel_name: playingName,
+        channel_key: playingKey,
+        page_type: playingPage,
+        candidates_tried: 0,
+        last_failure_type: null
+      });
       return;
     }
     playCandidate();
@@ -2630,6 +2812,16 @@
     startRadioVisualizer();
     if (!playerCandidates.length) {
       setPlayerStatus("אין מקור זמין לערוץ הזה כרגע.");
+      // See the matching comment in openPlayer - playCandidate() never runs
+      // for a channel with zero candidates, so without this it's invisible
+      // in the funnel instead of showing up as broken.
+      gtag('event', 'stream_play_exhausted', {
+        channel_name: playingName,
+        channel_key: playingKey,
+        page_type: playingPage,
+        candidates_tried: 0,
+        last_failure_type: null
+      });
       return;
     }
     startRadioAudioAnalysis(playerCandidates[0]);
@@ -3288,6 +3480,72 @@
       banner.hidden = true;
       lsSet(LS_ONBOARDING_SEEN, true);
     });
+  })();
+
+  // ---------- mobile radio color-family picker ----------
+  // Redraws every currently-rendered placeholder canvas in place rather
+  // than a full renderList() - a family switch is just a repaint of
+  // existing cards, not a data change, and renderList() would rebuild
+  // #list's innerHTML from scratch (losing scroll position, mid-flight
+  // spinners, etc.) for no reason.
+  function redrawAllPlaceholders() {
+    var canvases = document.querySelectorAll(".row-thumb-placeholder");
+    Array.prototype.forEach.call(canvases, function (canvas, index) {
+      var row = canvas.closest(".row");
+      var key = row && row.getAttribute("data-key");
+      var group = key && groups().filter(function (g) { return g.key === key; })[0];
+      if (group) drawChannelPlaceholder(canvas, group, index, canvases.length);
+    });
+  }
+  (function wireRadioColorFamily() {
+    var select = document.getElementById("radio-color-family");
+    if (!select) return;
+    select.addEventListener("change", function () {
+      ui.radio.colorFamily = select.value;
+      lsSet(LS_UI, ui);
+      redrawAllPlaceholders();
+    });
+  })();
+
+  // ---------- mobile radio: infinite-loop list scrolling ----------
+  // Scrolling further up while already at the very top of the (mobile
+  // radio) page wraps around to the bottom, showing the last stations
+  // again - and the same the other way at the bottom - so the station grid
+  // feels like a continuous loop instead of a dead-ending list. Reads real
+  // wheel/touch deltas rather than the "scroll" event, since scrollY simply
+  // clamps at 0/max with no further "scroll" events once already at an
+  // edge - "scroll" alone can't tell a stopped gesture from one still
+  // pushing past the edge.
+  (function wireInfiniteRadioScroll() {
+    function isMobileRadioActive() {
+      return state.page === "radio" && window.matchMedia("(max-width: 640px)").matches
+        && !document.querySelector(".overlay.is-open"); // don't wrap while a panel's own scroll is in use
+    }
+    // Bounded to the #list element itself, not the whole page - the page
+    // continues past the grid (footer/source-attribution link), and the
+    // original page-scrollY version wrapped to THAT bottom, landing on the
+    // footer instead of on the last station cards.
+    function listRect() { return document.getElementById("list").getBoundingClientRect(); }
+    function atListTop() { return listRect().top >= 0; }
+    function atListBottom() { return listRect().bottom <= window.innerHeight; }
+    function scrollToListTop() { window.scrollTo(0, Math.max(0, window.scrollY + listRect().top)); }
+    function scrollToListBottom() { window.scrollTo(0, Math.max(0, window.scrollY + listRect().bottom - window.innerHeight)); }
+    // deltaY > 0 => gesture is scrolling further UP (toward the top);
+    // deltaY < 0 => further DOWN (toward the bottom).
+    function maybeWrap(deltaY) {
+      if (!isMobileRadioActive()) return;
+      if (deltaY > 0 && atListTop()) scrollToListBottom();
+      else if (deltaY < 0 && atListBottom()) scrollToListTop();
+    }
+    window.addEventListener("wheel", function (e) { maybeWrap(-e.deltaY); }, { passive: true });
+    var touchStartY = null;
+    window.addEventListener("touchstart", function (e) { touchStartY = e.touches[0].clientY; }, { passive: true });
+    window.addEventListener("touchmove", function (e) {
+      if (touchStartY === null) return;
+      var y = e.touches[0].clientY;
+      maybeWrap(y - touchStartY);
+      touchStartY = y;
+    }, { passive: true });
   })();
 
   // ---------- header share button ----------
