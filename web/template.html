@@ -913,20 +913,24 @@
   @media (min-width: 641px) {
     .player-head-nav { display: flex; align-items: center; gap: 6px; }
   }
-  /* Bigger than the plain .player-head button default (20px) - too small
-     to read/hit comfortably as their own dedicated prev/next control,
-     unlike mute/fullscreen/close which are single, already-familiar icons. */
+  /* Bigger than the plain .player-head button default (20px) - the nav
+     buttons were too small to read/hit comfortably as their own dedicated
+     prev/next control, unlike fullscreen/close which are single,
+     already-familiar icons. Mute lives in this same cluster now too (see
+     the HTML comment above) and matches its size, for visual consistency
+     within the group rather than because it specifically needed it. */
   .player-head-nav button { font-size: 30px; }
-  /* Esc hint, parked between the two nav buttons (see the HTML comment
-     there) - same look as .player-legend kbd, just outside it. */
-  .player-head kbd {
+  /* Esc, styled as a keycap but a REAL button (see the HTML comment there) -
+     clicking it closes the player, same as ✕. Desktop only, same as the
+     rest of .player-head-nav. */
+  .kbd-btn {
     display: none;
     font-family: ui-monospace, "SF Mono", Consolas, monospace; font-size: 10.5px;
     background: var(--surface-2); border: 1px solid var(--border); border-bottom-width: 2px;
-    border-radius: 5px; padding: 1px 6px; color: var(--text-dim);
+    border-radius: 5px; padding: 1px 6px; color: var(--text-dim); cursor: pointer;
   }
   @media (min-width: 641px) {
-    .player-head kbd { display: inline-block; }
+    .kbd-btn { display: inline-block; }
   }
   .player-osd {
     position: absolute; top: 14px; inset-inline-start: 14px; max-width: calc(100% - 28px);
@@ -1216,18 +1220,21 @@
              left/right in the id (not prev/next) to avoid the RTL mixup -
              the actual next-vs-previous mapping lives in the click
              handlers, matching the existing ArrowLeft/ArrowRight convention
-             (RTL: left = next in reading order, right = previous). Esc
-             hint sits between the two buttons, per explicit request - it's
-             not a channel-switch shortcut itself, just parked in the same
-             cluster (closing IS what these buttons' row is otherwise about). -->
+             (RTL: left = next in reading order, right = previous). Mute
+             sits between the two buttons, per explicit request. -->
         <span class="player-head-nav">
           <button type="button" id="player-nav-left" aria-label="ערוץ הבא">‹</button>
-          <kbd>Esc</kbd>
+          <button id="mute-toggle" aria-label="השתקה/ביטול השתקה" aria-pressed="false">🔊</button>
           <button type="button" id="player-nav-right" aria-label="ערוץ קודם">›</button>
         </span>
         <span style="display:flex;align-items:center;gap:4px">
-          <button id="mute-toggle" aria-label="השתקה/ביטול השתקה" aria-pressed="false">🔊</button>
           <button id="fullscreen-toggle" aria-label="מסך מלא">⛶</button>
+          <!-- Real, clickable button styled as a keycap (not just a visual
+               hint anymore) - clicking it closes the player, same as ✕,
+               per explicit request. Placed next to fullscreen rather than
+               next to ✕ itself since it's ANOTHER way to close, not a
+               label describing the ✕ button specifically. -->
+          <button type="button" class="kbd-btn" id="player-esc-close" aria-label="סגירה (Esc)">Esc</button>
           <button id="close-player" aria-label="סגור">✕</button>
         </span>
       </div>
@@ -3705,15 +3712,30 @@
       }
     }
   }
+  // Debounced (same idea as the 'scroll' event elsewhere) - the wheel
+  // listener below calls setPlayerVolume on every single wheel tick, and a
+  // held-down arrow key auto-repeats several times a second too. Firing
+  // the analytics event on every one of those flooded GA4 with hundreds of
+  // volume_change hits per trackpad swipe, drowning out every other event
+  // type in any report ranked by count. The actual volume itself is still
+  // applied immediately in setPlayerVolume below - only the analytics
+  // event waits for the adjustment to actually settle.
+  var volumeChangeTrackTimer = null;
+  function trackVolumeChange() {
+    if (volumeChangeTrackTimer) clearTimeout(volumeChangeTrackTimer);
+    volumeChangeTrackTimer = setTimeout(function () {
+      gtag('event', 'volume_change', {
+        volume_percent: Math.round(playerDesiredVolume * 100),
+        page_type: playingPage,
+        channel_name: playingName,
+        channel_key: playingKey
+      });
+    }, 500);
+  }
   function setPlayerVolume(volume) {
     playerDesiredVolume = Math.min(1, Math.max(0, volume));
     playerVideo.volume = playerDesiredVolume;
-    gtag('event', 'volume_change', {
-      volume_percent: Math.round(playerDesiredVolume * 100),
-      page_type: playingPage,
-      channel_name: playingName,
-      channel_key: playingKey
-    });
+    trackVolumeChange();
     // Raising the volume while muted should also unmute - matching what a
     // physical remote's volume-up button does - rather than silently
     // raising a volume nobody can hear yet.
@@ -3949,6 +3971,9 @@
   }
 
   document.getElementById("close-player").addEventListener("click", closePlayer);
+  // Real close button now, not just a visual hint (see its own HTML
+  // comment) - same action as ✕/Escape itself.
+  document.getElementById("player-esc-close").addEventListener("click", closePlayer);
   playerOverlay.addEventListener("click", function (e) { if (e.target === playerOverlay) closePlayer(); });
   document.addEventListener("keydown", function (e) {
     if (!playerOverlay.classList.contains("is-open")) return;
