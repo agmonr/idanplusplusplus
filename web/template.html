@@ -2605,8 +2605,17 @@
         if (e.key === "Enter" || e.key === " ") { e.preventDefault(); choose(); }
       });
       if (state.page === "tv") {
-        thumb.addEventListener("mouseenter", function () { scheduleHoverPreview(group, thumb); });
-        thumb.addEventListener("mouseleave", cancelHoverPreview);
+        // pointerenter/leave with an explicit pointerType check, not plain
+        // mouseenter/mouseleave - confirmed live: a tap on a touchscreen
+        // (including a Windows laptop's, which isCoarsePointer deliberately
+        // still treats as "desktop" - see its own comment) synthesizes a
+        // mouseenter with no mouseleave ever reliably following it, since
+        // touch has no continuous hover to "leave" from. That left a
+        // preview playing indefinitely with no mouse anywhere near it.
+        // Touch already has its own dedicated path here (wireLongPress
+        // below), so touch/pen pointers are simply ignored for this.
+        thumb.addEventListener("pointerenter", function (e) { if (e.pointerType === "mouse") scheduleHoverPreview(group, thumb); });
+        thumb.addEventListener("pointerleave", function (e) { if (e.pointerType === "mouse") cancelHoverPreview(); });
         wireLongPress(thumb, group);
       } else {
         wireRadioFavLongPress(thumb, group);
@@ -5155,7 +5164,13 @@
   // The page also starts out at the top, same as scrolling back up to it -
   // give it the same short settle delay as any other scroll-stop, rather
   // than duplicating previewCenteredChannel's logic for the load-at-top case.
-  scrollLoadTimer = setTimeout(previewCenteredChannel, SCROLL_LOAD_MS);
+  // Mobile only (see wireScrollStopPreview's own comment on this exact
+  // gate) - this call isn't tied to any hover/mouseleave at all, so on
+  // desktop it would start playing a preview nobody ever hovered, with no
+  // mouse-leaving-the-card event to ever stop it again - confirmed live as
+  // the actual source of "sound keeps playing with the mouse nowhere near
+  // a channel" on desktop.
+  if (isCoarsePointer) scrollLoadTimer = setTimeout(previewCenteredChannel, SCROLL_LOAD_MS);
 
   // ---------- new-version check on load ----------
   // GitHub Pages serves this page with a real Last-Modified header (also
