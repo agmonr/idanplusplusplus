@@ -125,7 +125,11 @@
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; }
   body {
-    background: var(--bg); color: var(--text);
+    /* --theme-bg (desktop only, see applyThemeAccentToChrome) is the
+       selected color family washed into --bg; falls back to plain --bg
+       itself whenever no family is set (or on mobile, where it's never
+       set at all). */
+    background: var(--theme-bg, var(--bg)); color: var(--text);
     font: 16px/1.55 system-ui, "Segoe UI", "Arial Hebrew", Arial, sans-serif;
     -webkit-font-smoothing: antialiased;
   }
@@ -170,8 +174,9 @@
     .theme-pick .theme-btn-label { display: none; }
     /* header.site is already gone from the DOM entirely (kept here only
        because removing the rule too isn't worth the churn); the in-player
-       keyboard-shortcut legend is now hidden on ALL screen sizes, see the
-       base .player-legend rule above. */
+       keyboard-shortcut legend is mobile-hidden for its own reason too
+       (goes straight to fullscreen there), see the base .player-legend
+       rule above. */
     header.site { display: none; }
   }
 
@@ -255,7 +260,6 @@
     .pagetab-label { display: none; }
     .pagetab { padding: 8px 10px; }
   }
-  .radio-favs-btn[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
   /* Same fixed box as .radio-color-family right after it (see that rule's
      own comment) - only one of the two is ever visible at a time (JS toggle
      in renderPageTabs), so matching their size/position exactly means
@@ -294,11 +298,15 @@
      so it stays in sync automatically. */
   .share-icon { flex: none; }
   .share-btn-big:hover { filter: brightness(1.1); }
-  /* Mobile-radio-only color-family picker (see #radio-color-family) - hidden
-     on desktop unconditionally (min-width query below) even while shown on
-     the radio page; the JS toggle in renderPageTabs handles the TV-page and
-     radio-vs-tv hidden state the same way it already does for
-     radio-favs-btn/preview-mute-btn. */
+  /* Radio-only color-family picker (see #radio-color-family) - now shown on
+     desktop too, same as mobile, per explicit request. The picker itself
+     (and applyThemeAccentToChrome, which already ran regardless of device)
+     always affected the radio tab/share button/volume-bar accent color on
+     desktop too; only the per-CARD recolor in drawChannelPlaceholder stays
+     mobile-only (isMobileRadio there) - TV and desktop radio keep their
+     original per-module card colors, unchanged by design. The JS toggle in
+     renderPageTabs handles the TV-page and radio-vs-tv hidden state the
+     same way it already does for preview-mute-btn. */
   .radio-color-family {
     align-self: center;
     border: 1px solid var(--border); background: var(--surface);
@@ -306,17 +314,17 @@
     width: 30px; height: 30px; padding: 0; display: flex; align-items: center; justify-content: center;
   }
   .radio-color-family[aria-expanded="true"] { border-color: var(--accent); }
-  @media (min-width: 641px) {
-    .radio-color-family { display: none !important; }
-  }
-  /* Backstop for the TV page on mobile: the JS toggle in renderPageTabs
-     already hides #radio-color-family-btn there, but the popup grid itself
-     only tracks its own open/closed state, not state.page - if it's left
-     open while switching from radio to tv, this guarantees it (and the
-     button) never show over the TV list either way. */
-  body:not(.page-radio) .radio-color-family,
-  body:not(.page-radio) .color-family-grid {
-    display: none !important;
+  /* Backstop for the TV page on MOBILE only (desktop now shows this picker
+     on both pages, see the JS toggle in renderPageTabs): that toggle
+     already hides #radio-color-family-btn on mobile TV, but the popup grid
+     itself only tracks its own open/closed state, not state.page - if it's
+     left open while switching from radio to tv, this guarantees it (and
+     the button) never show over the mobile TV list either way. */
+  @media (max-width: 640px) {
+    body:not(.page-radio) .radio-color-family,
+    body:not(.page-radio) .color-family-grid {
+      display: none !important;
+    }
   }
   /* 4-wide swatch table (see the HTML comment on #radio-color-family-grid
      for the rainbow ordering) - a popup under the button rather than a
@@ -343,6 +351,19 @@
     border-radius: 8px; font-size: 17px; cursor: pointer; display: flex; align-items: center; justify-content: center;
   }
   .cf-swatch.is-active { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+  /* Background-wash intensity slider (see applyThemeAccentToChrome) -
+     desktop only, same as the wash effect itself; mobile never sets
+     --theme-bg at all, so a slider for it there would do nothing. */
+  .cf-intensity { display: none; }
+  @media (min-width: 641px) {
+    .cf-intensity {
+      grid-column: 1 / -1;
+      display: flex; align-items: center; gap: 6px;
+      margin-top: 2px; padding-top: 6px; border-top: 1px solid var(--border);
+      font-size: 13px;
+    }
+  }
+  .cf-intensity input[type="range"] { flex: 1; accent-color: var(--accent); }
   /* Grayscale swatch: one box with a real black-to-white gradient, not two
      separate ⬛⬜ emoji side by side - actually shows what the family looks
      like instead of just implying "black and white" as two flat chips.
@@ -610,10 +631,6 @@
      every width, per explicit request. */
   .controls { display: none; }
   body.header-menu-open .controls { display: flex; }
-  @media (max-width: 640px) {
-    /* "מועדפי רדיו" quick filter - desktop only. */
-    .radio-favs-btn { display: none !important; }
-  }
   .hamburger-btn {
     display: flex; border: 1px solid var(--border); background: var(--surface); color: var(--text);
     border-radius: 10px; width: 38px; height: 38px; align-items: center; justify-content: center;
@@ -827,17 +844,18 @@
 
   .player-overlay {
     position: fixed; inset: 0; background: rgba(0,0,0,.72); z-index: 50;
-    display: none; align-items: center; justify-content: center; padding: 4vh 0;
+    display: none; align-items: center; justify-content: center; padding: 4vh 16px;
   }
   .player-overlay.is-open { display: flex; }
   .player-panel {
     position: relative;
-    /* Full viewport width by default (was capped at 880px, floating in the
-       middle of the screen) - still shrinkable/draggable afterward via
-       wirePlayerResize/wirePlayerPanelDrag for anyone who wants a smaller
-       floating window, this is just the starting size. */
-    background: var(--surface); border: 1px solid var(--border); border-radius: 0;
-    width: 100%; box-shadow: var(--shadow); direction: rtl; overflow: hidden;
+    /* Centered floating window by default (reverted from full viewport
+       width, per explicit bug report - that made desktop opens read as
+       "almost fullscreen" instead of a window). Still resizable/draggable
+       via wirePlayerResize/wirePlayerPanelDrag for anyone who wants it
+       bigger, this is just the starting size. */
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    width: min(880px, 100%); box-shadow: var(--shadow); direction: rtl; overflow: hidden;
     /* Width only - height stays derived from the video's own 16:9
        aspect-ratio (.player-video-wrap) rather than being independently
        resizable, which would just leave blank space rather than actually
@@ -883,6 +901,33 @@
     pointer-events: none;
   }
   .player-status.is-hidden { display: none; }
+  /* Desktop-only channel prev/next, in the player HEAD now (frame chrome,
+     not overlaid on the video) - per explicit request. Mobile keeps the
+     swipe gesture instead (see wirePlayerTouchGestures), same as it always
+     has, and never sees this row anyway (fullscreens .player-video-wrap
+     itself on open, which doesn't include .player-head - see its own
+     :fullscreen rule). display:none by default, not just mobile-hidden,
+     since .player-head button already sets a font-size meant for the
+     header row - shown at exactly the same breakpoint as .player-legend. */
+  .player-head-nav { display: none; }
+  @media (min-width: 641px) {
+    .player-head-nav { display: flex; align-items: center; gap: 6px; }
+  }
+  /* Bigger than the plain .player-head button default (20px) - too small
+     to read/hit comfortably as their own dedicated prev/next control,
+     unlike mute/fullscreen/close which are single, already-familiar icons. */
+  .player-head-nav button { font-size: 30px; }
+  /* Esc hint, parked between the two nav buttons (see the HTML comment
+     there) - same look as .player-legend kbd, just outside it. */
+  .player-head kbd {
+    display: none;
+    font-family: ui-monospace, "SF Mono", Consolas, monospace; font-size: 10.5px;
+    background: var(--surface-2); border: 1px solid var(--border); border-bottom-width: 2px;
+    border-radius: 5px; padding: 1px 6px; color: var(--text-dim);
+  }
+  @media (min-width: 641px) {
+    .player-head kbd { display: inline-block; }
+  }
   .player-osd {
     position: absolute; top: 14px; inset-inline-start: 14px; max-width: calc(100% - 28px);
     background: rgba(0,0,0,.6); backdrop-filter: blur(6px); border-radius: 10px;
@@ -920,9 +965,13 @@
   .player-foot { display: flex; align-items: center; gap: 10px; padding: 10px 16px; font-size: 12px; color: var(--text-dim); flex-wrap: wrap; }
   .player-foot .p-source { direction: ltr; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
   .player-legend {
-    /* Dropped everywhere, not just mobile - opening a channel now goes
-       straight to fullscreen (see enterFullscreen() in openPlayer), where
-       this legend was never shown anyway. */
+    /* Desktop only (see below) - mobile goes straight to fullscreen on open
+       (see enterFullscreen() in openPlayer), where this footer area isn't
+       visible at all, so there's nothing to show it in there. Restored on
+       desktop, in the player window's own footer frame (not overlaid on
+       the video), per explicit request that people can see keyboard
+       shortcuts exist at all - previously built but never actually shown
+       anywhere. */
     display: none;
   }
   .player-legend span { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
@@ -930,6 +979,12 @@
     font-family: ui-monospace, "SF Mono", Consolas, monospace; font-size: 10.5px;
     background: var(--surface-2); border: 1px solid var(--border); border-bottom-width: 2px;
     border-radius: 5px; padding: 1px 6px; color: var(--text);
+  }
+  @media (min-width: 641px) {
+    .player-legend {
+      display: flex; flex-wrap: wrap; gap: 7px 16px;
+      padding: 0 16px 12px; font-size: 11.5px; color: var(--text-dim);
+    }
   }
 </style>
 
@@ -972,7 +1027,6 @@
         <svg class="pagetab-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M15 8 L18.5 3" stroke="#5b6068" stroke-width="1.6" stroke-linecap="round" fill="none"/><circle cx="18.5" cy="3" r="1" fill="#8f97a3"/><rect x="13.5" y="6.5" width="2" height="2" rx="0.4" fill="#8f97a3"/><rect x="6" y="6.5" width="2" height="2" rx="0.4" fill="#8f97a3"/><rect x="3" y="8" width="18" height="11" rx="2.5" fill="#f6a536"/><circle cx="8" cy="13.5" r="3.2" fill="#c7cdd6"/><circle cx="8" cy="13.5" r="1.6" fill="#8f97a3"/><rect x="13" y="9.5" width="6" height="3" rx="0.6" fill="#8ecdf0"/><circle cx="14.5" cy="15" r="1" fill="#3fae5a"/><circle cx="17.5" cy="15" r="1" fill="#e0473f"/><line x1="13" y1="16.8" x2="19" y2="16.8" stroke="#7a5416" stroke-width="0.8"/><line x1="13" y1="17.6" x2="19" y2="17.6" stroke="#7a5416" stroke-width="0.8"/></svg>
         <span class="pagetab-label">רדיו</span>
       </button>
-      <button type="button" class="pagetab radio-favs-btn" id="radio-favs-btn" aria-pressed="false" hidden>מועדפי רדיו</button>
       <button type="button" class="radio-stop-btn" id="radio-stop-btn" title="עצירה" aria-label="עצירה" hidden>
         <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2"/></svg>
       </button>
@@ -1059,6 +1113,17 @@
     <button type="button" class="cf-swatch" data-family="rainbow" title="קשת">🌈</button>
     <button type="button" class="cf-swatch cf-swatch-gray" data-family="gray" title="שחור-לבן"><span class="cf-gray-gradient" aria-hidden="true"></span></button>
     <button type="button" class="cf-swatch" data-family="original" title="מקורי">🎨</button>
+    <!-- Desktop only (see .cf-intensity's own CSS) - controls how strong
+         the color-family wash on the page background is (see
+         applyThemeAccentToChrome/ui.radio.bgIntensity). Doesn't reset when
+         switching families - a separate field from colorFamily, deliberately,
+         per explicit request that the intensity stay put across color
+         changes. -->
+    <div class="cf-intensity">
+      <span aria-hidden="true">🔅</span>
+      <input type="range" id="cf-intensity-slider" min="0" max="40" step="1" aria-label="עוצמת צביעת הרקע" />
+      <span aria-hidden="true">🔆</span>
+    </div>
   </div>
 
   <div class="overlay" id="saved-overlay">
@@ -1145,6 +1210,20 @@
       <div class="player-head">
         <span style="display:flex;align-items:center;overflow:hidden">
           <h2 id="player-title"></h2>
+        </span>
+        <!-- Desktop only (see .player-head-nav's own CSS) - moved here from
+             floating over the video itself, per explicit request. Physical
+             left/right in the id (not prev/next) to avoid the RTL mixup -
+             the actual next-vs-previous mapping lives in the click
+             handlers, matching the existing ArrowLeft/ArrowRight convention
+             (RTL: left = next in reading order, right = previous). Esc
+             hint sits between the two buttons, per explicit request - it's
+             not a channel-switch shortcut itself, just parked in the same
+             cluster (closing IS what these buttons' row is otherwise about). -->
+        <span class="player-head-nav">
+          <button type="button" id="player-nav-left" aria-label="ערוץ הבא">‹</button>
+          <kbd>Esc</kbd>
+          <button type="button" id="player-nav-right" aria-label="ערוץ קודם">›</button>
         </span>
         <span style="display:flex;align-items:center;gap:4px">
           <button id="mute-toggle" aria-label="השתקה/ביטול השתקה" aria-pressed="false">🔊</button>
@@ -1396,6 +1475,21 @@
     if (fill) fill.style.background = color ? "linear-gradient(180deg, " + shadeColor(color, 20) + ", " + shadeColor(color, -20) + ")" : "";
     if (color) document.documentElement.style.setProperty("--theme-accent", color);
     else document.documentElement.style.removeProperty("--theme-accent");
+    // Desktop only, both TV and radio (see body's own background rule) -
+    // a light wash of the chosen color family across the whole page
+    // background, not just the toolbar accent above. color-mix against
+    // the CURRENT --bg (not a fixed light/dark computation) so this stays
+    // correct in both light and dark mode automatically, same trick the
+    // topbar's own translucent background already uses. Mobile keeps the
+    // plain --bg untouched - the per-card recolor in drawChannelPlaceholder
+    // (isMobileRadio there) is already its own, stronger effect there.
+    // Intensity is user-adjustable (see the slider in #radio-color-family-
+    // grid) and deliberately independent of which family is picked.
+    if (color && !isCoarsePointer) {
+      document.documentElement.style.setProperty("--theme-bg", "color-mix(in srgb, " + color + " " + ui.radio.bgIntensity + "%, var(--bg))");
+    } else {
+      document.documentElement.style.removeProperty("--theme-bg");
+    }
   }
 
   // Own-design "reconnecting" placeholder, in the vein of a US broadcast
@@ -1574,9 +1668,14 @@
   var manualSource = lsGet(LS_MANUAL_SOURCE, { tv: {}, radio: {} }); // page -> { groupKey: candidateId }
   var ui = lsGet(LS_UI, {
     tv: { filter: "ok", search: "", savedOnly: false },
-    radio: { filter: "ok", search: "", savedOnly: false, colorFamily: "blue" }
+    radio: { filter: "ok", search: "", savedOnly: false, colorFamily: "blue", bgIntensity: 10 }
   });
   if (!ui.radio.colorFamily) ui.radio.colorFamily = "blue"; // older saved ui blobs predate this field
+  // Deliberately NOT reset by picking a different color family (see
+  // wireRadioColorFamily's swatch click handler, which only ever touches
+  // colorFamily) - the whole point is the intensity you picked stays put
+  // across colors, per explicit request.
+  if (ui.radio.bgIntensity === undefined) ui.radio.bgIntensity = 10; // older saved ui blobs predate this field
   if (ui.tv.savedOnly === undefined) ui.tv.savedOnly = false; // older saved ui blobs predate this field
 
   var state = {
@@ -2021,6 +2120,16 @@
       captureFrameFromHoverPreview();
       if (hoverPreview.hls) hoverPreview.hls.destroy();
       hoverPreview.video.pause();
+      // Same extra step teardownPlayer() takes for the main player, for the
+      // same reason (see its own comment) - confirmed live there that
+      // pause() alone can leave a video still audibly playing for some
+      // stream backends, .remove()d from the DOM or not. Explicitly
+      // dropping the source and reloading is what actually guarantees the
+      // decoder stops, which is exactly what was reported happening here:
+      // hover-preview audio continuing to play after the mouse (and this
+      // whole card) is long gone.
+      hoverPreview.video.removeAttribute("src");
+      hoverPreview.video.load();
       hoverPreview.video.remove();
       hoverPreview.video = null;
       hoverPreview.hls = null;
@@ -2029,6 +2138,17 @@
       hoverPreview.thumb = null;
     }
   }
+
+  // Stops the grid preview the moment the tab loses focus (switched away,
+  // minimized, etc.) - it's an ambient browsing aid, never something
+  // deliberately started to keep playing unattended, unlike the real
+  // player/radio bar (see closePlayer/closeRadioBar) which are left
+  // running here on purpose - a channel you actually opened, or radio audio,
+  // should keep going in the background like any other tab, same as
+  // switching away doesn't pause a YouTube tab you're actively watching.
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) cancelHoverPreview();
+  });
 
   // Shown over the live preview video itself whenever previewMuted is on -
   // a per-card visual cue, not just the header button's own icon, so it's
@@ -2197,7 +2317,25 @@
       // it is still visible.
       btn.classList.toggle("is-favs-only", !!(ui[tabPage] && ui[tabPage].savedOnly));
       btn.onclick = function () {
-        state.page = btn.getAttribute("data-page");
+        // Desktop: clicking the ALREADY-ACTIVE tab toggles that page's
+        // favorites-only view, replacing the old dedicated מועדפי
+        // רדיו/טלויזיה buttons - one fewer control in the toolbar, same
+        // ui.<page>.savedOnly underneath (see matches()). Mobile keeps its
+        // existing long-press for this instead (see
+        // wirePagetabFavsLongPress) - a plain tap there just re-selects the
+        // same page, same as it always did, so this doesn't fire there.
+        if (!isCoarsePointer && tabPage === state.page) {
+          ui[tabPage].savedOnly = !ui[tabPage].savedOnly;
+          lsSet(LS_UI, ui);
+          renderPageTabs();
+          renderList();
+          // See the matching comment in wirePagetabFavsLongPress - forces
+          // the color-family gradient to recompute against the now-filtered
+          // list rather than keeping each card's full-list color.
+          requestAnimationFrame(redrawAllPlaceholders);
+          return;
+        }
+        state.page = tabPage;
         lsSet(LS_PAGE, state.page);
         gtag('event', 'page_tab_select', { page_type: state.page });
         state.selected.clear();
@@ -2218,33 +2356,17 @@
       };
     });
 
-    // "מועדפי רדיו" - desktop-only quick filter to the radio channels
-    // already starred/saved, shown only while on the radio page itself.
-    var favsBtn = document.getElementById("radio-favs-btn");
-    if (favsBtn) {
-      favsBtn.hidden = state.page !== "radio";
-      favsBtn.setAttribute("aria-pressed", !!ui.radio.savedOnly);
-      favsBtn.onclick = function () {
-        ui.radio.savedOnly = !ui.radio.savedOnly;
-        lsSet(LS_UI, ui);
-        renderPageTabs();
-        renderList();
-        // See the matching comment in wirePagetabFavsLongPress - forces
-        // the color-family gradient to recompute against the now-filtered
-        // list rather than keeping each card's full-list color.
-        requestAnimationFrame(redrawAllPlaceholders);
-      };
-    }
-
-    // Mobile-radio color-family picker - hidden on TV (and hidden on
-    // desktop unconditionally via the min-width media query on
-    // .radio-color-family itself). Open/select handling lives once in
+    // Color-family picker - on mobile still radio-only (TV has no per-card
+    // use for it, see isMobileRadio in drawChannelPlaceholder); on desktop
+    // shown on BOTH pages now, since it also drives the global background
+    // wash there (see applyThemeAccentToChrome) which applies everywhere,
+    // not just radio. Open/select handling lives once in
     // wireRadioColorFamily below, not here - this just keeps the button's
     // own swatch and the grid's "active" mark in sync with
     // ui.radio.colorFamily on every render/page switch.
     var colorFamilyBtn = document.getElementById("radio-color-family-btn");
     if (colorFamilyBtn) {
-      colorFamilyBtn.hidden = state.page !== "radio";
+      colorFamilyBtn.hidden = isCoarsePointer && state.page !== "radio";
       var activeFamily = ui.radio.colorFamily || "blue";
       var activeSwatch = document.querySelector('.cf-swatch[data-family="' + activeFamily + '"]');
       document.getElementById("radio-color-family-swatch").innerHTML = activeSwatch ? activeSwatch.innerHTML : "🟦";
@@ -2254,12 +2376,26 @@
     }
     applyThemeAccentToChrome();
 
-    // The preview-mute button only ever controlled grid PREVIEW audio,
-    // and previews are TV-only (see previewCenteredChannel's own guard) -
-    // it does nothing on the radio page, so hide it there rather than
-    // leave a control with no effect.
+    // The preview-mute button only ever controlled grid PREVIEW audio, and
+    // previews are TV-only (see previewCenteredChannel's own guard) - on
+    // MOBILE it still does nothing on the radio page, so stays hidden
+    // there. On DESKTOP it's now shown on radio too, as a mirror of the
+    // radio bar's own mute button (see toggleRadioMute/wirePreviewMuteButton)
+    // - purely so the toolbar has the same icon set on both pages there,
+    // per explicit request.
     var previewMuteBtn = document.getElementById("preview-mute-btn");
-    if (previewMuteBtn) previewMuteBtn.hidden = state.page === "radio";
+    if (previewMuteBtn) previewMuteBtn.hidden = isCoarsePointer && state.page === "radio";
+    // Keeps the button's icon current for whichever meaning applies on the
+    // page just switched to (see wirePreviewMuteButton) - its own sync()
+    // closure only runs at wire-time and after its own click, not on a
+    // plain page switch, which would otherwise leave the icon showing the
+    // OTHER page's mute state for a moment after switching.
+    if (state.page === "radio") {
+      syncRadioMuteButton();
+    } else if (previewMuteBtn) {
+      previewMuteBtn.setAttribute("aria-pressed", previewMuted);
+      previewMuteBtn.textContent = previewMuted ? "🔇" : "🔊";
+    }
   }
 
   function renderStats() {
@@ -3462,13 +3598,27 @@
   document.getElementById("radio-bar-prev").addEventListener("click", function () { switchRadioChannel(-1); });
   document.getElementById("radio-bar-next").addEventListener("click", function () { switchRadioChannel(1); });
   function syncRadioMuteButton() {
-    document.getElementById("radio-bar-mute").textContent = (playerVideo.muted || playerVideo.volume === 0) ? "🔇" : "🔊";
+    var muted = playerVideo.muted || playerVideo.volume === 0;
+    document.getElementById("radio-bar-mute").textContent = muted ? "🔇" : "🔊";
+    // Toolbar mirror (id="preview-mute-btn" - see wirePreviewMuteButton) -
+    // kept in sync from here so every existing call site that changes
+    // radio's mute/volume updates both buttons at once, not just the radio
+    // bar's own. Only relevant while actually on the radio page (the
+    // button's hidden otherwise), but harmless to touch either way.
+    var toolbarBtn = document.getElementById("preview-mute-btn");
+    if (toolbarBtn && state.page === "radio") {
+      toolbarBtn.textContent = muted ? "🔇" : "🔊";
+      toolbarBtn.setAttribute("aria-pressed", String(muted));
+    }
   }
-  document.getElementById("radio-bar-mute").addEventListener("click", function () {
+  // Shared by the radio bar's own mute button AND the toolbar's mirror of
+  // it (see wirePreviewMuteButton) - one real mute toggle either can invoke.
+  function toggleRadioMute() {
     playerVideo.muted = !playerVideo.muted;
     syncRadioMuteButton();
     gtag('event', 'mute_toggle', { muted: playerVideo.muted, page_type: 'radio', channel_name: playingName, channel_key: playingKey });
-  });
+  }
+  document.getElementById("radio-bar-mute").addEventListener("click", toggleRadioMute);
   // Three ↑/↓ surfing modes, cheapest/most-curated first:
   //  plain      - a short curated "favorites" order (the channels most
   //               people actually flip between - main broadcast numbers,
@@ -3516,7 +3666,13 @@
   // setPlayerMuted/setPlayerVolume (real user actions) ever write them,
   // and startPlayback reads them fresh on every candidate/retry rather
   // than a stale one-time snapshot.
-  var playerDesiredMuted = false;
+  // Starts from previewMuted (see LS_PREVIEW_MUTED above) rather than a
+  // fixed false - TV mute is global now (mobile and desktop both), so a
+  // saved grid-preview mute preference already means "start the player
+  // muted too" from the very first open of a session, not just after
+  // toggling one or the other at least once. setPlayerMuted below is what
+  // keeps them in sync from then on.
+  var playerDesiredMuted = previewMuted;
   // 90%, not the browser's native 100% default - applied to playerVideo
   // itself too (not just tracked here) since radio reads/shows the video
   // element's own .volume directly rather than going through this var.
@@ -3536,6 +3692,22 @@
     syncMuteButton();
     showVolumeOsd();
     gtag('event', 'mute_toggle', { muted: muted, page_type: playingPage, channel_name: playingName, channel_key: playingKey });
+    // TV mute is global (mobile and desktop) per explicit request - muting
+    // the actual player also mutes the grid preview, and vice versa (see
+    // wirePreviewMuteButton for that direction). Guarded so this doesn't
+    // redundantly re-fire when THAT direction is what called setPlayerMuted
+    // in the first place (previewMuted already matches muted by then).
+    if (previewMuted !== muted) {
+      previewMuted = muted;
+      lsSet(LS_PREVIEW_MUTED, previewMuted);
+      if (hoverPreview.video) hoverPreview.video.muted = previewMuted;
+      syncPreviewMuteBadge();
+      var previewMuteBtn = document.getElementById("preview-mute-btn");
+      if (previewMuteBtn && state.page === "tv") {
+        previewMuteBtn.setAttribute("aria-pressed", previewMuted);
+        previewMuteBtn.textContent = previewMuted ? "🔇" : "🔊";
+      }
+    }
   }
   function setPlayerVolume(volume) {
     playerDesiredVolume = Math.min(1, Math.max(0, volume));
@@ -3684,19 +3856,27 @@
   // mute gesture below isn't fighting a native menu on top of it.
   playerVideo.addEventListener("contextmenu", function (e) { e.preventDefault(); });
 
-  // Desktop TV: mouse wheel switches channels - up for next, down for
-  // previous. Cooldown-debounced so one wheel "notch" (or the many small
-  // events a trackpad fires for a single swipe) doesn't flip through
-  // several channels at once.
-  var wheelSwitchCooldown = false;
+  // Desktop TV: mouse wheel adjusts volume - up for louder, down for
+  // quieter, same as the ↑/↓ keys (see adjustVolume). Used to switch
+  // channels instead; per explicit request that's now the left/right
+  // player-nav buttons (see below) - channel switching wants a deliberate
+  // click, not something that fires on an ordinary trackpad scroll over
+  // the video.
   playerVideo.addEventListener("wheel", function (e) {
     if (isCoarsePointer || playingPage !== "tv") return;
     e.preventDefault();
-    if (wheelSwitchCooldown) return;
-    wheelSwitchCooldown = true;
-    setTimeout(function () { wheelSwitchCooldown = false; }, 450);
-    switchChannel(e.deltaY < 0 ? 1 : -1, "curated");
+    adjustVolume(e.deltaY < 0 ? 0.05 : -0.05);
   }, { passive: false });
+
+  // Desktop channel prev/next (see the buttons' own HTML comment) - same
+  // RTL convention as the ArrowLeft/ArrowRight keyboard shortcut below:
+  // left = next in reading order, right = previous. stopPropagation so a
+  // click here doesn't also bubble to the video's own click listener
+  // (toggles fullscreen on desktop).
+  var playerNavLeft = document.getElementById("player-nav-left");
+  var playerNavRight = document.getElementById("player-nav-right");
+  if (playerNavLeft) playerNavLeft.addEventListener("click", function (e) { e.stopPropagation(); switchChannel(1, "curated"); });
+  if (playerNavRight) playerNavRight.addEventListener("click", function (e) { e.stopPropagation(); switchChannel(-1, "curated"); });
 
   // Mobile touch gestures on the player video, all sharing one touchstart/
   // move/end sequence so they don't fight each other:
@@ -4156,6 +4336,12 @@
   })();
 
   // ---------- header preview-mute button ----------
+  // Desktop: also shown on the radio page now (see renderPageTabs), purely
+  // so the toolbar has the same icon set on both pages - there it's not a
+  // second, separate mute state, just a shortcut to the SAME toggle the
+  // radio bar's own mute button uses (see toggleRadioMute/
+  // syncRadioMuteButton, which already keeps this button's icon in sync
+  // from every other place radio's mute/volume can change).
   (function wirePreviewMuteButton() {
     var btn = document.getElementById("preview-mute-btn");
     if (!btn) return;
@@ -4165,6 +4351,7 @@
     }
     sync();
     btn.addEventListener("click", function () {
+      if (state.page === "radio") { toggleRadioMute(); return; }
       previewMuted = !previewMuted;
       lsSet(LS_PREVIEW_MUTED, previewMuted);
       sync();
@@ -4172,6 +4359,12 @@
       // than only taking effect the next time one starts.
       if (hoverPreview.video) hoverPreview.video.muted = previewMuted;
       syncPreviewMuteBadge();
+      // TV mute is global (mobile and desktop) per explicit request -
+      // muting the grid preview also mutes the actual player if one's
+      // open, and vice versa (see setPlayerMuted for that direction).
+      // previewMuted is already set above, so setPlayerMuted's own
+      // previewMuted-sync guard sees them equal and doesn't loop back.
+      if (playerDesiredMuted !== previewMuted) setPlayerMuted(previewMuted);
     });
   })();
 
@@ -4216,13 +4409,18 @@
     if (!btn || !grid) return;
     function setOpen(open) {
       if (open) {
-        // Body-level now (see the grid's own HTML comment). Vertically
-        // still follows the button's own on-screen spot, but horizontally
-        // pinned to the physical right edge of the screen (not the
-        // button's position) per explicit request.
+        // Body-level now (see the grid's own HTML comment). Follows the
+        // button's own actual on-screen spot both ways - was pinned to the
+        // physical right edge of the screen regardless of the button's
+        // position, which looked detached from the button once this picker
+        // started appearing on desktop too (button sits mid-toolbar there,
+        // not at the screen edge). getBoundingClientRect() is always in
+        // physical/LTR coordinates regardless of dir="rtl", so window.
+        // innerWidth - rect.right is the right amount of physical "right"
+        // CSS offset to align the grid's own right edge with the button's.
         var rect = btn.getBoundingClientRect();
         grid.style.top = (rect.bottom + 6) + "px";
-        grid.style.right = "12px";
+        grid.style.right = (window.innerWidth - rect.right) + "px";
       }
       grid.hidden = !open;
       btn.setAttribute("aria-expanded", String(open));
@@ -4245,6 +4443,19 @@
       redrawAllPlaceholders();
       updateNowPlayingFrame(); // the frame color is family-derived too (see familyFrameColor) - keep it in sync
     });
+    // Background-wash intensity (see applyThemeAccentToChrome/.cf-intensity's
+    // own CSS) - a separate control from the swatches above, deliberately:
+    // dragging this never touches ui.radio.colorFamily, so the intensity
+    // you land on stays put no matter which color you pick afterward.
+    var intensitySlider = document.getElementById("cf-intensity-slider");
+    if (intensitySlider) {
+      intensitySlider.value = ui.radio.bgIntensity;
+      intensitySlider.addEventListener("input", function () {
+        ui.radio.bgIntensity = Number(intensitySlider.value);
+        lsSet(LS_UI, ui);
+        applyThemeAccentToChrome();
+      });
+    }
     document.addEventListener("click", function (e) {
       if (!grid.hidden && e.target !== btn && !btn.contains(e.target) && !grid.contains(e.target)) setOpen(false);
     });
@@ -4515,8 +4726,16 @@
         var r = hoverPreview.thumb.getBoundingClientRect();
         if (r.bottom < 0 || r.top > window.innerHeight) cancelHoverPreview();
       }
-      if (scrollLoadTimer) clearTimeout(scrollLoadTimer);
-      scrollLoadTimer = setTimeout(previewCenteredChannel, SCROLL_LOAD_MS);
+      // Mobile only (per explicit bug report) - desktop already has real
+      // hover for starting a preview (see scheduleHoverPreview), so
+      // starting one here TOO meant scrolling past a card with the mouse
+      // sitting still over it (nowhere near actually hovering it) would
+      // start playing it anyway. Mobile has no hover at all, which is what
+      // this substitutes for - unaffected.
+      if (isCoarsePointer) {
+        if (scrollLoadTimer) clearTimeout(scrollLoadTimer);
+        scrollLoadTimer = setTimeout(previewCenteredChannel, SCROLL_LOAD_MS);
+      }
       if (scrollTrackTimer) clearTimeout(scrollTrackTimer);
       scrollTrackTimer = setTimeout(function () {
         gtag('event', 'scroll', { page_type: state.page, scroll_y: Math.round(window.scrollY) });
