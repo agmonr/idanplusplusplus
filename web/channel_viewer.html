@@ -3746,12 +3746,38 @@
     if (playerDesiredVolume > 0 && playerDesiredMuted) setPlayerMuted(false);
     else showVolumeOsd();
   }
-  // volume===0 (e.g. an OS media key dragging it all the way down) isn't
-  // caught by setPlayerMuted/setPlayerVolume above, so this stays as a
-  // backstop for the button/indicator specifically - not for
-  // playerDesiredMuted itself, which only ever reflects a real mute
-  // toggle, not "volume happens to be zero".
-  playerVideo.addEventListener("volumechange", syncMuteButton);
+  // volume===0 (e.g. an OS/Bluetooth media key dragging it all the way
+  // down) isn't caught by setPlayerMuted/setPlayerVolume above, so this
+  // stays a backstop for the button/indicator specifically.
+  //
+  // It ALSO recovers from a real bug reported live: a Bluetooth (or other
+  // hardware) volume control writes playerVideo.volume/.muted directly,
+  // bypassing setPlayerMuted/setPlayerVolume entirely - dropping to 0 that
+  // way can leave .muted stuck true even after raising the volume back up
+  // through the SAME external control, since nothing here ever wrote
+  // muted=false again to un-stick it - the sound just never came back.
+  // Mirrors setPlayerVolume's own "raising volume unmutes" rule, extended
+  // to volume changes that DIDN'T come through our own functions. Only
+  // reacts when the volume LEVEL itself has actually risen while muted -
+  // not on every muted=true moment - so this doesn't fight attachStream's
+  // own deliberate forced-mute-then-settle dance for the autoplay policy
+  // (see its own comment), where the volume level itself never changes
+  // during that brief window, only .muted toggles.
+  // playerVideo is shared with radio (see openRadioBar's own comment on
+  // that) - syncRadioMuteButton is safe to call unconditionally too, it
+  // already no-ops its toolbar-mirror update unless state.page is radio.
+  var lastKnownPlayerVolume = playerVideo.volume;
+  playerVideo.addEventListener("volumechange", function () {
+    syncMuteButton();
+    syncRadioMuteButton();
+    if (playerVideo.muted && playerVideo.volume > lastKnownPlayerVolume) {
+      playerVideo.muted = false;
+      playerDesiredMuted = false;
+      syncMuteButton();
+      syncRadioMuteButton();
+    }
+    lastKnownPlayerVolume = playerVideo.volume;
+  });
   document.getElementById("fullscreen-toggle").addEventListener("click", function () { toggleFullscreen(); });
 
   // Draggable via the head bar (title/mute/fullscreen/close row) - stays
