@@ -744,7 +744,12 @@
   .panel-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 18px; border-bottom: 1px solid var(--border); }
   .panel-head h2 { font-size: 16px; margin: 0; }
   .panel-head button { background: none; border: none; color: var(--text-dim); font-size: 20px; cursor: pointer; line-height: 1; }
-  .panel-body { overflow-y: auto; padding: 8px 10px; }
+  /* min-height:0 overrides the flex-item default of min-height:auto, which
+     otherwise refuses to let this shrink below its own content size no
+     matter what overflow-y says - the classic reason a flex child with
+     overflow-y:auto silently doesn't scroll at all (confirmed live: the
+     help panel's content just grew past max-height instead of scrolling). */
+  .panel-body { overflow-y: auto; padding: 8px 10px; min-height: 0; }
   .panel-empty { color: var(--text-dim); text-align: center; padding: 40px 10px; font-size: 13.5px; }
   .panel-item { display: flex; align-items: center; gap: 10px; padding: 9px 8px; border-radius: 9px; }
   .panel-item:hover { background: var(--surface-2); }
@@ -1005,8 +1010,9 @@
 
 <div class="app" dir="rtl" lang="he">
   <!-- header.site (title/attribution/theme-picker) removed for now - a
-       replacement is planned separately. themePick/generated-at no longer
-       exist in the DOM; the script guards every reference to them. -->
+       replacement is planned separately. themePick no longer exists in the
+       DOM (generated-at is back - see the hamburger menu); the script
+       still guards every reference to themePick. -->
   <header class="topbar">
     <div class="pagetabs" role="tablist" aria-label="בחירת עמוד">
       <button type="button" class="hamburger-btn" id="header-menu-btn" aria-label="תפריט" aria-haspopup="true" aria-expanded="false">
@@ -1063,6 +1069,11 @@
            (removed) - same reasoning as the attribution link right above:
            this is what the hamburger menu reveals now, on every width. -->
       <a class="attribution-link" href="https://github.com/Fishenzon/repo.git" target="_blank" rel="noopener">תודה לפישנזון ↗</a>
+      <!-- Restored - fmtGeneratedAt()/DATA.generatedAt already existed and
+           already populated this, it just had no element to write into
+           since generated-at was dropped from the DOM along with the old
+           header.site. Last item in the menu, per explicit request. -->
+      <span class="attribution-link" id="generated-at"></span>
     </div>
   </header>
 
