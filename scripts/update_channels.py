@@ -351,6 +351,18 @@ def epg_mako():
 
 
 KAN_SCHEDULE_URL = "https://www.kan.org.il/umbraco/surface/LoadBroadcastSchedule/LoadSchedule"
+# Extra headers a real browser sends when navigating kan.org.il's own
+# schedule widget, none of which the shared session's default headers
+# include - see epg_kan()'s own docstring for why these specifically (and
+# not just User-Agent) are what actually gets past Cloudflare here.
+KAN_EXTRA_HEADERS = {
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "he-IL,he;q=0.9,en;q=0.8",
+    "Referer": "https://www.kan.org.il/",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-Site": "same-origin",
+    "Sec-Fetch-Dest": "empty",
+}
 # kan.org.il's tv-guide widget covers these 10 - found by clicking through
 # each channel icon and reading the resulting channelId out of the network
 # request; no known kan.org.il entry for כאן ילדים (kankids.org.il has its
@@ -412,11 +424,29 @@ def epg_kan():
     (a "Attention Required" challenge page instead of the real schedule
     HTML) even though isolated single requests - and requests from an
     actual browser - worked fine. Each channel's failure is caught
-    individually so one bad/blocked channel doesn't lose the other 9."""
+    individually so one bad/blocked channel doesn't lose the other 9.
+
+    KAN_EXTRA_HEADERS below is the actual fix for that block, confirmed
+    live: a plain User-Agent alone gets a 403 challenge page reliably (3/3
+    attempts), every time, regardless of source IP - this isn't
+    IP-reputation-based like the module docstring's mako warning, it's
+    Cloudflare's bot-detection keying off a request that doesn't look like
+    real browser navigation. Adding Referer + Accept + Accept-Language +
+    the Sec-Fetch-* trio (all sent by a real browser navigating from
+    kan.org.il's own schedule page) passes reliably (3/3). Scoped to just
+    this function's own request rather than the shared session's default
+    headers, since Sec-Fetch-Site: same-origin and a kan.org.il Referer
+    only make sense for kan.org.il itself, not every other resolver's
+    unrelated domain."""
     schedule = {}
     for tvg_id, channel_id in KAN_CHANNEL_IDS.items():
         try:
-            resp = session.get(KAN_SCHEDULE_URL, params={"channelId": channel_id, "currentPageId": 1517}, timeout=TIMEOUT)
+            resp = session.get(
+                KAN_SCHEDULE_URL,
+                params={"channelId": channel_id, "currentPageId": 1517},
+                headers=KAN_EXTRA_HEADERS,
+                timeout=TIMEOUT,
+            )
             resp.raise_for_status()
             programs = _parse_kan_schedule(resp.text)
             if programs:
