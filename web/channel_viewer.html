@@ -5157,5 +5157,24 @@
   // give it the same short settle delay as any other scroll-stop, rather
   // than duplicating previewCenteredChannel's logic for the load-at-top case.
   scrollLoadTimer = setTimeout(previewCenteredChannel, SCROLL_LOAD_MS);
+
+  // ---------- new-version check on load ----------
+  // GitHub Pages serves this page with a real Last-Modified header (also
+  // true of the legacy Jekyll build, if that ever comes back - see the
+  // Pages build_type fix). Fetches the SAME URL fresh (cache disabled, so
+  // the 10-minute CDN cache-control on it can't return a stale copy) and
+  // compares its Last-Modified against document.lastModified - the one
+  // THIS already-loaded page was itself served with. A mismatch means
+  // something's been deployed since this page loaded - either a code push
+  // or a channel-data auto-update both touch the file, so this catches
+  // either kind of new version, not just one. Runs once per load, not on
+  // an interval - per explicit request, this is a refresh-time check.
+  fetch(location.href, { cache: "no-store" }).then(function (res) {
+    var serverLastModified = res.headers.get("Last-Modified");
+    if (!serverLastModified) return; // header stripped somewhere - nothing to compare against
+    if (new Date(serverLastModified).getTime() > new Date(document.lastModified).getTime()) {
+      location.reload();
+    }
+  }).catch(function () {}); // offline/network hiccup - just skip, the next refresh checks again
 })();
 </script>
