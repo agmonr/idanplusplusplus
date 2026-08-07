@@ -1077,13 +1077,6 @@
     </div>
   </header>
 
-  <div class="onboarding-banner" id="legal-notice" hidden>
-    <div class="ob-text">
-      <div class="ob-detail">אתר זה מנטר את השימוש הנעשה בו</div>
-    </div>
-    <button type="button" id="legal-notice-dismiss">הבנתי</button>
-  </div>
-
   <div class="onboarding-banner" id="onboarding-banner" hidden>
     <div class="ob-text">
       <div class="ob-title">ממציאים את הטלויזיה מחדש</div>
@@ -1638,7 +1631,6 @@
   var LS_ONBOARDING_SEEN = "idanplus.onboardingSeen.v1";
   var LS_HELP_SEEN = "idanplus.helpSeen.v1";
   var LS_FIREFOX_NOTICE_SEEN = "idanplus.firefoxNoticeSeen.v1";
-  var LS_LEGAL_NOTICE_SEEN = "idanplus.legalNoticeSeen.v1";
 
   function lsGet(key, fallback) {
     try { var raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : fallback; }
@@ -1719,16 +1711,6 @@
   var generatedAtEl = document.getElementById("generated-at");
   if (generatedAtEl) generatedAtEl.textContent = fmtGeneratedAt(DATA.generatedAt);
   initThemePicker(document.getElementById("themePick"));
-
-  (function wireLegalNotice() {
-    var notice = document.getElementById("legal-notice");
-    if (!notice || lsGet(LS_LEGAL_NOTICE_SEEN, false)) return;
-    notice.hidden = false;
-    document.getElementById("legal-notice-dismiss").addEventListener("click", function () {
-      notice.hidden = true;
-      lsSet(LS_LEGAL_NOTICE_SEEN, true);
-    });
-  })();
 
   var isFirefox = /firefox/i.test(navigator.userAgent);
   if (isFirefox) {
