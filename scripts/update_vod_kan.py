@@ -106,30 +106,47 @@ def discover_show_ids():
     return shows
 
 
-def _stream_from_entry(entry):
-    """A youtube-id becomes a real watch URL, an http(s) src is used
-    directly - same rule as the addon's _mobStreamFromEntry. "content"
-    lives at the entry's own top level, NOT under "extensions" - easy to
-    get wrong, confirmed by a live response that had extensions.content
-    == {}.
+KALTURA_ENTRY_ID_RE = re.compile(r"entryId/([^/?&]+)")
 
-    Unlike the addon: confirmed live that content.src is EMPTY for most
-    real episodes (type video/hls, src "") - the addon resolves those
-    through a much heavier page-scrape-and-resolve path (GetPlayerKanUrl,
-    Kaltura widget resolution, HLS/DASH extraction from the episode's own
-    page - the same class of work update_channels.py already does for
-    live channels, just per-episode instead of per-channel, which isn't
-    viable across a whole catalog on a daily crawl). For anything without
-    a directly-usable src, this falls back to the episode's own kan.org.il
-    page (entry.link.href, always present) - opened in a new tab rather
-    than played in-app. Every episode ends up with SOME usable link this
-    way; skipping the ones without a direct stream would have dropped
-    nearly the entire catalog."""
+# mobapi's own content.src for VOD episodes points at
+# cdnapisec.kaltura.com/.../playManifest/entryId/{id}/... - confirmed LIVE,
+# by direct request, that this is dead: HTTP 404 "requested entry not
+# found", for both old (2018) and brand-new (2026) episodes alike, and the
+# addon's own Kaltura-session resolution path (common.py's GetKaltura,
+# POSTing to api_v3/service/multirequest) fails too, with
+# SERVICE_FORBIDDEN_CONTENT_BLOCKED - Kan's Kaltura PARTNER ACCOUNT itself
+# appears to be gone/blocked, not just this one entry. The entryId embedded
+# in that dead URL is still good, though - Kan's real current VOD CDN
+# (found by inspecting an actual kan.org.il episode page's own network
+# requests) serves the exact same entryId at a completely different URL,
+# confirmed working for every entryId tested:
+#   https://r.il.cdn-redge.media/webcache/gorigin/dash/oil/kancdn/vod/{entryId}/LIBCODER_SMOOTH_1080_KAN/Manifest.ism
+# A DASH (not HLS) manifest - see attachStream()'s ".ism"/dash.js branch in
+# the web player.
+KALTURA_TO_CDNREDGE = "https://r.il.cdn-redge.media/webcache/gorigin/dash/oil/kancdn/vod/{0}/LIBCODER_SMOOTH_1080_KAN/Manifest.ism"
+
+
+def _stream_from_entry(entry):
+    """A youtube-id becomes a real watch URL. "content" lives at the
+    entry's own top level, NOT under "extensions" - easy to get wrong,
+    confirmed by a live response that had extensions.content == {}.
+
+    Most real episodes DO have a populated content.src (type video/hls) -
+    but it's a dead Kaltura URL (see KALTURA_TO_CDNREDGE's own comment),
+    rewritten here to the real CDN instead of used as-is. Anything without
+    an extractable Kaltura entryId (a genuinely different src, or none at
+    all) falls back to the episode's own kan.org.il page (entry.link.href,
+    always present) - opened in a new tab rather than played in-app. Every
+    episode ends up with SOME usable link this way; skipping the ones
+    without a direct stream would have dropped nearly the entire catalog."""
     content = entry.get("content") or {}
     ctype = content.get("type", "")
     src = (content.get("src") or "").strip()
     if ctype == "youtube-id" and src:
         return "youtube", "https://www.youtube.com/watch?v={0}".format(src)
+    m = KALTURA_ENTRY_ID_RE.search(src)
+    if m:
+        return "stream", KALTURA_TO_CDNREDGE.format(m.group(1))
     if src.startswith("http"):
         return "stream", src
     page_url = ((entry.get("link") or {}).get("href") or "").split("?")[0]

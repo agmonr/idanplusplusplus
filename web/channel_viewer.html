@@ -397,13 +397,10 @@
     .radio-stop-btn { display: none !important; }
   }
   .attribution-link {
-    /* Was position:absolute (floating top-right of the header) - now a
-       normal flex child, last in .controls (see its own HTML comment on
-       why: that's what the hamburger menu reveals). flex-basis:100%
-       forces it onto its own line regardless of how the row above wraps,
-       so it always lands directly under ★ שמורים (the item right before
-       it in the DOM) instead of just tagging along beside it. */
-    flex-basis: 100%;
+    /* Was position:absolute (floating top-right of the header), then a
+       row+wrap flex child forced onto its own line via flex-basis:100% -
+       .controls is a column stack now (see its own comment), so every
+       child already lands on its own line without that. */
     font-size: 14px; font-weight: 400; color: var(--text-dim);
     background: none; border: none; text-decoration: none; white-space: nowrap;
   }
@@ -422,7 +419,21 @@
   .stat.ok b { color: var(--ok); }
   .stat.broken b { color: var(--danger); }
 
-  .controls { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; align-items: center; }
+  /* Floating menu now, not a normal-flow toolbar row - top/right set inline
+     by JS (wireHeaderMenu), anchored under #header-menu-btn, same body-level
+     floating-dropdown approach already used for .color-family-grid (see
+     that div's own comment on why it has to be body-level, not nested under
+     .topbar). Opening it no longer pushes the channel grid down; it floats
+     over it instead. Column stack (not the old row+wrap) - a bounded-width
+     floating panel reads as a dropdown menu, not a toolbar. */
+  .controls {
+    display: flex; flex-direction: column; align-items: stretch; gap: 10px;
+    position: fixed; z-index: 25;
+    width: min(300px, calc(100vw - 24px));
+    max-height: 70vh; overflow-y: auto;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 14px; box-shadow: var(--shadow);
+  }
   .search {
     flex: 1 1 200px; min-width: 160px;
     background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
@@ -443,7 +454,6 @@
     border-radius: 999px; padding: 7px 13px; font-size: 12.5px; cursor: pointer;
   }
   .chip[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); font-weight: 700; }
-  .spacer { flex: 1; }
   .savedbtn {
     display: flex; align-items: center; gap: 7px;
     background: var(--surface); border: 1px solid var(--border); color: var(--text);
@@ -772,19 +782,21 @@
   .help-body ul { margin: 0; padding-inline-start: 20px; }
   .help-body li { font-size: 13px; color: var(--text); line-height: 1.6; }
 
-  .vod-panel { width: min(560px, 100%); }
-  .vod-filters { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 18px; border-bottom: 1px solid var(--border); }
-  .vod-filters .search { flex: 1 1 200px; min-width: 140px; }
+  /* VOD is a real page now (state.page === "vod", styled like the TV/radio
+     grid - see renderVodPage), not a modal panel. Its own search/filter bar
+     (#vod-controls, right above #list - see the HTML) lives on the page
+     itself, not tucked inside the hamburger .controls menu like tv/radio's
+     shared #search - shown/hidden per page in renderPageTabs. */
+  .vod-controls { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; align-items: center; }
   .vod-filter-input, .vod-filter-select {
     background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
     padding: 9px 10px; font-size: 13px; color: var(--text);
   }
   .vod-filter-input { width: 78px; }
   .vod-filter-select { flex: 1 1 130px; }
-  .vod-item { display: block; cursor: pointer; }
-  .vod-item .vi-title { font-size: 13.5px; font-weight: 700; }
-  .vod-item .vi-meta { font-size: 11.5px; color: var(--text-dim); margin-top: 2px; }
-  .vod-item .vi-desc { font-size: 12px; color: var(--text-dim); margin-top: 3px; line-height: 1.4; }
+  /* The whole card is the click target (open/play), unlike TV/radio's .row
+     (thumb = play, separate star = save) - VOD has no per-episode save. */
+  .vod-row { cursor: pointer; }
   .help-panel { max-height: 82vh; }
 
   .playbtn {
@@ -1061,42 +1073,54 @@
     </div>
 
     <div class="stats" id="stats"></div>
-
-    <div class="controls">
-      <input class="search" id="search" type="search" placeholder="חיפוש ערוץ…" autocomplete="off" />
-      <div class="chipset" id="status-filter" role="group" aria-label="סינון לפי סטטוס"></div>
-      <div class="spacer"></div>
-      <button class="savedbtn" id="open-saved">
-        <span>★ שמורים</span>
-        <span class="count mono" id="saved-count">0</span>
-      </button>
-      <button class="savedbtn" id="open-help" type="button">
-        <span>❓ עזרה</span>
-      </button>
-      <!-- Kan-only VOD search (see scripts/update_vod_kan.py) - deliberately
-           a plain search box in its own panel, not a browse/category page:
-           the live grid above assumes "one card per channel/station",
-           which doesn't fit a catalog of hundreds of shows/episodes. -->
-      <button class="savedbtn" id="open-vod" type="button">
-        <span>🎬 תכניות (כאן)</span>
-      </button>
-      <!-- Last item, not floating top-right of the header anymore (see its
-           own CSS) - .controls is exactly what the hamburger menu
-           (#header-menu-btn) reveals on both mobile and desktop now, so
-           this lands at the end of that menu everywhere, instead of an
-           absolutely positioned corner link. -->
-      <a class="attribution-link" href="https://hod-hasharon.org/" target="_blank" rel="noopener">פרויקט של רם אגמון</a>
-      <!-- Moved here from the old bottom-of-page <footer class="site-footer">
-           (removed) - same reasoning as the attribution link right above:
-           this is what the hamburger menu reveals now, on every width. -->
-      <a class="attribution-link" href="https://github.com/Fishenzon/repo.git" target="_blank" rel="noopener">תודה לפישנזון ↗</a>
-      <!-- Restored - fmtGeneratedAt()/DATA.generatedAt already existed and
-           already populated this, it just had no element to write into
-           since generated-at was dropped from the DOM along with the old
-           header.site. Last item in the menu, per explicit request. -->
-      <span class="attribution-link" id="generated-at"></span>
-    </div>
   </header>
+
+  <!-- Body-level, not nested under .topbar - .topbar has overflow:hidden for
+       its own collapse animation, which would silently clip this the same
+       way it would have clipped #radio-color-family-grid (see that div's own
+       comment). Floats over the channel grid instead of pushing it down when
+       opened - position:top/right set by wireHeaderMenu, anchored under
+       #header-menu-btn, same positioning approach as that color-family
+       dropdown. -->
+  <div class="controls" id="controls">
+    <input class="search" id="search" type="search" placeholder="חיפוש ערוץ…" autocomplete="off" />
+    <div class="chipset" id="status-filter" role="group" aria-label="סינון לפי סטטוס"></div>
+    <button class="savedbtn" id="open-saved">
+      <span>★ שמורים</span>
+      <span class="count mono" id="saved-count">0</span>
+    </button>
+    <button class="savedbtn" id="open-help" type="button">
+      <span>❓ עזרה</span>
+    </button>
+    <!-- Plain "VOD" - the catalog behind it is Kan-only for now (see
+         scripts/update_vod_kan.py) but the label/entry-point itself isn't
+         branded to that. A real page (state.page = "vod", see
+         renderVodPage), styled like the TV/radio grid, reached from here
+         rather than a fourth item in the already-tight top pagetabs row (no
+         room for it there on mobile - same reasoning .controls itself is
+         hamburger-only now). Its own search box and season/year/channel
+         filters live ON that page (#vod-controls, right above #list), not
+         in here - unlike tv/radio's shared #search, which stays in this
+         menu. -->
+    <button class="savedbtn" id="open-vod" type="button">
+      <span>🎬 VOD</span>
+    </button>
+    <!-- Last item, not floating top-right of the header anymore (see its
+         own CSS) - .controls is exactly what the hamburger menu
+         (#header-menu-btn) reveals on both mobile and desktop now, so
+         this lands at the end of that menu everywhere, instead of an
+         absolutely positioned corner link. -->
+    <a class="attribution-link" href="https://hod-hasharon.org/" target="_blank" rel="noopener">פרויקט של רם אגמון</a>
+    <!-- Moved here from the old bottom-of-page <footer class="site-footer">
+         (removed) - same reasoning as the attribution link right above:
+         this is what the hamburger menu reveals now, on every width. -->
+    <a class="attribution-link" href="https://github.com/Fishenzon/repo.git" target="_blank" rel="noopener">תודה לפישנזון ↗</a>
+    <!-- Restored - fmtGeneratedAt()/DATA.generatedAt already existed and
+         already populated this, it just had no element to write into
+         since generated-at was dropped from the DOM along with the old
+         header.site. Last item in the menu, per explicit request. -->
+    <span class="attribution-link" id="generated-at"></span>
+  </div>
 
   <div class="onboarding-banner" id="onboarding-banner" hidden>
     <div class="ob-text">
@@ -1111,6 +1135,20 @@
       <div class="ob-detail">אני מאוד אוהב את שועל האש, אבל לא הצלחתי לממש את כל הפונקציות לדפדפן הזה.</div>
     </div>
     <button type="button" id="firefox-notice-dismiss">הבנתי</button>
+  </div>
+
+  <!-- VOD's own search/filter bar, right above its own grid - hidden on
+       tv/radio (see renderPageTabs). A separate #vod-page-search from
+       tv/radio's shared #search (in .controls) - deliberately not that
+       shared box, per explicit request that everything for this page live
+       on the page itself. -->
+  <div class="vod-controls" id="vod-controls" hidden>
+    <input class="search" id="vod-page-search" type="search" placeholder="חיפוש תכנית או פרק…" autocomplete="off" />
+    <input class="vod-filter-input" id="vod-season" type="number" min="1" inputmode="numeric" placeholder="עונה" />
+    <input class="vod-filter-input" id="vod-year" type="number" min="1948" inputmode="numeric" placeholder="שנה" />
+    <select class="vod-filter-select" id="vod-channel">
+      <option value="">כל הערוצים</option>
+    </select>
   </div>
 
   <main class="list" id="list"></main>
@@ -1211,31 +1249,6 @@
             <li>חצים - מעבר בין ערוצים · M - השתקה · P - השהיה · Enter - מסך מלא</li>
           </ul>
         </section>
-      </div>
-    </div>
-  </div>
-
-  <!-- Kan VOD search - self-built catalog (web/vod_kan.json, see
-       scripts/update_vod_kan.py), fetched lazily on first open, not
-       embedded like the live-channel data. Client-side filter only, no
-       server-side search - the whole catalog is a few thousand rows,
-       trivial to filter in-browser. -->
-  <div class="overlay" id="vod-overlay">
-    <div class="panel vod-panel" role="dialog" aria-modal="true" aria-label="חיפוש תכניות - כאן">
-      <div class="panel-head">
-        <h2>תכניות (כאן)</h2>
-        <button id="close-vod" aria-label="סגור">✕</button>
-      </div>
-      <div class="vod-filters">
-        <input class="search" id="vod-search" type="search" placeholder="שם תכנית או פרק…" autocomplete="off" />
-        <input class="vod-filter-input" id="vod-season" type="number" min="1" inputmode="numeric" placeholder="עונה" />
-        <input class="vod-filter-input" id="vod-year" type="number" min="1948" inputmode="numeric" placeholder="שנה" />
-        <select class="vod-filter-select" id="vod-channel">
-          <option value="">כל הערוצים</option>
-        </select>
-      </div>
-      <div class="panel-body" id="vod-results">
-        <div class="panel-empty">הקלידו שם תכנית, או סננו לפי עונה/שנה/ערוץ.</div>
       </div>
     </div>
   </div>
@@ -1749,6 +1762,11 @@
   // across colors, per explicit request.
   if (ui.radio.bgIntensity === undefined) ui.radio.bgIntensity = 10; // older saved ui blobs predate this field
   if (ui.tv.savedOnly === undefined) ui.tv.savedOnly = false; // older saved ui blobs predate this field
+  // Not part of the lsGet default above - older saved ui blobs predate the
+  // vod page entirely. search here is a SEPARATE value from ui.tv.search/
+  // ui.radio.search (see pageUi()) - the shared #search box's typed text
+  // only applies to whichever value matches state.page.
+  if (!ui.vod) ui.vod = { search: "", season: "", year: "", channel: "" };
 
   var state = {
     page: lsGet(LS_PAGE, "tv"),
@@ -1786,7 +1804,12 @@
     });
   }
 
-  function groups() { return PAGES[state.page]; }
+  // PAGES has no "vod" entry (that catalog is fetched separately - see
+  // vodData/renderVodPage) - the || [] guards every one of this codebase's
+  // many groups()/matches() call sites (several driven by periodic timers
+  // unrelated to which page is on screen, e.g. applyClientNowPlaying's EPG
+  // refresh) against throwing on undefined while state.page === "vod".
+  function groups() { return PAGES[state.page] || []; }
   function pageUi() { return ui[state.page]; }
 
   function candidatesOf(group) {
@@ -2428,7 +2451,11 @@
     // ui.radio.colorFamily on every render/page switch.
     var colorFamilyBtn = document.getElementById("radio-color-family-btn");
     if (colorFamilyBtn) {
-      colorFamilyBtn.hidden = isCoarsePointer && state.page !== "radio";
+      // Also hidden on vod regardless of device: vod cards are plain static
+      // images (see vodRowHtml), not the canvas-drawn placeholders this
+      // picker recolors (redrawAllPlaceholders/drawChannelPlaceholder both
+      // assume groups() is a real tv/radio array, which PAGES.vod isn't).
+      colorFamilyBtn.hidden = state.page === "vod" || (isCoarsePointer && state.page !== "radio");
       var activeFamily = ui.radio.colorFamily || "blue";
       var activeSwatch = document.querySelector('.cf-swatch[data-family="' + activeFamily + '"]');
       document.getElementById("radio-color-family-swatch").innerHTML = activeSwatch ? activeSwatch.innerHTML : "🟦";
@@ -2446,7 +2473,9 @@
     // - purely so the toolbar has the same icon set on both pages there,
     // per explicit request.
     var previewMuteBtn = document.getElementById("preview-mute-btn");
-    if (previewMuteBtn) previewMuteBtn.hidden = isCoarsePointer && state.page === "radio";
+    // No live preview at all on the vod page (plain static thumbnails, see
+    // vodRowHtml) - hidden there on every device, not just mobile.
+    if (previewMuteBtn) previewMuteBtn.hidden = state.page === "vod" || (isCoarsePointer && state.page === "radio");
     // Keeps the button's icon current for whichever meaning applies on the
     // page just switched to (see wirePreviewMuteButton) - its own sync()
     // closure only runs at wire-time and after its own click, not on a
@@ -2457,6 +2486,29 @@
     } else if (previewMuteBtn) {
       previewMuteBtn.setAttribute("aria-pressed", previewMuted);
       previewMuteBtn.textContent = previewMuted ? "🔇" : "🔊";
+    }
+
+    // Shared #search box (tv/radio only now - see .controls) - displayed
+    // value synced to whichever of ui.tv.search/ui.radio.search is current,
+    // same as switching between those two already implicitly relies on
+    // pageUi(). Hidden entirely on vod: its own listener (see below) still
+    // writes through pageUi(), which resolves to ui.vod there same as
+    // everywhere else - leaving this box active too would silently fight
+    // #vod-page-search over the same ui.vod.search value.
+    var searchInput = document.getElementById("search");
+    if (searchInput) {
+      searchInput.hidden = state.page === "vod";
+      if (state.page !== "vod") searchInput.value = pageUi().search || "";
+    }
+    var vodControlsEl = document.getElementById("vod-controls");
+    if (vodControlsEl) {
+      vodControlsEl.hidden = state.page !== "vod";
+      if (state.page === "vod") {
+        document.getElementById("vod-page-search").value = ui.vod.search || "";
+        document.getElementById("vod-season").value = ui.vod.season || "";
+        document.getElementById("vod-year").value = ui.vod.year || "";
+        document.getElementById("vod-channel").value = ui.vod.channel || "";
+      }
     }
   }
 
@@ -2707,6 +2759,7 @@
   }
 
   function renderList() {
+    if (state.page === "vod") { renderVodPage(); return; }
     var visible = groups().filter(matches);
     var list = document.getElementById("list");
     var emptyState = document.getElementById("empty-state");
@@ -3080,8 +3133,13 @@
     // those under a "livedash" path (their TV channels, which DO have an
     // HLS variant, use "livehls" instead - confirmed by directly comparing
     // the two). hls.js can't play DASH at all, so route these straight to
-    // dash.js instead of wasting a doomed hls.js attempt first.
-    if (window.dashjs && link.indexOf("livedash") !== -1) {
+    // dash.js instead of wasting a doomed hls.js attempt first. Kan VOD
+    // episodes (see update_vod_kan.py's KALTURA_TO_CDNREDGE) are DASH too,
+    // from the same CDN family but a different, non-"livedash" path -
+    // ".ism" (Smooth Streaming manifest extension) is the unambiguous
+    // signal there, confirmed live via the actual kan.org.il player's own
+    // network requests.
+    if (window.dashjs && (link.indexOf("livedash") !== -1 || link.indexOf(".ism") !== -1)) {
       var dash = window.dashjs.MediaPlayer().create();
       // Listening on the <video> element's own native events instead of a
       // dash.js-specific "ready" event, same reasoning as capturePreview's
@@ -4361,112 +4419,138 @@
     }
   })();
 
-  // ---------- VOD panel (Kan search) ----------
-  // Same overlay/panel open-close pattern as the saved/help panels above,
-  // plus a lazy one-time fetch of vod_kan.json (see update_vod_kan.py) -
-  // large and rarely needed, so it's never loaded on page load, only once
-  // this panel is actually opened for the first time.
-  (function wireVodPanel() {
-    var vodOverlay = document.getElementById("vod-overlay");
-    var vodSearch = document.getElementById("vod-search");
-    var vodSeason = document.getElementById("vod-season");
-    var vodYear = document.getElementById("vod-year");
-    var vodChannel = document.getElementById("vod-channel");
-    var vodResults = document.getElementById("vod-results");
-    var VOD_MAX_RESULTS = 200; // client-side filter over a few thousand rows is instant; rendering all of them isn't
-    var vodData = null;
-    var vodLoading = false;
-    var vodSearchTrackTimer = null;
+  // ---------- VOD page (Kan search) ----------
+  // A real page (state.page = "vod"), not a modal - see renderVodPage/
+  // vodRowHtml below, and the fullRender()/renderList() branches that route
+  // to them. vod_kan.json (see scripts/update_vod_kan.py) is fetched lazily,
+  // once, the first time this page is opened - large and rarely needed, so
+  // never loaded up front like the embedded channel data is.
+  var vodData = null;
+  var vodLoading = false;
+  var VOD_MAX_RESULTS = 200; // client-side filter over a few thousand rows is instant; rendering all of them isn't
+  var VOD_TYPE_LABEL = { stream: "▶ ניגון ישיר", youtube: "▶ YouTube", page: "↗ עמוד באתר כאן" };
 
-    function openVod() {
-      vodOverlay.classList.add("is-open");
-      if (!vodData && !vodLoading) loadVodData();
-    }
-    function closeVod() { vodOverlay.classList.remove("is-open"); }
-
-    function loadVodData() {
-      vodLoading = true;
-      vodResults.innerHTML = '<div class="panel-empty">טוען קטלוג תכניות…</div>';
-      fetch("vod_kan.json").then(function (r) { return r.json(); }).then(function (data) {
-        vodData = data;
-        vodLoading = false;
-        var channels = {};
-        data.forEach(function (ep) { if (ep.channel) channels[ep.channel] = true; });
-        Object.keys(channels).sort().forEach(function (ch) {
-          var opt = document.createElement("option");
-          opt.value = ch;
-          opt.textContent = ch;
-          vodChannel.appendChild(opt);
-        });
-        renderVodResults();
-      }).catch(function () {
-        vodLoading = false;
-        vodResults.innerHTML = '<div class="panel-empty">שגיאה בטעינת קטלוג התכניות. נסו שוב מאוחר יותר.</div>';
+  function loadVodDataIfNeeded() {
+    if (vodData || vodLoading) return;
+    vodLoading = true;
+    fetch("vod_kan.json").then(function (r) { return r.json(); }).then(function (data) {
+      vodData = data;
+      vodLoading = false;
+      var channels = {};
+      data.forEach(function (ep) { if (ep.channel) channels[ep.channel] = true; });
+      var channelSelect = document.getElementById("vod-channel");
+      Object.keys(channels).sort().forEach(function (ch) {
+        var opt = document.createElement("option");
+        opt.value = ch;
+        opt.textContent = ch;
+        channelSelect.appendChild(opt);
       });
-    }
-
-    var VOD_TYPE_LABEL = { stream: "▶ ניגון ישיר", youtube: "▶ YouTube", page: "↗ עמוד באתר כאן" };
-
-    function renderVodResults() {
-      if (!vodData) return;
-      var q = vodSearch.value.trim();
-      var season = vodSeason.value.trim();
-      var year = vodYear.value.trim();
-      var channel = vodChannel.value;
-      var rows = vodData.filter(function (ep) {
-        if (q && (ep.show || "").indexOf(q) === -1 && (ep.title || "").indexOf(q) === -1) return false;
-        if (season && String(ep.season || "") !== season) return false;
-        if (year && String(ep.year || "") !== year) return false;
-        if (channel && ep.channel !== channel) return false;
-        return true;
-      });
-      if (!rows.length) {
-        vodResults.innerHTML = '<div class="panel-empty">' +
-          (q || season || year || channel ? "לא נמצאו תוצאות." : "הקלידו שם תכנית, או סננו לפי עונה/שנה/ערוץ.") +
-          "</div>";
-        return;
+      // A saved ui.vod.channel filter can't actually select anything until
+      // the real <option>s above exist - renderPageTabs' own sync (on the
+      // very first vod visit) ran before this fetch resolved, so the
+      // dropdown was still showing its default option; re-sync now that a
+      // matching option is finally there. Filtering itself was never
+      // affected either way - renderVodPage reads ui.vod.channel directly,
+      // not the select's own .value.
+      channelSelect.value = ui.vod.channel || "";
+      if (state.page === "vod") renderVodPage();
+    }).catch(function () {
+      vodLoading = false;
+      if (state.page === "vod") {
+        document.getElementById("list").innerHTML = '<div class="empty">שגיאה בטעינת קטלוג התכניות. נסו שוב מאוחר יותר.</div>';
       }
-      var shown = rows.slice(0, VOD_MAX_RESULTS);
-      vodResults.innerHTML = shown.map(function (ep) {
-        var meta = [];
-        if (ep.season) meta.push("עונה " + escapeHtml(String(ep.season)));
-        if (ep.episode) meta.push("פרק " + escapeHtml(String(ep.episode)));
-        if (ep.channel) meta.push(escapeHtml(ep.channel));
-        if (ep.year) meta.push(String(ep.year));
-        meta.push(VOD_TYPE_LABEL[ep.type] || "");
-        return (
-          '<div class="panel-item vod-item">' +
-            '<div class="vi-title">' + escapeHtml(ep.show || "") +
-              (ep.title && ep.title !== ep.show ? " · " + escapeHtml(ep.title) : "") + "</div>" +
-            '<div class="vi-meta">' + meta.filter(Boolean).join(" · ") + "</div>" +
-            (ep.description ? '<div class="vi-desc">' + escapeHtml(ep.description) + "</div>" : "") +
-          "</div>"
-        );
-      }).join("") + (rows.length > shown.length
-        ? '<div class="panel-empty">ועוד ' + (rows.length - shown.length) + " תוצאות - צמצמו את החיפוש." + "</div>"
-        : "");
-      Array.prototype.forEach.call(vodResults.querySelectorAll(".vod-item"), function (el, i) {
-        el.addEventListener("click", function () { playVodEpisode(shown[i]); });
-      });
-    }
-
-    document.getElementById("open-vod").addEventListener("click", openVod);
-    document.getElementById("close-vod").addEventListener("click", closeVod);
-    vodOverlay.addEventListener("click", function (e) { if (e.target === vodOverlay) closeVod(); });
-    document.addEventListener("keydown", function (e) { if (e.key === "Escape" && vodOverlay.classList.contains("is-open")) closeVod(); });
-
-    [vodSearch, vodSeason, vodYear].forEach(function (el) {
-      el.addEventListener("input", function () {
-        renderVodResults();
-        clearTimeout(vodSearchTrackTimer);
-        var term = vodSearch.value.trim().slice(0, 50);
-        vodSearchTrackTimer = setTimeout(function () {
-          if (!term) return;
-          gtag('event', 'search', { search_term: term, page_type: "vod" });
-        }, 600);
-      });
     });
-    vodChannel.addEventListener("change", renderVodResults);
+  }
+
+  function vodRowHtml(ep) {
+    var meta = [];
+    if (ep.season) meta.push("עונה " + ep.season);
+    if (ep.episode) meta.push("פרק " + ep.episode);
+    if (ep.channel) meta.push(ep.channel);
+    if (ep.year) meta.push(ep.year);
+    meta.push(VOD_TYPE_LABEL[ep.type] || "");
+    return (
+      '<div class="row vod-row">' +
+        '<div class="row-thumb">' +
+          (ep.image ? '<img class="is-loaded" src="' + escapeHtml(ep.image) + '" alt="" loading="lazy" />' : "") +
+        "</div>" +
+        '<div class="row-main">' +
+          '<div class="row-top"><div class="row-name">' + escapeHtml(ep.show || "") +
+            (ep.title && ep.title !== ep.show ? " · " + escapeHtml(ep.title) : "") + "</div></div>" +
+          '<div class="row-sub">' + escapeHtml(meta.filter(Boolean).join(" · ")) + "</div>" +
+        "</div>" +
+      "</div>"
+    );
+  }
+
+  function renderVodPage() {
+    var list = document.getElementById("list");
+    document.getElementById("empty-state").hidden = true; // vod uses its own inline messaging in #list instead - see below
+    if (!vodData) {
+      list.innerHTML = '<div class="empty">' + (vodLoading ? "טוען קטלוג תכניות…" : "") + "</div>";
+      loadVodDataIfNeeded();
+      return;
+    }
+    var q = (ui.vod.search || "").trim();
+    var season = (ui.vod.season || "").trim();
+    var year = (ui.vod.year || "").trim();
+    var channel = ui.vod.channel || "";
+    if (!q && !season && !year && !channel) {
+      list.innerHTML = '<div class="empty">הקלידו שם תכנית, או סננו לפי עונה/שנה/ערוץ.</div>';
+      return;
+    }
+    var rows = vodData.filter(function (ep) {
+      if (q && (ep.show || "").indexOf(q) === -1 && (ep.title || "").indexOf(q) === -1) return false;
+      if (season && String(ep.season || "") !== season) return false;
+      if (year && String(ep.year || "") !== year) return false;
+      if (channel && ep.channel !== channel) return false;
+      return true;
+    });
+    if (!rows.length) {
+      list.innerHTML = '<div class="empty">לא נמצאו תוצאות.</div>';
+      return;
+    }
+    var shown = rows.slice(0, VOD_MAX_RESULTS);
+    list.innerHTML = shown.map(vodRowHtml).join("") + (rows.length > shown.length
+      ? '<div class="empty">ועוד ' + (rows.length - shown.length) + " תוצאות - צמצמו את החיפוש.</div>"
+      : "");
+    Array.prototype.forEach.call(list.querySelectorAll(".vod-row"), function (el, i) {
+      el.addEventListener("click", function () { playVodEpisode(shown[i]); });
+    });
+  }
+
+  // vod's own search box (#vod-page-search, in #vod-controls) - separate
+  // from tv/radio's shared #search (see that input's own listener above),
+  // per explicit request that everything for this page live on the page
+  // itself rather than in the hamburger menu.
+  (function wireVodFilters() {
+    var vodSearchTrackTimer = null;
+    document.getElementById("vod-page-search").addEventListener("input", function (e) {
+      ui.vod.search = e.target.value;
+      lsSet(LS_UI, ui);
+      renderList();
+      clearTimeout(vodSearchTrackTimer);
+      var term = e.target.value.trim().slice(0, 50);
+      vodSearchTrackTimer = setTimeout(function () {
+        if (!term) return;
+        gtag('event', 'search', { search_term: term, page_type: "vod" });
+      }, 600);
+    });
+    document.getElementById("vod-season").addEventListener("input", function (e) {
+      ui.vod.season = e.target.value;
+      lsSet(LS_UI, ui);
+      renderList();
+    });
+    document.getElementById("vod-year").addEventListener("input", function (e) {
+      ui.vod.year = e.target.value;
+      lsSet(LS_UI, ui);
+      renderList();
+    });
+    document.getElementById("vod-channel").addEventListener("change", function (e) {
+      ui.vod.channel = e.target.value;
+      lsSet(LS_UI, ui);
+      renderList();
+    });
   })();
 
   function savedEntries() {
@@ -4577,6 +4661,11 @@
 
   function fullRender() {
     renderPageTabs();
+    // renderStats/renderFilters are TV/radio group semantics (ok/broken
+    // counts, status chips) that don't apply to vod's flat episode catalog -
+    // both write into already CSS-hidden elements anyway (see .stats/
+    // #status-filter), so skipping them for vod loses nothing visible.
+    if (state.page === "vod") { renderList(); updateSavedCount(); return; }
     renderStats();
     renderFilters();
     renderList();
@@ -4921,8 +5010,19 @@
   // the color-family picker, search/filter/saved apply equally to both.
   (function wireHeaderMenu() {
     var btn = document.getElementById("header-menu-btn");
+    var controlsEl = document.getElementById("controls");
     if (!btn) return;
     function setOpen(open) {
+      // Body-level floating panel now (see .controls's own CSS/HTML
+      // comments) - positioned under the button itself, same
+      // getBoundingClientRect()-based top/right formula as
+      // wireRadioColorFamily's own dropdown, so it tracks the button's
+      // actual on-screen spot instead of a fixed corner.
+      if (open && controlsEl) {
+        var rect = btn.getBoundingClientRect();
+        controlsEl.style.top = (rect.bottom + 6) + "px";
+        controlsEl.style.right = (window.innerWidth - rect.right) + "px";
+      }
       document.body.classList.toggle("header-menu-open", open);
       btn.setAttribute("aria-expanded", String(open));
     }
@@ -4944,6 +5044,28 @@
     document.addEventListener("keydown", function (e) {
       if (e.key === "Escape") setOpen(false);
     });
+    // Navigates to the VOD page (state.page = "vod") instead of opening a
+    // panel on top of whatever's showing - same page-switch steps the
+    // pagetab click handler runs (renderPageTabs' own tv/radio buttons),
+    // just triggered from here instead since there's no room for a third
+    // top-bar tab on mobile (see .controls's own comment). Closes the
+    // hamburger menu on the way out - unlike the saved/help buttons, this
+    // one navigates away rather than opening its own overlay on top.
+    var openVodBtn = document.getElementById("open-vod");
+    if (openVodBtn) {
+      openVodBtn.addEventListener("click", function () {
+        setOpen(false);
+        if (state.page === "vod") return;
+        state.page = "vod";
+        gtag('event', 'page_tab_select', { page_type: "vod" });
+        state.selected.clear();
+        if (playerOverlay.classList.contains("is-open")) closePlayer();
+        if (!radioBar.hidden) closeRadioBar();
+        cancelHoverPreview();
+        fullRender();
+        updateTopbarVisibility();
+      });
+    }
   })();
 
   // ---------- header share button ----------
