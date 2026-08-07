@@ -378,7 +378,7 @@
   .attribution-link {
     /* Was position:absolute (floating top-right of the header) - now a
        normal flex child, last in .controls (see its own HTML comment on
-       why: that's what the mobile hamburger menu reveals). flex-basis:100%
+       why: that's what the hamburger menu reveals). flex-basis:100%
        forces it onto its own line regardless of how the row above wraps,
        so it always lands directly under ★ שמורים (the item right before
        it in the DOM) instead of just tagging along beside it. */
@@ -432,9 +432,9 @@
   /* Dropped from the mobile hamburger menu specifically (that menu is just
      .controls revealed - see body.header-menu-open .controls above) - the
      star on each row already favorites/unfavorites directly, this button
-     only opened the separate saved-channels overlay panel. Desktop keeps
-     it, unaffected (.controls there isn't gated behind a hamburger at all,
-     it's the always-visible toolbar). */
+     only opened the separate saved-channels overlay panel. Desktop's own
+     hamburger still shows it - this button is mobile-only, not tied to
+     which breakpoint gates .controls behind the hamburger (both do, now). */
   @media (max-width: 640px) {
     #open-saved { display: none; }
   }
@@ -552,21 +552,12 @@
   }
   /* Bigger/bolder star badge (was 16px) - the ☆/★ glyph itself is what
      carries "favorited" at a glance, so it gets more visual weight than a
-     generic corner icon like .a11ybtn right next to it. */
+     generic corner icon like .a11ybtn right next to it. Radio only now -
+     TV's star moved below the thumbnail, see .row-top .starbtn below. */
   .row-thumb-corner .starbtn { font-size: 21px; padding: 6px 7px; }
   .row-thumb-corner .starbtn.is-saved { color: #ffd25c; }
   .row-thumb-corner .a11ybtn { border: none; padding: 5px 10px; font-size: 10.5px; }
   .row-thumb-corner .a11ybtn[aria-pressed="true"] { background: var(--a11y); color: #fff; }
-  /* TV only (see rowHtml) - the station name right beside the bigger star,
-     so favoriting from the thumbnail corner alone still identifies which
-     channel it is without having to look down at .row-name. Radio doesn't
-     need this duplicated - its own mobile compact card already draws the
-     name directly onto the thumbnail (see body.page-radio .row-thumb). */
-  .row-thumb-name {
-    font-size: 10.5px; font-weight: 700; background: rgba(0,0,0,.55); color: #fff;
-    border-radius: 999px; padding: 3px 9px; max-width: 55%;
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  }
 
   .pickbox {
     width: 18px; height: 18px; border-radius: 5px; border: 1.5px solid var(--border);
@@ -583,41 +574,52 @@
     line-height: 1; padding: 5px; flex: none; display: flex; align-items: center; justify-content: center;
   }
   .starbtn.is-saved { color: var(--accent); }
+  /* TV: the favorite star lives here now, beside the channel name below the
+     thumbnail (see rowHtml) - not overlaid on top of the live video anymore
+     (radio keeps its own star in .row-thumb-corner, unchanged). Slightly
+     bigger than the base .starbtn size for the same reason it was enlarged
+     in the corner before: it's the one on-screen favorite control now, not
+     just a small badge. */
+  .row-top .starbtn { font-size: 20px; padding: 2px 5px; }
 
   .row-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; padding: 10px 12px; }
-  .row-top { display: flex; align-items: center; gap: 6px; cursor: pointer; }
-  /* Station name + current program, in the row below the thumbnail -
-     removed, both already show ON the thumbnail/placeholder image itself
-     (see drawChannelPlaceholder), so this was just duplicate text. Hidden
-     rather than deleted - the checkbox (.pickbox) shares .row-top with
-     .row-name and still needs it there for its own click-to-select area. */
-  .row-name { display: none; }
-  .row-now-playing { display: none; }
+  .row-top { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  /* Radio only - clicking anywhere in .row-top toggles its .pickbox (see
+     wireRow); TV has no checkbox there anymore, just the star, which has
+     its own cursor via .starbtn. */
+  body.page-radio .row-top { cursor: pointer; }
+  /* TV: channel name + current program, shown below the thumbnail next to
+     the star (moved off the video itself - see .row-thumb-corner above).
+     Radio doesn't need this duplicated - its own card already draws the
+     name (and, on mobile, the program) directly onto the thumbnail (see
+     drawChannelPlaceholder/body.page-radio .row-thumb). */
+  .row-name { font-weight: 700; font-size: 13.5px; color: var(--text); }
+  .row-now-playing { font-size: 11.5px; color: var(--text-dim); }
+  body.page-radio .row-name, body.page-radio .row-now-playing { display: none; }
+  /* Header keeps only טלוויזיה/רדיו + the attribution link visible by
+     default, on BOTH mobile and desktop now - the search/filter/saved
+     controls stay in the DOM (a large amount of JS reads from them
+     directly with no null-guards - renderStats, renderFilters,
+     updateSavedCount, the search listener) but are hidden rather than
+     removed, so nothing downstream breaks. Hamburger menu (see
+     #header-menu-btn) reveals exactly this same .controls block
+     (search/filter/saved, already fully wired by JS, just hidden here)
+     rather than duplicating it - toggled open by adding this class to
+     body, same idea as body.page-radio elsewhere. Used to be mobile-only
+     (desktop showed .controls inline, always-open); now identical at
+     every width, per explicit request. */
+  .controls { display: none; }
+  body.header-menu-open .controls { display: flex; }
   @media (max-width: 640px) {
-    /* Mobile header keeps only טלוויזיה/רדיו + the attribution link - the
-       stats row and the search/filter/saved controls stay in the
-       DOM (a large amount of JS reads from them directly with no null-guards
-       - renderStats, renderFilters, updateSavedCount, the
-       search listener) but are hidden rather than removed, so nothing
-       downstream breaks. Desktop keeps showing them. */
-    .stats, .controls { display: none; }
     /* "מועדפי רדיו" quick filter - desktop only. */
     .radio-favs-btn { display: none !important; }
-    /* Hamburger menu (see #header-menu-btn) reveals exactly this same
-       .controls block (search/filter/saved, already fully wired by JS,
-       just hidden above) rather than duplicating it - toggled open by
-       adding this class to body, same idea as body.page-radio elsewhere. */
-    body.header-menu-open .controls { display: flex; }
   }
   .hamburger-btn {
-    display: none; border: 1px solid var(--border); background: var(--surface); color: var(--text);
+    display: flex; border: 1px solid var(--border); background: var(--surface); color: var(--text);
     border-radius: 10px; width: 38px; height: 38px; align-items: center; justify-content: center;
     cursor: pointer; flex: none;
   }
   .hamburger-btn[aria-expanded="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
-  @media (max-width: 640px) {
-    .hamburger-btn { display: flex; }
-  }
   .row-sub { font-size: 11px; color: var(--text-dim); min-height: 1.3em; }
   .row-sub .pulse {
     display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: var(--text-dim);
@@ -994,16 +996,14 @@
         <span>❓ עזרה</span>
       </button>
       <!-- Last item, not floating top-right of the header anymore (see its
-           own CSS) - on mobile, .controls is exactly what the hamburger
-           menu (#header-menu-btn) reveals, so this lands at the end of
-           that menu, as requested. Desktop keeps seeing it too, now as
-           the last item in the toolbar row instead of an absolutely
-           positioned corner link. -->
+           own CSS) - .controls is exactly what the hamburger menu
+           (#header-menu-btn) reveals on both mobile and desktop now, so
+           this lands at the end of that menu everywhere, instead of an
+           absolutely positioned corner link. -->
       <a class="attribution-link" href="https://hod-hasharon.org/" target="_blank" rel="noopener">פרויקט של רם אגמון</a>
       <!-- Moved here from the old bottom-of-page <footer class="site-footer">
            (removed) - same reasoning as the attribution link right above:
-           this is what the mobile hamburger menu reveals, desktop sees it
-           in the toolbar row too. -->
+           this is what the hamburger menu reveals now, on every width. -->
       <a class="attribution-link" href="https://github.com/Fishenzon/repo.git" target="_blank" rel="noopener">תודה לפישנזון ↗</a>
     </div>
   </header>
@@ -2201,12 +2201,12 @@
         lsSet(LS_PAGE, state.page);
         gtag('event', 'page_tab_select', { page_type: state.page });
         state.selected.clear();
-        // Only tear down the TV modal if it's actually what's open - radio
-        // plays through this same <video> element via the bottom bar, and
-        // should keep playing while browsing between pages, not get
-        // silently killed by an unconditional closePlayer()/teardownPlayer()
-        // on every tab switch.
+        // Switching tabs stops whatever's playing on the OTHER side, TV or
+        // radio - per explicit request. (Radio used to keep playing through
+        // the bottom bar while browsing TV, on purpose; that's no longer
+        // the behavior wanted here.)
         if (playerOverlay.classList.contains("is-open")) closePlayer();
+        if (!radioBar.hidden) closeRadioBar();
         // A live grid preview (hover/long-press/scroll-stop) has its own,
         // separate <video> and audio, entirely apart from the modal above -
         // switching tabs while one is actively playing otherwise leaves it
@@ -2354,15 +2354,22 @@
           '<canvas class="row-thumb-placeholder" data-role="placeholder"></canvas>' +
           '<img data-role="thumb-img" alt=""' + (cached ? ' class="is-loaded" src="' + cached + '"' : "") + " />" +
           '<div class="row-thumb-corner">' +
-            '<button type="button" class="starbtn' + (isSaved ? " is-saved" : "") + '" aria-label="שמור" aria-pressed="' + isSaved + '">' + (isSaved ? "★" : "☆") + "</button>" +
-            (state.page === "tv" ? '<span class="row-thumb-name">' + escapeHtml(group.name) + "</span>" : "") +
+            // Radio only - TV's star moved below the thumbnail, next to the
+            // channel name (see .row-top below), off the live video itself.
+            (state.page === "radio" ? '<button type="button" class="starbtn' + (isSaved ? " is-saved" : "") + '" aria-label="שמור" aria-pressed="' + isSaved + '">' + (isSaved ? "★" : "☆") + "</button>" : "") +
             (hasA11y ? '<button type="button" class="a11ybtn" aria-pressed="' + isA11yOn + '">ליקוי שמיעה</button>' : "") +
           "</div>" +
           '<div class="row-connecting-bar" data-role="connecting-bar" aria-hidden="true"></div>' +
         "</div>" +
         '<div class="row-main">' +
           '<div class="row-top">' +
-            '<input type="checkbox" class="pickbox" aria-label="בחר את ' + escapeHtml(group.name) + '"' + (isSel ? " checked" : "") + (isBroken ? " disabled" : "") + " />" +
+            // TV: the star here is THE favorite control (see the matching
+            // comment on .row-thumb-corner above). Radio keeps its own
+            // corner star instead, and this slot goes to the bulk-select
+            // checkbox there (see toggleSelect) - its flow is unchanged.
+            (state.page === "tv"
+              ? '<button type="button" class="starbtn' + (isSaved ? " is-saved" : "") + '" aria-label="שמור" aria-pressed="' + isSaved + '">' + (isSaved ? "★" : "☆") + "</button>"
+              : '<input type="checkbox" class="pickbox" aria-label="בחר את ' + escapeHtml(group.name) + '"' + (isSel ? " checked" : "") + (isBroken ? " disabled" : "") + " />") +
             '<div class="row-name' + (isBroken ? " is-broken-text" : "") + '">' + escapeHtml(group.name) + "</div>" +
             (group.primary.now_playing ? '<span class="row-now-playing">' + escapeHtml(group.primary.now_playing) + "</span>" : "") +
           "</div>" +
@@ -2985,6 +2992,31 @@
       pick_source: pickSource
     });
   }
+
+  // "Watching" as its own analytics concept, distinct from select_channel
+  // (which fires on every pick attempt, success or not): a session starts
+  // only once a stream actually reaches the "playing" state (see the
+  // playerVideo "playing" listener below) and ends whenever that stream
+  // stops for any reason - explicit close, the stop button, or switching
+  // straight to a different channel/station without an explicit close in
+  // between (switchChannel/switchRadioChannel/openPlayer/openRadioBar never
+  // call closePlayer/closeRadioBar for that case, so endWatchSession() is
+  // also called at the top of openPlayer/openRadioBar to close out
+  // whatever was playing before). watch_seconds is only meaningful because
+  // the start time is captured once, at first "playing", not re-armed by
+  // later rebuffer/resume "playing" events within the same session.
+  var watchSessionStartedAt = null;
+  var watchSessionKey = null, watchSessionPage = null, watchSessionName = null;
+  function endWatchSession() {
+    if (!watchSessionStartedAt) return;
+    gtag('event', 'watch_stop', {
+      channel_name: watchSessionName,
+      channel_key: watchSessionKey,
+      page_type: watchSessionPage,
+      watch_seconds: Math.round((Date.now() - watchSessionStartedAt) / 1000)
+    });
+    watchSessionStartedAt = null;
+  }
   var scrollYBeforePlayer = 0; // restored in closePlayer() - see the comment there
   var osdTimer = null;
   var osdEl = document.getElementById("player-osd");
@@ -3020,8 +3052,12 @@
 
   function openPlayer(group) {
     if (!radioBar.hidden) closeRadioBar(); // only one playback UI active at a time
+    endWatchSession(); // covers channel-surfing away from a station without an explicit close
     var wasOpen = playerOverlay.classList.contains("is-open");
-    if (!wasOpen) scrollYBeforePlayer = window.scrollY;
+    if (!wasOpen) {
+      scrollYBeforePlayer = window.scrollY;
+      gtag('event', 'open_tv', { channel_name: group.name, channel_key: group.key });
+    }
     // A live grid preview (hover/long-press/scroll-stop) has its own,
     // separate <video> and audio - opening the actual player doesn't touch
     // it on its own, so without this its sound would keep playing in the
@@ -3064,6 +3100,7 @@
   function closePlayer() {
     var wasWatching = playingKey;
     var wasPage = playingPage; // NOT state.page - a page-tab switch already reassigns that before this runs
+    endWatchSession();
     playingKey = null;
     playerOverlay.classList.remove("is-open");
     teardownPlayer();
@@ -3121,7 +3158,20 @@
   // radio attempt, since is-open was never true for radio to begin with.
   function isPlaybackUiActive() { return playerOverlay.classList.contains("is-open") || !radioBar.hidden; }
 
-  playerVideo.addEventListener("playing", function () { stopConnectingBar(true); });
+  playerVideo.addEventListener("playing", function () {
+    stopConnectingBar(true);
+    // First "playing" of a session starts the watch clock; later ones (a
+    // stall/rebuffer resuming) are the same session continuing, not a new
+    // one - see endWatchSession's comment for why the session boundary
+    // lives here instead of at open/select time.
+    if (!watchSessionStartedAt && playingKey) {
+      watchSessionStartedAt = Date.now();
+      watchSessionKey = playingKey;
+      watchSessionPage = playingPage;
+      watchSessionName = playingName;
+      gtag('event', 'watch_start', { channel_name: playingName, channel_key: playingKey, page_type: playingPage });
+    }
+  });
 
   // Underline under the connecting station's card (see .row-connecting-bar)
   // that grows for as long as the connection is actually taking - not a
@@ -3189,6 +3239,10 @@
   (function wireRadioBarVolume() {
     var grip = document.getElementById("radio-bar-grip");
     var dragging = false;
+    // Tracked so the analytics event on release reports what actually
+    // changed, without firing on every single pixel of drag movement (see
+    // onUp below).
+    var trackedThisDrag = false;
     function setFromEvent(e) {
       var p = e.touches ? e.touches[0] : e;
       var rect = grip.getBoundingClientRect();
@@ -3198,10 +3252,22 @@
       if (frac > 0) playerVideo.muted = false;
       syncRadioBarVolumeFill();
       syncRadioMuteButton();
+      trackedThisDrag = true;
     }
-    function onDown(e) { dragging = true; setFromEvent(e); e.preventDefault(); }
+    function onDown(e) { dragging = true; trackedThisDrag = false; setFromEvent(e); e.preventDefault(); }
     function onMove(e) { if (dragging) setFromEvent(e); }
-    function onUp() { dragging = false; }
+    function onUp() {
+      dragging = false;
+      if (trackedThisDrag) {
+        gtag('event', 'volume_change', {
+          volume_percent: Math.round(playerVideo.volume * 100),
+          page_type: 'radio',
+          channel_name: playingName,
+          channel_key: playingKey
+        });
+        trackedThisDrag = false;
+      }
+    }
     grip.addEventListener("mousedown", onDown);
     window.addEventListener("mousemove", onMove);
     window.addEventListener("mouseup", onUp);
@@ -3310,6 +3376,9 @@
 
   function openRadioBar(group) {
     if (playerOverlay.classList.contains("is-open")) closePlayer(); // only one playback UI active at a time
+    endWatchSession(); // covers surfing straight to another station without an explicit close
+    var wasOpen = !radioBar.hidden;
+    if (!wasOpen) gtag('event', 'open_radio', { channel_name: group.name, channel_key: group.key });
     cancelHoverPreview();
     playingKey = group.key;
     updateNowPlayingFrame();
@@ -3348,6 +3417,7 @@
 
   function closeRadioBar() {
     stopConnectingBar();
+    endWatchSession();
     playingKey = null;
     updateNowPlayingFrame();
     radioBar.hidden = true;
@@ -3365,7 +3435,7 @@
   // stop. closeRadioBar() isn't needed first: everything it does (stop
   // audio, clear the frame/media-session state, etc.) happens anyway the
   // instant the page unloads.
-  document.getElementById("radio-stop-btn").addEventListener("click", function () { location.reload(); });
+  document.getElementById("radio-stop-btn").addEventListener("click", function () { endWatchSession(); location.reload(); });
   // Respects whatever's currently visible on the radio page: matches()
   // already accounts for the מועדפי רדיו filter (ui.radio.savedOnly), so
   // prev/next cycle through just your favorites when that filter is on,
@@ -3397,6 +3467,7 @@
   document.getElementById("radio-bar-mute").addEventListener("click", function () {
     playerVideo.muted = !playerVideo.muted;
     syncRadioMuteButton();
+    gtag('event', 'mute_toggle', { muted: playerVideo.muted, page_type: 'radio', channel_name: playingName, channel_key: playingKey });
   });
   // Three ↑/↓ surfing modes, cheapest/most-curated first:
   //  plain      - a short curated "favorites" order (the channels most
@@ -3464,10 +3535,17 @@
     playerVideo.muted = muted;
     syncMuteButton();
     showVolumeOsd();
+    gtag('event', 'mute_toggle', { muted: muted, page_type: playingPage, channel_name: playingName, channel_key: playingKey });
   }
   function setPlayerVolume(volume) {
     playerDesiredVolume = Math.min(1, Math.max(0, volume));
     playerVideo.volume = playerDesiredVolume;
+    gtag('event', 'volume_change', {
+      volume_percent: Math.round(playerDesiredVolume * 100),
+      page_type: playingPage,
+      channel_name: playingName,
+      channel_key: playingKey
+    });
     // Raising the volume while muted should also unmute - matching what a
     // physical remote's volume-up button does - rather than silently
     // raising a volume nobody can hear yet.
@@ -4294,9 +4372,9 @@
     window.addEventListener("touchend", function () { headerTouchStartY = null; listTouchStartY = null; }, { passive: true });
   })();
 
-  // ---------- mobile hamburger menu ----------
+  // ---------- hamburger menu (mobile and desktop) ----------
   // Reveals .controls (search/filter/saved - already fully wired, just
-  // CSS-hidden on mobile, see the .stats,.controls rule above) instead of
+  // CSS-hidden by default, see the .controls rule above) instead of
   // building a separate duplicate menu. Same on both TV and radio - unlike
   // the color-family picker, search/filter/saved apply equally to both.
   (function wireHeaderMenu() {
@@ -4398,10 +4476,11 @@
     return best;
   }
   function previewCenteredChannel() {
-    // Covers the radio bar too, not just the TV modal - radio keeps
-    // playing in the background while browsing other pages (see
-    // isPlaybackUiActive's comment), and starting a grid preview at the
-    // same time would create a second, overlapping audio source.
+    // Covers the radio bar too, not just the TV modal - switching to the TV
+    // tab always closes the radio bar first (see the pagetab click handler),
+    // so this only ever matters within a single page load's edge cases, but
+    // starting a grid preview while either is somehow still up would create
+    // a second, overlapping audio source.
     if (isPlaybackUiActive()) return;
     if (state.page !== "tv") return; // no live preview on the radio page
     // At the very top of the list, always preview the first channel rather
@@ -4421,6 +4500,11 @@
     startHoverPreview(group, thumb, { fast: true }); // cancels whatever was already running itself
   }
   (function wireScrollStopPreview() {
+    // Debounced the same way as the preview load below (see
+    // scrollLoadTimer) but on its own longer timer - one 'scroll' event per
+    // scroll GESTURE (fired once it settles), not one per raw scroll event,
+    // which fires many times a second during an actual scroll.
+    var scrollTrackTimer = null;
     window.addEventListener("scroll", function () {
       // Cancel right away ONLY if the card actually previewing has
       // scrolled out of view - otherwise leave it running. Previously this
@@ -4433,6 +4517,10 @@
       }
       if (scrollLoadTimer) clearTimeout(scrollLoadTimer);
       scrollLoadTimer = setTimeout(previewCenteredChannel, SCROLL_LOAD_MS);
+      if (scrollTrackTimer) clearTimeout(scrollTrackTimer);
+      scrollTrackTimer = setTimeout(function () {
+        gtag('event', 'scroll', { page_type: state.page, scroll_y: Math.round(window.scrollY) });
+      }, 1000);
     }, { passive: true });
   })();
 
