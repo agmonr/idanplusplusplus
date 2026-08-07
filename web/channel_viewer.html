@@ -1677,14 +1677,20 @@
   var a11yOn = lsGet(LS_A11Y, { tv: [], radio: [] });
   var manualSource = lsGet(LS_MANUAL_SOURCE, { tv: {}, radio: {} }); // page -> { groupKey: candidateId }
   // Per-station volume memory ("smart audio level", per explicit request) -
-  // page -> { groupKey: volumeFraction }. A station with no entry yet just
-  // keeps whatever volume is already playing (see openPlayer/openRadioBar)
-  // rather than resetting to some fixed default - only an ACTUAL user
-  // volume change (setPlayerVolume for TV, the radio grip's drag-release
-  // for radio) ever writes an entry, at which point that becomes this
-  // station's own remembered level from then on. The intent: switching
-  // between stations converges toward an even perceived volume over time,
-  // without needing every station tuned up front.
+  // page -> { groupKey: volumeFraction }. This is the REAL, audible output
+  // level for each station - kept deliberately separate from
+  // playerDesiredVolume, the single MASTER level the OSD/mute-icon/radio
+  // grip display (see showVolumeOsd/syncRadioBarVolumeFill) always the
+  // same regardless of station, representing "the volume as the user
+  // hears it" rather than the raw number. A station with no entry yet just
+  // starts its real output at whatever the master currently is (see
+  // openPlayer/openRadioBar) rather than some fixed default - only an
+  // ACTUAL user volume change (setPlayerVolume for TV, the radio grip's
+  // drag for radio) ever writes an entry AND moves the master, at which
+  // point that becomes both this station's own remembered level AND the
+  // new master shown everywhere else. The intent: every station sounds
+  // equally loud at the same master position, without needing every
+  // station tuned up front.
   var stationVolume = lsGet(LS_STATION_VOLUME, { tv: {}, radio: {} });
   var ui = lsGet(LS_UI, {
     tv: { filter: "ok", search: "", savedOnly: false },
@@ -3213,19 +3219,18 @@
     playingKey = group.key;
     playingPage = state.page;
     playingName = group.name;
-    // Smart audio level (see stationVolume's own comment) - this specific
-    // channel's own remembered volume, if it has one from a past visit.
-    // Assigned directly rather than through setPlayerVolume(), which would
-    // re-save it right back (harmless but pointless) and fire a
-    // volume_change analytics event for something the user didn't actually
-    // do just now. No entry yet - playerDesiredVolume is simply left as
-    // whatever it already was (the previous station's level, or the
-    // startup default), which is the whole point: an untuned station
-    // starts wherever you already are instead of jumping to a fixed level.
-    if (stationVolume.tv[group.key] !== undefined) {
-      playerDesiredVolume = stationVolume.tv[group.key];
-      playerVideo.volume = playerDesiredVolume;
-    }
+    // Smart audio level (see stationVolume's own comment) - playerVideo.
+    // volume (the REAL, audible output) is set to this specific channel's
+    // own remembered level, if it has one, so perceived loudness stays
+    // consistent across channels. playerDesiredVolume - the single MASTER
+    // level the OSD/mute-icon display (see showVolumeOsd/syncMuteButton) -
+    // is deliberately left untouched here: the bar the user sees is
+    // supposed to represent "the volume as they hear it" the same way on
+    // every station, not the raw per-channel number, which can genuinely
+    // differ underneath it. No saved entry yet for this channel - just
+    // start its real output at whatever the master currently is ("start
+    // with that"), same starting point as any other never-tuned channel.
+    playerVideo.volume = (stationVolume.tv[group.key] !== undefined) ? stationVolume.tv[group.key] : playerDesiredVolume;
     trackSelectChannel(group);
     document.getElementById("player-title").textContent = group.name;
     showOsd(group);
@@ -3391,7 +3396,11 @@
   function syncRadioBarVolumeFill() {
     var grip = document.getElementById("radio-bar-grip");
     var fill = document.getElementById("radio-bar-grip-fill");
-    var pct = Math.round(playerVideo.volume * 100);
+    // playerDesiredVolume (the single master, shared with TV - see
+    // openPlayer/showVolumeOsd's own comments), not playerVideo.volume
+    // directly - the grip is "volume as the user hears it", the same
+    // position for every station, not the real per-station output number.
+    var pct = Math.round(playerDesiredVolume * 100);
     if (fill) fill.style.width = pct + "%";
     if (grip) grip.setAttribute("aria-valuenow", String(pct));
   }
@@ -3408,6 +3417,11 @@
       var frac = (p.clientX - rect.left) / rect.width;
       frac = Math.min(1, Math.max(0, frac));
       playerVideo.volume = frac;
+      // A real drag is a deliberate adjustment - moves the shared master
+      // too (see openPlayer/showVolumeOsd's own comments on it), not just
+      // this station's own real output, so it reads back the same
+      // everywhere from now on, same as setPlayerVolume does for TV.
+      playerDesiredVolume = frac;
       if (frac > 0) playerVideo.muted = false;
       syncRadioBarVolumeFill();
       syncRadioMuteButton();
@@ -3550,11 +3564,14 @@
     updateNowPlayingFrame();
     playingPage = state.page;
     playingName = group.name;
-    // Smart audio level (see stationVolume's own comment) - this specific
-    // station's own remembered volume, if it has one from a past visit. No
-    // entry yet - playerVideo.volume is simply left as whatever it already
-    // was (the previous station's, or TV's), same reasoning as openPlayer's
-    // own version of this.
+    // Smart audio level (see stationVolume's own comment) - playerVideo.
+    // volume (the REAL output) is set to this specific station's own
+    // remembered level, if it has one; playerDesiredVolume (the single
+    // master the grip/OSD display - see syncRadioBarVolumeFill/openPlayer's
+    // own comments) is deliberately left untouched, same reasoning as
+    // openPlayer's TV version of this. No entry yet - real output is
+    // simply left as whatever it already was (the previous station's, or
+    // TV's) - "start with that".
     if (stationVolume.radio[group.key] !== undefined) playerVideo.volume = stationVolume.radio[group.key];
     updateMediaSessionMetadata(group);
     trackSelectChannel(group);
@@ -4028,8 +4045,12 @@
   var volumeOsdEl = document.getElementById("volume-osd");
   var volumeOsdTimer = null;
   function showVolumeOsd() {
-    var muted = playerVideo.muted || playerVideo.volume === 0;
-    var pct = muted ? 0 : Math.round(playerVideo.volume * 100);
+    // Master values (see setPlayerVolume/openPlayer's own comments), not
+    // playerVideo.volume directly - this OSD is the single "volume as the
+    // user hears it" indicator, the same for every channel, not the real
+    // per-channel output number which can genuinely differ underneath it.
+    var muted = playerDesiredMuted || playerDesiredVolume === 0;
+    var pct = muted ? 0 : Math.round(playerDesiredVolume * 100);
     document.getElementById("volume-osd-icon").textContent = muted ? "🔇" : pct < 50 ? "🔉" : "🔊";
     document.getElementById("volume-osd-fill").style.width = pct + "%";
     volumeOsdEl.classList.add("is-shown");
