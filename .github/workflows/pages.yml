@@ -54,6 +54,12 @@ jobs:
           cp web/legacy_redirect.html _site/web/channel_viewer.html
           cp web/legacy_redirect.html _site/web/index.html
           cp web/og-image.png _site/web/og-image.png
+          # Kan VOD search catalog (see scripts/update_vod_kan.py) - a
+          # plain static JSON the page fetches on demand when the VOD panel
+          # opens, not embedded inline like channel-data (much bigger,
+          # rarely needed, and on its own daily update cadence separate
+          # from the 6-hourly live-channel one).
+          cp web/vod_kan.json _site/vod_kan.json
 
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3

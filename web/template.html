@@ -771,6 +771,20 @@
   .help-body h3 { font-size: 13.5px; color: var(--accent); margin: 0 0 6px; }
   .help-body ul { margin: 0; padding-inline-start: 20px; }
   .help-body li { font-size: 13px; color: var(--text); line-height: 1.6; }
+
+  .vod-panel { width: min(560px, 100%); }
+  .vod-filters { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 18px; border-bottom: 1px solid var(--border); }
+  .vod-filters .search { flex: 1 1 200px; min-width: 140px; }
+  .vod-filter-input, .vod-filter-select {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+    padding: 9px 10px; font-size: 13px; color: var(--text);
+  }
+  .vod-filter-input { width: 78px; }
+  .vod-filter-select { flex: 1 1 130px; }
+  .vod-item { display: block; cursor: pointer; }
+  .vod-item .vi-title { font-size: 13.5px; font-weight: 700; }
+  .vod-item .vi-meta { font-size: 11.5px; color: var(--text-dim); margin-top: 2px; }
+  .vod-item .vi-desc { font-size: 12px; color: var(--text-dim); margin-top: 3px; line-height: 1.4; }
   .help-panel { max-height: 82vh; }
 
   .playbtn {
@@ -1059,6 +1073,13 @@
       <button class="savedbtn" id="open-help" type="button">
         <span>❓ עזרה</span>
       </button>
+      <!-- Kan-only VOD search (see scripts/update_vod_kan.py) - deliberately
+           a plain search box in its own panel, not a browse/category page:
+           the live grid above assumes "one card per channel/station",
+           which doesn't fit a catalog of hundreds of shows/episodes. -->
+      <button class="savedbtn" id="open-vod" type="button">
+        <span>🎬 תכניות (כאן)</span>
+      </button>
       <!-- Last item, not floating top-right of the header anymore (see its
            own CSS) - .controls is exactly what the hamburger menu
            (#header-menu-btn) reveals on both mobile and desktop now, so
@@ -1190,6 +1211,31 @@
             <li>חצים - מעבר בין ערוצים · M - השתקה · P - השהיה · Enter - מסך מלא</li>
           </ul>
         </section>
+      </div>
+    </div>
+  </div>
+
+  <!-- Kan VOD search - self-built catalog (web/vod_kan.json, see
+       scripts/update_vod_kan.py), fetched lazily on first open, not
+       embedded like the live-channel data. Client-side filter only, no
+       server-side search - the whole catalog is a few thousand rows,
+       trivial to filter in-browser. -->
+  <div class="overlay" id="vod-overlay">
+    <div class="panel vod-panel" role="dialog" aria-modal="true" aria-label="חיפוש תכניות - כאן">
+      <div class="panel-head">
+        <h2>תכניות (כאן)</h2>
+        <button id="close-vod" aria-label="סגור">✕</button>
+      </div>
+      <div class="vod-filters">
+        <input class="search" id="vod-search" type="search" placeholder="שם תכנית או פרק…" autocomplete="off" />
+        <input class="vod-filter-input" id="vod-season" type="number" min="1" inputmode="numeric" placeholder="עונה" />
+        <input class="vod-filter-input" id="vod-year" type="number" min="1948" inputmode="numeric" placeholder="שנה" />
+        <select class="vod-filter-select" id="vod-channel">
+          <option value="">כל הערוצים</option>
+        </select>
+      </div>
+      <div class="panel-body" id="vod-results">
+        <div class="panel-empty">הקלידו שם תכנית, או סננו לפי עונה/שנה/ערוץ.</div>
       </div>
     </div>
   </div>
@@ -3138,6 +3184,12 @@
   var playingKey = null;
   var playingPage = null; // the page the CURRENT playingKey belongs to - state.page can change (page-tab switch) before closePlayer() runs, so this can't just be read from state.page there
   var playingName = null; // group.name for the CURRENT playingKey, for analytics event params (see trackSelectChannel)
+  // True while a Kan VOD episode (playVodEpisode, not openPlayer) is what's
+  // actually loaded into playerVideo - guards switchChannel and the player's
+  // own prev/next arrows and swipe gesture, all of which assume a TV group
+  // from the live grid is playing and would otherwise jump to some
+  // unrelated channel underneath the VOD panel.
+  var playingIsVod = false;
 
   function trackSelectChannel(group) {
     var sp = state.smartPicks[group.key];
@@ -3209,6 +3261,12 @@
 
   function openPlayer(group) {
     if (!radioBar.hidden) closeRadioBar(); // only one playback UI active at a time
+    // Coming from a VOD episode (see playVodEpisode) straight into a live
+    // channel - restore the arrows/swipe it hid, same as closePlayer does,
+    // since this path never goes through closePlayer in between.
+    playingIsVod = false;
+    if (playerNavLeft) playerNavLeft.hidden = false;
+    if (playerNavRight) playerNavRight.hidden = false;
     endWatchSession(); // covers channel-surfing away from a station without an explicit close
     var wasOpen = playerOverlay.classList.contains("is-open");
     if (!wasOpen) {
@@ -3271,6 +3329,7 @@
     var wasPage = playingPage; // NOT state.page - a page-tab switch already reassigns that before this runs
     endWatchSession();
     playingKey = null;
+    playingIsVod = false;
     playerOverlay.classList.remove("is-open");
     teardownPlayer();
     // Closing via X/Escape/click-outside while still fullscreen (exiting via
@@ -3309,6 +3368,51 @@
         state.page = curPage;
       }
     }
+  }
+
+  // ---------- Kan VOD playback ----------
+  // Deliberately NOT a reuse of openPlayer()'s candidate/fallback-list model
+  // (playerCandidatesFor/playCandidate) - a VOD episode is a single resolved
+  // link from the catalog (see update_vod_kan.py's _stream_from_entry), not
+  // a live channel with several redundant sources to try in order. Shares
+  // the same playerOverlay/playerVideo/attachStream primitives as the TV
+  // player instead, the same way the radio bar below does.
+  function playVodEpisode(episode) {
+    // "page"/"youtube" episodes have no direct playable stream (most of the
+    // catalog - see update_vod_kan.py's own comment on why) - opened
+    // externally rather than faked into the in-app player.
+    if (episode.type !== "stream") {
+      window.open(episode.link, "_blank", "noopener");
+      return;
+    }
+    if (!radioBar.hidden) closeRadioBar();
+    endWatchSession();
+    cancelHoverPreview();
+    var wasOpen = playerOverlay.classList.contains("is-open");
+    playingKey = "vod:" + episode.link;
+    playingPage = "vod";
+    playingName = episode.show + (episode.title && episode.title !== episode.show ? " - " + episode.title : "");
+    playingIsVod = true;
+    playerVideo.volume = playerDesiredVolume;
+    document.getElementById("player-title").textContent = playingName;
+    if (playerNavLeft) playerNavLeft.hidden = true;
+    if (playerNavRight) playerNavRight.hidden = true;
+    playerOverlay.classList.add("is-open");
+    if (!wasOpen) { scrollYBeforePlayer = window.scrollY; history.pushState({ idanplusPlayer: true }, ""); }
+    if (isCoarsePointer) enterFullscreen();
+    gtag('event', 'open_vod', { show_name: episode.show, episode_title: episode.title, channel_name: episode.channel });
+    setPlayerStatus("");
+    var hls = attachStream(playerVideo, episode.link, {
+      onReady: function () { setPlayerStatus(""); },
+      onFatal: function (err) {
+        var detail = err && err.detail ? " [" + err.type + ": " + err.detail + "]" : "";
+        setPlayerStatus("לא ניתן לנגן פרק זה כרגע." + detail);
+      },
+      settleMuted: playerDesiredMuted,
+      settleVolume: playerDesiredVolume,
+    });
+    if (hls === undefined) { setPlayerStatus("הדפדפן הזה אינו תומך בניגון שידור זה."); return; }
+    currentHls = hls;
   }
 
   // ---------- radio: plays directly, no modal "window" ----------
@@ -3693,6 +3797,7 @@
   };
 
   function switchChannel(delta, mode) {
+    if (playingIsVod) return; // no "next episode" concept in v1 - see playVodEpisode
     var playable = groups().filter(matches).filter(function (g) { return g.status !== "broken"; });
     var list = playable;
     if (mode === "saved") {
@@ -4250,6 +4355,114 @@
       openHelp();
       lsSet(LS_HELP_SEEN, true);
     }
+  })();
+
+  // ---------- VOD panel (Kan search) ----------
+  // Same overlay/panel open-close pattern as the saved/help panels above,
+  // plus a lazy one-time fetch of vod_kan.json (see update_vod_kan.py) -
+  // large and rarely needed, so it's never loaded on page load, only once
+  // this panel is actually opened for the first time.
+  (function wireVodPanel() {
+    var vodOverlay = document.getElementById("vod-overlay");
+    var vodSearch = document.getElementById("vod-search");
+    var vodSeason = document.getElementById("vod-season");
+    var vodYear = document.getElementById("vod-year");
+    var vodChannel = document.getElementById("vod-channel");
+    var vodResults = document.getElementById("vod-results");
+    var VOD_MAX_RESULTS = 200; // client-side filter over a few thousand rows is instant; rendering all of them isn't
+    var vodData = null;
+    var vodLoading = false;
+    var vodSearchTrackTimer = null;
+
+    function openVod() {
+      vodOverlay.classList.add("is-open");
+      if (!vodData && !vodLoading) loadVodData();
+    }
+    function closeVod() { vodOverlay.classList.remove("is-open"); }
+
+    function loadVodData() {
+      vodLoading = true;
+      vodResults.innerHTML = '<div class="panel-empty">טוען קטלוג תכניות…</div>';
+      fetch("vod_kan.json").then(function (r) { return r.json(); }).then(function (data) {
+        vodData = data;
+        vodLoading = false;
+        var channels = {};
+        data.forEach(function (ep) { if (ep.channel) channels[ep.channel] = true; });
+        Object.keys(channels).sort().forEach(function (ch) {
+          var opt = document.createElement("option");
+          opt.value = ch;
+          opt.textContent = ch;
+          vodChannel.appendChild(opt);
+        });
+        renderVodResults();
+      }).catch(function () {
+        vodLoading = false;
+        vodResults.innerHTML = '<div class="panel-empty">שגיאה בטעינת קטלוג התכניות. נסו שוב מאוחר יותר.</div>';
+      });
+    }
+
+    var VOD_TYPE_LABEL = { stream: "▶ ניגון ישיר", youtube: "▶ YouTube", page: "↗ עמוד באתר כאן" };
+
+    function renderVodResults() {
+      if (!vodData) return;
+      var q = vodSearch.value.trim();
+      var season = vodSeason.value.trim();
+      var year = vodYear.value.trim();
+      var channel = vodChannel.value;
+      var rows = vodData.filter(function (ep) {
+        if (q && (ep.show || "").indexOf(q) === -1 && (ep.title || "").indexOf(q) === -1) return false;
+        if (season && String(ep.season || "") !== season) return false;
+        if (year && String(ep.year || "") !== year) return false;
+        if (channel && ep.channel !== channel) return false;
+        return true;
+      });
+      if (!rows.length) {
+        vodResults.innerHTML = '<div class="panel-empty">' +
+          (q || season || year || channel ? "לא נמצאו תוצאות." : "הקלידו שם תכנית, או סננו לפי עונה/שנה/ערוץ.") +
+          "</div>";
+        return;
+      }
+      var shown = rows.slice(0, VOD_MAX_RESULTS);
+      vodResults.innerHTML = shown.map(function (ep) {
+        var meta = [];
+        if (ep.season) meta.push("עונה " + escapeHtml(String(ep.season)));
+        if (ep.episode) meta.push("פרק " + escapeHtml(String(ep.episode)));
+        if (ep.channel) meta.push(escapeHtml(ep.channel));
+        if (ep.year) meta.push(String(ep.year));
+        meta.push(VOD_TYPE_LABEL[ep.type] || "");
+        return (
+          '<div class="panel-item vod-item">' +
+            '<div class="vi-title">' + escapeHtml(ep.show || "") +
+              (ep.title && ep.title !== ep.show ? " · " + escapeHtml(ep.title) : "") + "</div>" +
+            '<div class="vi-meta">' + meta.filter(Boolean).join(" · ") + "</div>" +
+            (ep.description ? '<div class="vi-desc">' + escapeHtml(ep.description) + "</div>" : "") +
+          "</div>"
+        );
+      }).join("") + (rows.length > shown.length
+        ? '<div class="panel-empty">ועוד ' + (rows.length - shown.length) + " תוצאות - צמצמו את החיפוש." + "</div>"
+        : "");
+      Array.prototype.forEach.call(vodResults.querySelectorAll(".vod-item"), function (el, i) {
+        el.addEventListener("click", function () { playVodEpisode(shown[i]); });
+      });
+    }
+
+    document.getElementById("open-vod").addEventListener("click", openVod);
+    document.getElementById("close-vod").addEventListener("click", closeVod);
+    vodOverlay.addEventListener("click", function (e) { if (e.target === vodOverlay) closeVod(); });
+    document.addEventListener("keydown", function (e) { if (e.key === "Escape" && vodOverlay.classList.contains("is-open")) closeVod(); });
+
+    [vodSearch, vodSeason, vodYear].forEach(function (el) {
+      el.addEventListener("input", function () {
+        renderVodResults();
+        clearTimeout(vodSearchTrackTimer);
+        var term = vodSearch.value.trim().slice(0, 50);
+        vodSearchTrackTimer = setTimeout(function () {
+          if (!term) return;
+          gtag('event', 'search', { search_term: term, page_type: "vod" });
+        }, 600);
+      });
+    });
+    vodChannel.addEventListener("change", renderVodResults);
   })();
 
   function savedEntries() {
