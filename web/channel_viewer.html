@@ -1268,7 +1268,6 @@
         <span><kbd>M</kbd> השתקה</span>
         <span><kbd>↑</kbd><kbd>↓</kbd> עוצמת קול</span>
         <span><kbd>Enter</kbd> מסך מלא</span>
-        <span><kbd>Esc</kbd> סגירה</span>
       </div>
       <div class="player-resize-handle" id="player-resize-handle" aria-hidden="true"></div>
     </div>
@@ -1628,6 +1627,7 @@
   var LS_THEME = "idanplus.theme.v1";
   var LS_MANUAL_SOURCE = "idanplus.manualSource.v1";
   var LS_PREVIEW_MUTED = "idanplus.previewMuted.v1";
+  var LS_STATION_VOLUME = "idanplus.stationVolume.v1";
   var LS_ONBOARDING_SEEN = "idanplus.onboardingSeen.v1";
   var LS_HELP_SEEN = "idanplus.helpSeen.v1";
   var LS_FIREFOX_NOTICE_SEEN = "idanplus.firefoxNoticeSeen.v1";
@@ -1673,6 +1673,16 @@
   var saved = lsGet(LS_SAVED, { tv: [], radio: [] });
   var a11yOn = lsGet(LS_A11Y, { tv: [], radio: [] });
   var manualSource = lsGet(LS_MANUAL_SOURCE, { tv: {}, radio: {} }); // page -> { groupKey: candidateId }
+  // Per-station volume memory ("smart audio level", per explicit request) -
+  // page -> { groupKey: volumeFraction }. A station with no entry yet just
+  // keeps whatever volume is already playing (see openPlayer/openRadioBar)
+  // rather than resetting to some fixed default - only an ACTUAL user
+  // volume change (setPlayerVolume for TV, the radio grip's drag-release
+  // for radio) ever writes an entry, at which point that becomes this
+  // station's own remembered level from then on. The intent: switching
+  // between stations converges toward an even perceived volume over time,
+  // without needing every station tuned up front.
+  var stationVolume = lsGet(LS_STATION_VOLUME, { tv: {}, radio: {} });
   var ui = lsGet(LS_UI, {
     tv: { filter: "ok", search: "", savedOnly: false },
     radio: { filter: "ok", search: "", savedOnly: false, colorFamily: "blue", bgIntensity: 10 }
@@ -3210,6 +3220,19 @@
     playingKey = group.key;
     playingPage = state.page;
     playingName = group.name;
+    // Smart audio level (see stationVolume's own comment) - this specific
+    // channel's own remembered volume, if it has one from a past visit.
+    // Assigned directly rather than through setPlayerVolume(), which would
+    // re-save it right back (harmless but pointless) and fire a
+    // volume_change analytics event for something the user didn't actually
+    // do just now. No entry yet - playerDesiredVolume is simply left as
+    // whatever it already was (the previous station's level, or the
+    // startup default), which is the whole point: an untuned station
+    // starts wherever you already are instead of jumping to a fixed level.
+    if (stationVolume.tv[group.key] !== undefined) {
+      playerDesiredVolume = stationVolume.tv[group.key];
+      playerVideo.volume = playerDesiredVolume;
+    }
     trackSelectChannel(group);
     document.getElementById("player-title").textContent = group.name;
     showOsd(group);
@@ -3408,6 +3431,13 @@
           channel_name: playingName,
           channel_key: playingKey
         });
+        // Smart audio level (see stationVolume's own comment) - same
+        // settle-on-release timing as the analytics event above, not on
+        // every pixel of drag movement.
+        if (playingKey) {
+          stationVolume.radio[playingKey] = playerVideo.volume;
+          lsSet(LS_STATION_VOLUME, stationVolume);
+        }
         trackedThisDrag = false;
       }
     }
@@ -3527,6 +3557,12 @@
     updateNowPlayingFrame();
     playingPage = state.page;
     playingName = group.name;
+    // Smart audio level (see stationVolume's own comment) - this specific
+    // station's own remembered volume, if it has one from a past visit. No
+    // entry yet - playerVideo.volume is simply left as whatever it already
+    // was (the previous station's, or TV's), same reasoning as openPlayer's
+    // own version of this.
+    if (stationVolume.radio[group.key] !== undefined) playerVideo.volume = stationVolume.radio[group.key];
     updateMediaSessionMetadata(group);
     trackSelectChannel(group);
     playerCandidates = playerCandidatesFor(group);
@@ -3734,6 +3770,14 @@
         channel_name: playingName,
         channel_key: playingKey
       });
+      // Smart audio level (see stationVolume's own comment) - the same
+      // settle-debounce as the analytics event above, so a fast wheel
+      // scroll or a held-down arrow key doesn't write to localStorage on
+      // every single tick, only once the adjustment actually settles.
+      if (playingKey) {
+        stationVolume.tv[playingKey] = playerDesiredVolume;
+        lsSet(LS_STATION_VOLUME, stationVolume);
+      }
     }, 500);
   }
   function setPlayerVolume(volume) {
