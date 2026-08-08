@@ -788,6 +788,11 @@
      itself, not tucked inside the hamburger .controls menu like tv/radio's
      shared #search - shown/hidden per page in renderPageTabs. */
   .vod-controls { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; align-items: center; }
+  /* Same "author display:flex beats UA [hidden]" gotcha as .preview-mute-btn/
+     .color-family-grid/.onboarding-banner/.radio-bar above - without this,
+     renderPageTabs setting the hidden attribute (state.page !== "vod") does
+     nothing and the bar shows on every page, not just VOD. */
+  .vod-controls[hidden] { display: none; }
   .vod-filter-input, .vod-filter-select {
     background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
     padding: 9px 10px; font-size: 13px; color: var(--text);
